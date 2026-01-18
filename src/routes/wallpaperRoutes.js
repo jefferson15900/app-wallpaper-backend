@@ -122,20 +122,19 @@ router.get('/user/:id', async (req, res) => {
 // OBTENER PENDIENTES (SOLO ADMIN/GM)
 router.get('/admin/pending', auth, async (req, res) => {
     try {
-        // Buscamos específicamente los que tienen status 'pending'
-        const pending = await Wallpaper.find({ status: 'pending' })
-            .populate('artist', 'username email');
-        
-        console.log("Wallpapers pendientes encontrados:", pending.length);
+        const user = await User.findById(req.user.id);
+        if (user.role !== 'admin') return res.status(403).json({ msg: 'No eres admin' });
+
+        const pending = await Wallpaper.find({ status: 'pending' }).populate('artist', 'username email');
         res.json(pending);
-    } catch (err) {
-        res.status(500).send('Error al obtener pendientes');
-    }
+    } catch (err) { res.status(500).send('Error'); }
 });
+
+
+
 // APROBAR O RECHAZAR (SOLO ADMIN/GM)
 router.put('/admin/decide/:id', auth, async (req, res) => {
-    const { action } = req.body; // 'approved' o 'rejected'
-    
+    const { action } = req.body;
     try {
         const user = await User.findById(req.user.id);
         if (user.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
@@ -144,25 +143,16 @@ router.put('/admin/decide/:id', auth, async (req, res) => {
         if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
 
         if (action === 'rejected') {
-            // --- LIMPIEZA CRÍTICA ---
-            // Si rechazas la obra, la borramos de Cloudinary para no gastar espacio
-            if (wallpaper.public_id) {
-                await cloudinary.uploader.destroy(wallpaper.public_id);
-            }
-            // Borramos de la base de datos
+            if (wallpaper.public_id) await cloudinary.uploader.destroy(wallpaper.public_id);
             await Wallpaper.findByIdAndDelete(req.params.id);
-            
-            return res.json({ msg: 'Wallpaper rechazado y borrado de la nube con éxito' });
+            return res.json({ msg: 'Rechazado y borrado de la nube' });
         }
 
-        // Si es aprobado, solo cambiamos el estado
         wallpaper.status = 'approved';
         await wallpaper.save();
-        res.json({ msg: 'Wallpaper aprobado y publicado' });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Error en la decisión');
-    }
+        res.json({ msg: 'Aprobado y publicado' });
+    } catch (err) { res.status(500).send('Error'); }
 });
+
+
 module.exports = router;
