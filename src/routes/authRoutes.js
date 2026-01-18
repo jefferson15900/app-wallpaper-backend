@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware'); 
-const { uploadCloud } = require('../config/cloudinary');
+const { uploadCloud , cloudinary } = require('../config/cloudinary');
 
 // RUTA: REGISTRO DE ARTISTA
 router.post('/register', async (req, res) => {
@@ -101,19 +101,28 @@ router.get('/user/:id', async (req, res) => {
 // RUTA: Actualizar Foto de Perfil
 router.put('/update-avatar', [auth, uploadCloud.single('avatar')], async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ msg: 'No se subió ninguna imagen' });
+        if (!req.file) return res.status(400).json({ msg: 'No se recibió imagen' });
 
-        const user = await User.findByIdAndUpdate(
-            req.user.id,
-            { $set: { profilePic: req.file.path } },
-            { new: true }
-        ).select('-password');
+        // 1. Buscar al usuario actual
+        const user = await User.findById(req.user.id);
+
+        // 2. Si el usuario ya tenía una foto (profilePicId), borrarla de Cloudinary
+        if (user.profilePicId) {
+            await cloudinary.uploader.destroy(user.profilePicId);
+        }
+
+        // 3. Guardar la nueva URL y el nuevo ID
+        user.profilePic = req.file.path;
+        user.profilePicId = req.file.filename; // filename es el public_id que nos da Cloudinary
+        
+        await user.save();
 
         const userObj = user.toObject();
         userObj.id = user._id;
         res.json(userObj);
     } catch (err) {
-        res.status(500).send('Error al subir avatar');
+        console.error(err);
+        res.status(500).send('Error al actualizar el avatar');
     }
 });
 

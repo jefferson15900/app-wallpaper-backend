@@ -134,20 +134,35 @@ router.get('/admin/pending', auth, async (req, res) => {
 });
 // APROBAR O RECHAZAR (SOLO ADMIN/GM)
 router.put('/admin/decide/:id', auth, async (req, res) => {
+    const { action } = req.body; // 'approved' o 'rejected'
+    
     try {
-        const { action } = req.body; // 'approved' o 'rejected'
+        const user = await User.findById(req.user.id);
+        if (user.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+
         const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
 
         if (action === 'rejected') {
-            await cloudinary.uploader.destroy(wallpaper.public_id); // Borramos de la nube
-            await Wallpaper.findByIdAndDelete(req.params.id); // Borramos de la DB
-            return res.json({ msg: 'Wallpaper rechazado y eliminado' });
+            // --- LIMPIEZA CRÍTICA ---
+            // Si rechazas la obra, la borramos de Cloudinary para no gastar espacio
+            if (wallpaper.public_id) {
+                await cloudinary.uploader.destroy(wallpaper.public_id);
+            }
+            // Borramos de la base de datos
+            await Wallpaper.findByIdAndDelete(req.params.id);
+            
+            return res.json({ msg: 'Wallpaper rechazado y borrado de la nube con éxito' });
         }
 
+        // Si es aprobado, solo cambiamos el estado
         wallpaper.status = 'approved';
         await wallpaper.save();
         res.json({ msg: 'Wallpaper aprobado y publicado' });
-    } catch (err) { res.status(500).send('Error'); }
-});
 
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error en la decisión');
+    }
+});
 module.exports = router;
