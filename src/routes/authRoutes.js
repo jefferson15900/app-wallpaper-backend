@@ -221,4 +221,25 @@ router.put('/change-password', auth, async (req, res) => {
     }
 });
 
+
+// Obtener lista de Seguidos (Following)
+router.get('/following/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).populate('following', 'username profilePic');
+        res.json(user.following);
+    } catch (err) {
+        res.status(500).send('Error al obtener seguidos');
+    }
+});
+
+// Obtener lista de Seguidores (Followers)
+router.get('/followers/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).populate('followers', 'username profilePic');
+        res.json(user.followers);
+    } catch (err) {
+        res.status(500).send('Error al obtener seguidores');
+    }
+});
+
 module.exports = router;
