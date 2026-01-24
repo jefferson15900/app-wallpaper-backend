@@ -5,6 +5,11 @@ const connectDB = require('./src/config/db.js');
 
 const app = express();
 
+app.get('/app-ads.txt', (req, res) => {
+ 
+    res.send('google.com, pub-7650198007053979, DIRECT, f08c47fec0942fa0');
+});
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
