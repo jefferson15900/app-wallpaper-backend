@@ -60,7 +60,12 @@ router.get('/', async (req, res) => {
         const { search, category } = req.query;
         let query = { status: 'approved' }; 
 
-        if (search) query.title = { $regex: search, $options: 'i' };
+        if (search) {
+    query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { tags: { $in: [search.toLowerCase()] } }
+    ];
+}
         if (category && category !== 'Todos') query.category = category;
 
         const wallpapers = await Wallpaper.find(query)
@@ -100,19 +105,23 @@ router.get('/user/:id', async (req, res) => {
 // Subir Wallpaper (Entra como pendiente)
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
+        const { title, category } = req.body;
+        
+        // Convertimos "anime, girl, 4k" en ["anime", "girl", "4k"]
+        const tagArray = title.split(',').map(tag => tag.trim().toLowerCase());
+
         const newWallpaper = new Wallpaper({
-            title: req.body.title || "Sin título",
+            title: title, // Guardamos el texto original
+            tags: tagArray, // Guardamos la lista para búsquedas rápidas
             imageUrl: req.file.path,
             public_id: req.file.filename,
-            category: req.body.category || 'Global',
+            category: category,
             artist: req.user.id,
-            status: 'pending' // Siempre pendiente al inicio
+            status: 'pending'
         });
-        const savedWallpaper = await newWallpaper.save();
-        res.json(savedWallpaper);
-    } catch (err) {
-        res.status(500).send('Error al subir imagen');
-    }
+        await newWallpaper.save();
+        res.json(newWallpaper);
+    } catch (err) { res.status(500).send('Error'); }
 });
 
 // Dar o quitar Like
