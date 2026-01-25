@@ -92,15 +92,20 @@ router.get('/', async (req, res) => {
 router.get('/artist/:artistId', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = 12; // Cargamos de 12 en 12 (múltiplo de 2)
+        const limit = 12;
         const skip = (page - 1) * limit;
 
+        // 1. Contamos cuántos hay en TOTAL en la base de datos
+        const totalCount = await Wallpaper.countDocuments({ artist: req.params.artistId });
+
+        // 2. Buscamos solo los de la página actual
         const wallpapers = await Wallpaper.find({ artist: req.params.artistId })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
-        res.json(wallpapers);
+        // 3. Enviamos ambos datos
+        res.json({ wallpapers, totalCount }); 
     } catch (err) {
         res.status(500).send('Error al obtener perfil');
     }
