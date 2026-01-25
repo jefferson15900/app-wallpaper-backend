@@ -58,24 +58,36 @@ router.put('/admin/decide/:id', auth, async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const { search, category } = req.query;
+        
+        // Lógica de Paginación
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
         let query = { status: 'approved' }; 
 
-        if (search) {
-    query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { tags: { $in: [search.toLowerCase()] } }
-    ];
-}
+        // --- BÚSQUEDA INTELIGENTE (Título o Tags) ---
+        if (search && search.trim() !== '') {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } }, // Busca en el título
+                { tags: { $regex: search, $options: 'i' } }   // Busca dentro del array de etiquetas
+            ];
+        }
+        
         if (category && category !== 'Todos') query.category = category;
 
         const wallpapers = await Wallpaper.find(query)
             .populate('artist', 'username profilePic instagram twitter tiktok facebook')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
         res.json(wallpapers);
     } catch (err) {
         res.status(500).send('Error al obtener wallpapers');
     }
 });
+
 
 // Obtener wallpapers de un artista específico
 router.get('/artist/:artistId', async (req, res) => {
