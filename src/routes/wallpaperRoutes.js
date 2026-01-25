@@ -88,14 +88,21 @@ router.get('/', async (req, res) => {
     }
 });
 
-
 // Obtener wallpapers de un artista específico
 router.get('/artist/:artistId', async (req, res) => {
     try {
-        const wallpapers = await Wallpaper.find({ artist: req.params.artistId }).sort({ createdAt: -1 });
+        const page = parseInt(req.query.page) || 1;
+        const limit = 12; // Cargamos de 12 en 12 (múltiplo de 2)
+        const skip = (page - 1) * limit;
+
+        const wallpapers = await Wallpaper.find({ artist: req.params.artistId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
         res.json(wallpapers);
     } catch (err) {
-        res.status(500).send('Error al obtener galería del artista');
+        res.status(500).send('Error al obtener perfil');
     }
 });
 
