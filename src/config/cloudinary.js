@@ -10,9 +10,20 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'wallpapers_app', // Carpeta donde se guardarán en Cloudinary
-    allowed_formats: ['jpg', 'png', 'jpeg'],
+  params: async (req, file) => {
+    // Definimos carpetas diferentes para iconos y wallpapers
+    const folderName = file.fieldname === 'avatar' ? 'perfiles_app' : 'wallpapers_app';
+
+    return {
+      folder: folderName,
+      allowed_formats: ['jpg', 'png', 'jpeg'],
+      // --- TRUCO DE COMPRESIÓN MÁGICA ---
+      transformation: [
+        { width: 1600, crop: "limit" }, // Limita el ancho máximo a 1080p (suficiente para móviles)
+        { quality: "auto:good"},           // Google/Cloudinary eligen la mejor compresión
+        { fetch_format: "auto" }       // Convierte a WebP automáticamente (pesa 80% menos)
+      ],
+    };
   },
 });
 
