@@ -3,7 +3,21 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { uploadCloud, cloudinary } = require('../config/cloudinary');
 const Wallpaper = require('../models/Wallpaper');
-const User = require('../models/User'); // <--- FALTA ESTA IMPORTACIÓN
+const User = require('../models/User');
+
+
+
+// Obtener UN SOLO wallpaper por ID
+router.get('/:id', async (req, res) => {
+    try {
+        const wallpaper = await Wallpaper.findById(req.params.id)
+            .populate('artist', 'username profilePic instagram twitter tiktok facebook');
+        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
+        res.json(wallpaper);
+    } catch (err) {
+        res.status(500).send('Error');
+    }
+});
 
 // ======================================================
 // 1. RUTAS DE ADMINISTRADOR (GM) - VAN AL PRINCIPIO
