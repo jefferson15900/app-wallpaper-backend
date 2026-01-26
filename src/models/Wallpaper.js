@@ -12,4 +12,7 @@ const WallpaperSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending'}, 
 
 });
+WallpaperSchema.index({ status: 1, createdAt: -1 });
+WallpaperSchema.index({ category: 1 });
+WallpaperSchema.index({ artist: 1 });
 module.exports = mongoose.model('Wallpaper', WallpaperSchema);
