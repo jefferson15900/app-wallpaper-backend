@@ -10,6 +10,32 @@ app.get('/app-ads.txt', (req, res) => {
     res.send('google.com, pub-7650198007053979, DIRECT, f08c47fec0942fa0');
 });
 
+// --- RUTA PARA POLÍTICA DE PRIVACIDAD ---
+app.get('/privacy', (req, res) => {
+    res.send(`
+        <html>
+            <head><title>Política de Privacidad - Wallpaper Hub</title></head>
+            <body style="font-family: sans-serif; padding: 40px; line-height: 1.6; color: #333;">
+                <h1>Política de Privacidad de Wallpaper Hub</h1>
+                <p>Fecha de entrada en vigor: 25 de enero de 2026</p>
+                
+                <h2>1. Información que recopilamos</h2>
+                <p>Recopilamos su dirección de correo electrónico y nombre de usuario cuando se registra como artista. También procesamos las imágenes que usted decide subir a nuestra plataforma.</p>
+                
+                <h2>2. Uso de los datos</h2>
+                <p>Sus datos se utilizan para gestionar su cuenta de artista, permitir la interacción social (likes y seguidores) y mostrar sus obras a otros usuarios.</p>
+                
+                <h2>3. Servicios de terceros</h2>
+                <p>Utilizamos <b>Google AdMob</b> para mostrar anuncios, el cual puede recopilar identificadores de dispositivo para personalizar la publicidad. Las imágenes se almacenan de forma segura en <b>Cloudinary</b> y los datos en <b>MongoDB Atlas</b>.</p>
+                
+                <h2>4. Sus derechos</h2>
+                <p>Usted puede eliminar sus imágenes en cualquier momento desde su perfil. Para solicitar la eliminación total de su cuenta, contáctenos a través de la sección de soporte de la app.</p>
+                
+                <p>Contacto: jefferson@ejemplo.com</p>
+            </body>
+        </html>
+    `);
+});
 // Middlewares
 app.use(compression());
 app.use(cors());
