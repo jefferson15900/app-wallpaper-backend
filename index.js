@@ -5,6 +5,14 @@ const connectDB = require('./src/config/db.js');
 const compression = require('compression');
 const app = express();
 
+
+// --- RUTA PARA PERMITIR EL RASTREO DE GOOGLE (ROBOTS.TXT) ---
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send("User-agent: *\nAllow: /app-ads.txt\nAllow: /");
+});
+
+// Tu ruta de app-ads.txt que ya tenías (asegúrate que esté igual)
 app.get('/app-ads.txt', (req, res) => {
  
     res.send('google.com, pub-7650198007053979, DIRECT, f08c47fec0942fa0');
