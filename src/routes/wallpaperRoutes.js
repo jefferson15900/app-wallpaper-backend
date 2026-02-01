@@ -246,6 +246,28 @@ router.put('/like/:id', auth, async (req, res) => {
     }
 });
 
+// OBTENER FEED DE SEGUIDOS (PRIVADO)
+router.get('/feed', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        // Buscamos wallpapers donde el artista esté en mi lista de 'following'
+        const wallpapers = await Wallpaper.find({ 
+            artist: { $in: user.following }, 
+            status: 'approved' 
+        })
+        .populate('artist', 'username profilePic')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+        res.json(wallpapers);
+    } catch (err) { res.status(500).send('Error'); }
+})
+
 // Contador de Descarga
 router.put('/download/:id', async (req, res) => {
     try {
