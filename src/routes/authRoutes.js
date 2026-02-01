@@ -242,4 +242,16 @@ router.get('/followers/:id', async (req, res) => {
     }
 });
 
+// GUARDAR PUSH TOKEN (Para notificaciones)
+router.put('/save-token', auth, async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.user.id, { 
+            pushToken: req.body.token 
+        });
+        res.json({ msg: 'Token de notificaciones guardado' });
+    } catch (err) {
+        res.status(500).send('Error al guardar token');
+    }
+});
+
 module.exports = router;

@@ -8,9 +8,11 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, default: "artist" },
     instagram: { type: String, default: "" },
     facebook: { type: String, default: "" },
-    twitter: { type: String, default: "" }, // Nuevo
-    tiktok: { type: String, default: "" },   // Nuevo
+    twitter: { type: String, default: "" },
+    tiktok: { type: String, default: "" },  
     web: { type: String, default: "" },
+    pushToken: { type: String, default: "" },
+    lastNotificationSentAt: { type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 });

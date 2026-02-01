@@ -4,8 +4,10 @@ const auth = require('../middleware/authMiddleware');
 const { uploadCloud, cloudinary } = require('../config/cloudinary');
 const Wallpaper = require('../models/Wallpaper');
 const User = require('../models/User');
+const { Expo } = require('expo-server-sdk');
 
 
+let expo = new Expo();
 
 // Obtener UN SOLO wallpaper por ID
 router.get('/:id', async (req, res) => {
@@ -37,30 +39,93 @@ router.get('/admin/pending', auth, async (req, res) => {
     }
 });
 
-// Aprobar o Rechazar un wallpaper
+
+// APROBAR O RECHAZAR WALLPAPER (SOLO ADMIN/GM)
 router.put('/admin/decide/:id', auth, async (req, res) => {
-    const { action } = req.body;
+    const { action } = req.body; // Recibe 'approved' o 'rejected'
+    
     try {
+        // 1. Verificación de seguridad de Administrador
         const user = await User.findById(req.user.id);
         if (user.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
 
         const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
+        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
+        // --- CASO A: RECHAZADO ---
         if (action === 'rejected') {
-            // Limpieza de Cloudinary
-            if (wallpaper.public_id) await cloudinary.uploader.destroy(wallpaper.public_id);
-            // Limpieza de Base de Datos
+            // Limpieza de Cloudinary (liberar espacio)
+            if (wallpaper.public_id) {
+                await cloudinary.uploader.destroy(wallpaper.public_id);
+            }
+            // Borrado definitivo de la base de datos
             await Wallpaper.findByIdAndDelete(req.params.id);
-            return res.json({ msg: 'Rechazado y borrado de la nube' });
+            
+            return res.json({ msg: 'Wallpaper rechazado y borrado de la nube con éxito' });
         }
 
-        // Si es aprobado
+        // --- CASO B: APROBADO ---
         wallpaper.status = 'approved';
         await wallpaper.save();
-        res.json({ msg: 'Aprobado y publicado' });
+
+        // --- LÓGICA DE NOTIFICACIONES ---
+        // Buscamos al artista y traemos los tokens de sus seguidores
+        const artist = await User.findById(wallpaper.artist).populate('followers', 'pushToken');
+        let messages = [];
+
+        // 1. Notificación para el Artista (Confirmación de éxito)
+        if (artist.pushToken && Expo.isExpoPushToken(artist.pushToken)) {
+            messages.push({
+                to: artist.pushToken,
+                sound: 'default',
+                title: '¡Obra Publicada! 🎨',
+                body: `Tu wallpaper "${wallpaper.title}" ya es público en la galería.`,
+                data: { screen: 'Profile' },
+            });
+        }
+
+        // 2. Notificación para Seguidores (Con tiempo de espera de 10 minutos)
+        const DIEZ_MINUTOS = 10 * 60 * 1000;
+        const ahora = new Date();
+        const ultimaVez = artist.lastNotificationSentAt ? new Date(artist.lastNotificationSentAt) : null;
+
+        // Solo preparamos mensajes para fans si pasó el tiempo suficiente o es la primera vez
+        if (!ultimaVez || (ahora - ultimaVez) > DIEZ_MINUTOS) {
+            for (let follower of artist.followers) {
+                if (follower.pushToken && Expo.isExpoPushToken(follower.pushToken)) {
+                    messages.push({
+                        to: follower.pushToken,
+                        sound: 'default',
+                        title: '¡Nuevo arte disponible! ✨',
+                        body: `${artist.username} acaba de subir un nuevo wallpaper. ¡Échale un ojo!`,
+                        data: { artistId: artist._id },
+                    });
+                }
+            }
+            // Actualizamos la fecha en el artista para activar el silencio de 10 min
+            artist.lastNotificationSentAt = ahora;
+            await artist.save();
+        }
+
+        // 3. Envío masivo en lotes (Chunks)
+        if (messages.length > 0) {
+            let chunks = expo.chunkPushNotifications(messages);
+            (async () => {
+                for (let chunk of chunks) {
+                    try {
+                        await expo.sendPushNotificationsAsync(chunk);
+                    } catch (error) {
+                        console.error("Error enviando notificación:", error);
+                    }
+                }
+            })();
+        }
+
+        res.json({ msg: 'Wallpaper aprobado y comunidad notificada' });
+
     } catch (err) {
-        res.status(500).send('Error al procesar decisión');
+        console.error(err);
+        res.status(500).send('Error al procesar la decisión del administrador');
     }
 });
 
