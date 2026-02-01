@@ -246,15 +246,18 @@ router.put('/like/:id', auth, async (req, res) => {
     }
 });
 
-// OBTENER FEED DE SEGUIDOS (PRIVADO)
+// --- RUTA: FEED DE SEGUIDOS (Solo para usuarios logueados) ---
 router.get('/feed', auth, async (req, res) => {
     try {
+        // 1. Buscamos al usuario actual para ver a quién sigue
         const user = await User.findById(req.user.id);
+        
+        // 2. Lógica de paginación (igual que en el Home)
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
         const skip = (page - 1) * limit;
 
-        // Buscamos wallpapers donde el artista esté en mi lista de 'following'
+        // 3. Buscamos wallpapers donde el artista esté en mi lista de 'following'
         const wallpapers = await Wallpaper.find({ 
             artist: { $in: user.following }, 
             status: 'approved' 
@@ -265,8 +268,12 @@ router.get('/feed', auth, async (req, res) => {
         .limit(limit);
 
         res.json(wallpapers);
-    } catch (err) { res.status(500).send('Error'); }
-})
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error en el servidor al cargar el feed');
+    }
+});
+
 
 // Contador de Descarga
 router.put('/download/:id', async (req, res) => {
