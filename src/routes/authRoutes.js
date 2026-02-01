@@ -254,4 +254,44 @@ router.put('/save-token', auth, async (req, res) => {
     }
 });
 
+
+// ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
+router.post('/broadcast', auth, async (req, res) => {
+    const { title, body } = req.body;
+
+    try {
+        const admin = await User.findById(req.user.id);
+        if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+
+        // 1. Buscamos a todos los usuarios que tengan token
+        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken');
+        
+        if (users.length === 0) return res.json({ msg: 'No hay usuarios con notificaciones activas' });
+
+        let messages = [];
+        for (let user of users) {
+            if (Expo.isExpoPushToken(user.pushToken)) {
+                messages.push({
+                    to: user.pushToken,
+                    sound: 'default',
+                    title: title || '✨ ¡Nuevos Wallpapers!',
+                    body: body || 'Hemos subido arte nuevo. ¡Entra a descubrirlo!',
+                    data: { screen: 'Explorar' },
+                });
+            }
+        }
+
+        // 2. Envío masivo eficiente por lotes
+        let chunks = expo.chunkPushNotifications(messages);
+        for (let chunk of chunks) {
+            await expo.sendPushNotificationsAsync(chunk);
+        }
+
+        res.json({ msg: `Notificación enviada a ${messages.length} usuarios` });
+
+    } catch (err) {
+        res.status(500).send('Error en el envío global');
+    }
+});
+
 module.exports = router;
