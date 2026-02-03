@@ -242,6 +242,19 @@ router.get('/followers/:id', async (req, res) => {
     }
 });
 
+// OBTENER TODOS LOS ARTISTAS (Público)
+router.get('/all-artists', async (req, res) => {
+    try {
+        // Buscamos usuarios que tengan al menos 1 seguidor o sean artistas
+        const artists = await User.find({ role: 'artist' })
+            .select('username profilePic followers')
+            .limit(20);
+        res.json(artists);
+    } catch (err) {
+        res.status(500).send('Error');
+    }
+});
+
 // GUARDAR PUSH TOKEN (Para notificaciones)
 router.put('/save-token', auth, async (req, res) => {
     try {
