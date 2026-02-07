@@ -269,6 +269,7 @@ router.put('/save-token', auth, async (req, res) => {
 
 
 // ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
+// ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
 router.post('/broadcast', auth, async (req, res) => {
     const { title, body } = req.body;
 
@@ -276,10 +277,9 @@ router.post('/broadcast', auth, async (req, res) => {
         const admin = await User.findById(req.user.id);
         if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
 
-        // 1. Buscamos a todos los usuarios que tengan token
-        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken');
-        
-        if (users.length === 0) return res.json({ msg: 'No hay usuarios con notificaciones activas' });
+        // 1. Buscamos usuarios que tengan un token válido
+        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken username');
+        console.log(`Intentando enviar a ${users.length} usuarios encontrados.`);
 
         let messages = [];
         for (let user of users) {
@@ -290,20 +290,36 @@ router.post('/broadcast', auth, async (req, res) => {
                     title: title || '✨ ¡Nuevos Wallpapers!',
                     body: body || 'Hemos subido arte nuevo. ¡Entra a descubrirlo!',
                     data: { screen: 'Explorar' },
+                    priority: 'high' // Forzar que aparezca rápido
                 });
+            } else {
+                console.log(`Token inválido para el usuario: ${user.username}`);
             }
         }
 
-        // 2. Envío masivo eficiente por lotes
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            await expo.sendPushNotificationsAsync(chunk);
+        if (messages.length === 0) {
+            return res.status(400).json({ msg: 'No hay tokens válidos para enviar' });
         }
 
-        res.json({ msg: `Notificación enviada a ${messages.length} usuarios` });
+        // 2. Envío por lotes
+        let chunks = expo.chunkPushNotifications(messages);
+        let tickets = [];
+        
+        for (let chunk of chunks) {
+            try {
+                let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+                tickets.push(...ticketChunk);
+                console.log("Ticket de envío:", ticketChunk);
+            } catch (error) {
+                console.error("Error en el envío del lote:", error);
+            }
+        }
+
+        res.json({ msg: `Proceso completado. Enviados: ${messages.length}` });
 
     } catch (err) {
-        res.status(500).send('Error en el envío global');
+        console.error("Error crítico en broadcast:", err);
+        res.status(500).send('Error en el servidor');
     }
 });
 
