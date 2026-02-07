@@ -5,7 +5,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware'); 
 const { uploadCloud , cloudinary } = require('../config/cloudinary');
+const { Expo } = require('expo-server-sdk'); 
 
+let expo = new Expo();
 // RUTA: REGISTRO DE ARTISTA
 router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
