@@ -213,7 +213,7 @@ router.get('/artist/:artistId', async (req, res) => {
 
         // 2. Buscamos solo los de la página actual
         const wallpapers = await Wallpaper.find({ artist: req.params.artistId })
-            .sort({ status: 1,createdAt: -1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
