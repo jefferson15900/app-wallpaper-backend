@@ -19,9 +19,9 @@ const storage = new CloudinaryStorage({
       allowed_formats: ['jpg', 'png', 'jpeg'],
       // --- TRUCO DE COMPRESIÓN MÁGICA ---
       transformation: [
-        { width: 1600, crop: "limit" }, // Limita el ancho máximo a 1080p (suficiente para móviles)
-        { quality: "auto:good"},           // Google/Cloudinary eligen la mejor compresión
-        { fetch_format: "auto" }       // Convierte a WebP automáticamente (pesa 80% menos)
+        { width: 2500, crop: "limit" }, // Aumentamos a 2500 para permitir archivos 2K o 4K originales
+        { quality: "auto:best"},        // Cambiamos 'good' por 'best' para el archivo maestro
+        { fetch_format: "auto" }     // Convierte a WebP automáticamente (pesa 80% menos)
       ],
     };
   },
