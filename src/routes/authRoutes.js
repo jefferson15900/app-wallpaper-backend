@@ -272,6 +272,7 @@ router.put('/save-token', auth, async (req, res) => {
 
 // ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
 // ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
+// ENVIAR NOTIFICACIÓN GLOBAL (Versión Optimizada)
 router.post('/broadcast', auth, async (req, res) => {
     const { title, body } = req.body;
 
@@ -279,9 +280,10 @@ router.post('/broadcast', auth, async (req, res) => {
         const admin = await User.findById(req.user.id);
         if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
 
-        // 1. Buscamos usuarios que tengan un token válido
-        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken username');
-        console.log(`Intentando enviar a ${users.length} usuarios encontrados.`);
+        // 1. Solo obtenemos usuarios con tokens únicos y no vacíos
+        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken');
+        
+        if (users.length === 0) return res.status(400).json({ msg: 'No hay usuarios con tokens' });
 
         let messages = [];
         for (let user of users) {
@@ -292,32 +294,35 @@ router.post('/broadcast', auth, async (req, res) => {
                     title: title || '✨ ¡Nuevos Wallpapers!',
                     body: body || 'Hemos subido arte nuevo. ¡Entra a descubrirlo!',
                     data: { screen: 'Explorar' },
-                    priority: 'high' // Forzar que aparezca rápido
+                    priority: 'high',
+                    channelId: 'default', // Importante para Android 8+
                 });
-            } else {
-                console.log(`Token inválido para el usuario: ${user.username}`);
             }
         }
 
-        if (messages.length === 0) {
-            return res.status(400).json({ msg: 'No hay tokens válidos para enviar' });
-        }
-
-        // 2. Envío por lotes
+        // 2. Envío por lotes (Chunks) - Esto evita que Expo te bloquee
         let chunks = expo.chunkPushNotifications(messages);
         let tickets = [];
         
-        for (let chunk of chunks) {
+        // Usamos Promise.all para que sea más rápido pero controlado
+        await Promise.all(chunks.map(async (chunk) => {
             try {
                 let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
                 tickets.push(...ticketChunk);
-                console.log("Ticket de envío:", ticketChunk);
             } catch (error) {
-                console.error("Error en el envío del lote:", error);
+                console.error("Error enviando lote:", error);
             }
-        }
+        }));
 
-        res.json({ msg: `Proceso completado. Enviados: ${messages.length}` });
+        // 3. (OPCIONAL PERO RECOMENDADO) Manejo de errores de tickets
+        // Aquí podrías detectar si un token falló porque la app fue desinstalada
+        // y borrarlo de tu DB, pero para empezar, con el envío por lotes basta.
+
+        res.json({  
+            msg: `Proceso completado`, 
+            totalIntentados: messages.length,
+            lotesEnviados: chunks.length 
+        });
 
     } catch (err) {
         console.error("Error crítico en broadcast:", err);
