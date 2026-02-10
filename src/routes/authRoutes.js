@@ -260,15 +260,18 @@ router.get('/all-artists', async (req, res) => {
 // GUARDAR PUSH TOKEN (Para notificaciones)
 router.put('/save-token', auth, async (req, res) => {
     try {
+        console.log("Guardando token para el usuario:", req.user.id);
+        console.log("Token recibido:", req.body.token);
+        
         await User.findByIdAndUpdate(req.user.id, { 
             pushToken: req.body.token 
         });
         res.json({ msg: 'Token de notificaciones guardado' });
     } catch (err) {
+        console.error(err);
         res.status(500).send('Error al guardar token');
     }
 });
-
 
 // ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
 // ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
