@@ -259,77 +259,91 @@ router.get('/all-artists', async (req, res) => {
 
 // GUARDAR PUSH TOKEN (Para notificaciones)
 router.put('/save-token', auth, async (req, res) => {
+    const { token } = req.body;
+
     try {
-        console.log("Guardando token para el usuario:", req.user.id);
-        console.log("Token recibido:", req.body.token);
-        
+        await User.updateMany(
+            { pushToken: token }, 
+            { $set: { pushToken: "" } }
+        );
+
         await User.findByIdAndUpdate(req.user.id, { 
-            pushToken: req.body.token 
+            pushToken: token 
         });
-        res.json({ msg: 'Token de notificaciones guardado' });
+
+        res.json({ msg: 'Token de notificaciones actualizado' });
     } catch (err) {
         console.error(err);
         res.status(500).send('Error al guardar token');
     }
 });
 
-// ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
-// ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN)
-// ENVIAR NOTIFICACIÓN GLOBAL (Versión Optimizada)
+// ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN) 
 router.post('/broadcast', auth, async (req, res) => {
     const { title, body } = req.body;
 
     try {
+        // 1. Verificación de seguridad de Administrador
         const admin = await User.findById(req.user.id);
-        if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+        if (!admin || admin.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado. Se requieren permisos de administrador.' });
+        }
 
-        // 1. Solo obtenemos usuarios con tokens únicos y no vacíos
-        const users = await User.find({ pushToken: { $ne: "" } }).select('pushToken');
-        
-        if (users.length === 0) return res.status(400).json({ msg: 'No hay usuarios con tokens' });
+        // 2. OBTENER TOKENS ÚNICOS (Solución al bug de duplicados)
+        // Usamos .distinct para obtener una lista de strings únicos, ignorando si varios usuarios tienen el mismo token
+        const uniqueTokens = await User.distinct('pushToken', { 
+            pushToken: { $ne: "", $exists: true } 
+        });
 
+        console.log(`Iniciando envío masivo a ${uniqueTokens.length} dispositivos únicos.`);
+
+        if (uniqueTokens.length === 0) {
+            return res.status(400).json({ msg: 'No hay dispositivos registrados para recibir notificaciones' });
+        }
+
+        // 3. Preparar los mensajes para Expo
         let messages = [];
-        for (let user of users) {
-            if (Expo.isExpoPushToken(user.pushToken)) {
+        for (let token of uniqueTokens) {
+            // Validar que el token sea un token de Expo real
+            if (Expo.isExpoPushToken(token)) {
                 messages.push({
-                    to: user.pushToken,
+                    to: token,
                     sound: 'default',
                     title: title || '✨ ¡Nuevos Wallpapers!',
                     body: body || 'Hemos subido arte nuevo. ¡Entra a descubrirlo!',
                     data: { screen: 'Explorar' },
                     priority: 'high',
-                    channelId: 'default', // Importante para Android 8+
+                    channelId: 'default', // Recomendado para Android moderno
                 });
+            } else {
+                console.log(`Token detectado como inválido: ${token}`);
             }
         }
 
-        // 2. Envío por lotes (Chunks) - Esto evita que Expo te bloquee
-        let chunks = expo.chunkPushNotifications(messages);
+        // 4. Envío por lotes (Chunks) para evitar bloqueos de red
+        let chunks = expo.chunkPushNotifications(messages); 
         let tickets = [];
         
-        // Usamos Promise.all para que sea más rápido pero controlado
-        await Promise.all(chunks.map(async (chunk) => {
+        // Ejecutamos el envío de los lotes
+        for (let chunk of chunks) {
             try {
                 let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
                 tickets.push(...ticketChunk);
             } catch (error) {
-                console.error("Error enviando lote:", error);
+                console.error("Error al enviar un lote de notificaciones:", error);
             }
-        }));
+        }
 
-        // 3. (OPCIONAL PERO RECOMENDADO) Manejo de errores de tickets
-        // Aquí podrías detectar si un token falló porque la app fue desinstalada
-        // y borrarlo de tu DB, pero para empezar, con el envío por lotes basta.
-
-        res.json({  
-            msg: `Proceso completado`, 
-            totalIntentados: messages.length,
-            lotesEnviados: chunks.length 
+        // 5. Respuesta al cliente
+        res.json({ 
+            msg: `Proceso completado con éxito`, 
+            dispositivosAlcanzados: uniqueTokens.length,
+            mensajesProcesados: messages.length 
         });
 
     } catch (err) {
-        console.error("Error crítico en broadcast:", err);
-        res.status(500).send('Error en el servidor');
+        console.error("Error crítico en la función broadcast:", err);
+        res.status(500).send('Error interno del servidor al enviar notificaciones');
     }
 });
 
@@ -337,8 +351,8 @@ router.post('/broadcast', auth, async (req, res) => {
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 
-        latestVersion: "1.1.2", // El nombre de la versión
-        minVersionCode: 11,      // El versionCode que pusiste en app.json
+        latestVersion: "1.1.3", // El nombre de la versión
+        minVersionCode: 12,      // El versionCode que pusiste en app.json
         forceUpdate: true,      // Si es true, el usuario NO puede cerrar el aviso
         storeUrl: "https://play.google.com/store/apps/details?id=com.jefferson159.appwallpaper"
     });
