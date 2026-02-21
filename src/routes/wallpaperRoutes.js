@@ -56,6 +56,56 @@ router.get('/:id', async (req, res) => {
 });
 
 // ======================================================
+// RUTAS DE CONTENIDO DESTACADO (PREMIUM)
+// ======================================================
+
+// 1. Obtener Wallpapers marcados como Premium (Para el Carrusel del Home)
+router.get('/featured/premium', async (req, res) => {
+    try {
+        const premiumWalls = await Wallpaper.find({ 
+            isPremium: true, 
+            status: 'approved' 
+        })
+        .populate('artist', 'username profilePic')
+        .sort({ createdAt: -1 })
+        .limit(6); // Limitamos a los 6 mejores para no saturar el carrusel
+
+        res.json(premiumWalls);
+    } catch (err) {
+        res.status(500).send('Error al obtener contenido premium');
+    }
+});
+
+// 2. Marcar/Desmarcar como Premium (SOLO ADMIN)
+router.put('/admin/set-premium/:id', auth, async (req, res) => {
+    try {
+        // Verificación de seguridad
+        const user = await User.findById(req.user.id);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        // Alternar estado: si es true pasa a false, si es false pasa a true
+        wallpaper.isPremium = !wallpaper.isPremium;
+        await wallpaper.save();
+
+        res.json({ 
+            msg: `Estado Premium actualizado`, 
+            isPremium: wallpaper.isPremium,
+            title: wallpaper.title 
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error al actualizar estado premium');
+    }
+});
+
+// ======================================================
 // 1. RUTAS DE ADMINISTRADOR (GM) - VAN AL PRINCIPIO
 // ======================================================
 
@@ -313,4 +363,54 @@ router.delete('/:id', auth, async (req, res) => {
     }
 });
 
+
+// ======================================================
+// RUTAS DE CONTENIDO DESTACADO (PREMIUM)
+// ======================================================
+
+// 1. Obtener Wallpapers marcados como Premium (Para el Carrusel del Home)
+router.get('/featured/premium', async (req, res) => {
+    try {
+        const premiumWalls = await Wallpaper.find({ 
+            isPremium: true, 
+            status: 'approved' 
+        })
+        .populate('artist', 'username profilePic')
+        .sort({ createdAt: -1 })
+        .limit(6); // Limitamos a los 6 mejores para no saturar el carrusel
+
+        res.json(premiumWalls);
+    } catch (err) {
+        res.status(500).send('Error al obtener contenido premium');
+    }
+});
+
+// 2. Marcar/Desmarcar como Premium (SOLO ADMIN)
+router.put('/admin/set-premium/:id', auth, async (req, res) => {
+    try {
+        // Verificación de seguridad
+        const user = await User.findById(req.user.id);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        // Alternar estado: si es true pasa a false, si es false pasa a true
+        wallpaper.isPremium = !wallpaper.isPremium;
+        await wallpaper.save();
+
+        res.json({ 
+            msg: `Estado Premium actualizado`, 
+            isPremium: wallpaper.isPremium,
+            title: wallpaper.title 
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error al actualizar estado premium');
+    }
+});
 module.exports = router;
