@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
     profilePic: { type: String, default: "" },
     profilePicId: { type: String, default: "" }, 
     role: { type: String, default: "artist" },
+    isVerified: { type: Boolean, default: false },
     instagram: { type: String, default: "" },
     facebook: { type: String, default: "" },
     twitter: { type: String, default: "" },
@@ -15,5 +16,7 @@ const UserSchema = new mongoose.Schema({
     lastNotificationSentAt: { type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+
 });
 module.exports = mongoose.model('User', UserSchema);

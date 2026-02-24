@@ -3,9 +3,11 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Wallpaper = require('../models/Wallpaper');
 const auth = require('../middleware/authMiddleware'); 
 const { uploadCloud , cloudinary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
+
 
 let expo = new Expo();
 // RUTA: REGISTRO DE ARTISTA
@@ -244,6 +246,27 @@ router.get('/followers/:id', async (req, res) => {
     }
 });
 
+// A. OBTENER PROGRESO DE VERIFICACIÓN (Para el propio usuario)
+router.get('/verification-progress', auth, async (req, res) => {
+    try {
+        // Contamos cuántos wallpapers tiene este usuario con estado 'approved'
+        const count = await Wallpaper.countDocuments({ 
+            artist: req.user.id, 
+            status: 'approved' 
+        });
+
+        res.json({
+            approvedCount: count,
+            goal: 50,
+            isEligible: count >= 50,
+            isVerified: (await User.findById(req.user.id)).isVerified
+        });
+    } catch (err) {
+        res.status(500).send('Error al calcular progreso');
+    }
+});
+
+
 // OBTENER TODOS LOS ARTISTAS (Público)
 router.get('/all-artists', async (req, res) => {
     try {
@@ -347,6 +370,30 @@ router.post('/broadcast', auth, async (req, res) => {
     }
 });
 
+
+
+// B. TOGGLE VERIFICACIÓN (SOLO ADMIN - Para dar o quitar el Check Azul)
+router.put('/admin/verify-user/:userId', auth, async (req, res) => {
+    try {
+        // Verificamos que quien pide esto sea el Admin
+        const admin = await User.findById(req.user.id);
+        if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+
+        const userToVerify = await User.findById(req.params.userId);
+        if (!userToVerify) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        // Cambiamos el estado (si era false pasa a true y viceversa)
+        userToVerify.isVerified = !userToVerify.isVerified;
+        await userToVerify.save();
+
+        res.json({ 
+            msg: `Usuario ${userToVerify.username} ${userToVerify.isVerified ? 'Verificado' : 'Sin Verificar'}`,
+            isVerified: userToVerify.isVerified 
+        });
+    } catch (err) {
+        res.status(500).send('Error en el servidor');
+    }
+});
 
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
