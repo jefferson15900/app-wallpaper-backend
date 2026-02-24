@@ -31,7 +31,7 @@ router.get('/feed', auth, async (req, res) => {
             artist: { $in: user.following }, 
             status: 'approved' // <--- ESTO ES LO QUE FILTRA
         })
-        .populate('artist', 'username profilePic')
+        .populate('artist', 'username profilePic isVerified')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -47,7 +47,7 @@ router.get('/feed', auth, async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id)
-            .populate('artist', 'username profilePic instagram twitter tiktok facebook');
+            .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook');
         if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
         res.json(wallpaper);
     } catch (err) {
@@ -66,7 +66,7 @@ router.get('/featured/premium', async (req, res) => {
             isPremium: true, 
             status: 'approved' 
         })
-        .populate('artist', 'username profilePic')
+        .populate('artist', 'username profilePic isVerified')
         .sort({ createdAt: -1 })
         .limit(6); // Limitamos a los 6 mejores para no saturar el carrusel
 
@@ -240,7 +240,7 @@ router.get('/', async (req, res) => {
         if (category && category !== 'Todos') query.category = category;
 
         const wallpapers = await Wallpaper.find(query)
-            .populate('artist', 'username profilePic instagram twitter tiktok facebook')
+            .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -375,7 +375,7 @@ router.get('/featured/premium', async (req, res) => {
             isPremium: true, 
             status: 'approved' 
         })
-        .populate('artist', 'username profilePic')
+        .populate('artist', 'username profilePic isVerified')
         .sort({ createdAt: -1 })
         .limit(6); // Limitamos a los 6 mejores para no saturar el carrusel
 
