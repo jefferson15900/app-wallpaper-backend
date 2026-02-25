@@ -8,6 +8,8 @@ const auth = require('../middleware/authMiddleware');
 const { uploadCloud , cloudinary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
 
+let dailyArtistsCache = [];
+let lastUpdateDate = null;
 
 let expo = new Expo();
 // RUTA: REGISTRO DE ARTISTA
@@ -268,13 +270,43 @@ router.get('/verification-progress', auth, async (req, res) => {
 
 
 // OBTENER TODOS LOS ARTISTAS (Público)
+// RUTA: OBTENER ARTISTAS RECOMENDADOS (Rotación cada 24h)
 router.get('/all-artists', async (req, res) => {
     try {
-        // Buscamos usuarios que tengan al menos 1 seguidor o sean artistas
-        const artists = await User.find({ role: 'artist' })
-            .select('username profilePic followers')
-            .limit(20);
-        res.json(artists);
+        const today = new Date().toISOString().split('T')[0]; // Obtiene la fecha hoy (YYYY-MM-DD)
+
+        // 1. Si el caché tiene datos y la fecha es la misma que hoy, devolvemos el caché
+        if (dailyArtistsCache.length > 0 && lastUpdateDate === today) {
+            console.log("🚀 Entregando artistas desde el caché diario");
+            return res.json(dailyArtistsCache);
+        }
+
+        // 2. Si es un nuevo día o el servidor se reinició, elegimos 15 nuevos
+        console.log("♻️ Rotando selección diaria de artistas...");
+        const newSelection = await User.aggregate([
+            { $match: { role: 'artist', isVerified: true } },
+            { $sample: { size: 15 } },
+            { $project: { 
+                username: 1, 
+                profilePic: 1, 
+                isVerified: 1 
+            }}
+        ]);
+
+        // 3. Si no hay suficientes verificados, rellenamos con normales
+        if (newSelection.length < 5) {
+            const backups = await User.find({ role: 'artist', isVerified: false })
+                .limit(10)
+                .select('username profilePic isVerified');
+            dailyArtistsCache = [...newSelection, ...backups];
+        } else {
+            dailyArtistsCache = newSelection;
+        }
+
+        // 4. Guardamos la fecha del último cambio
+        lastUpdateDate = today;
+
+        res.json(dailyArtistsCache);
     } catch (err) {
         res.status(500).send('Error');
     }
