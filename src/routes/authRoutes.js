@@ -166,7 +166,7 @@ router.put('/follow/:id', auth, async (req, res) => {
 
 // ACTUALIZAR PERFIL COMPLETO (Username + Socials)
 router.put('/update-profile', auth, async (req, res) => {
-    const { username, instagram, facebook, twitter, tiktok } = req.body;
+    const { username, bio, instagram, facebook, twitter, tiktok } = req.body;
 
     try {
         // Verificar si el nuevo username ya existe (y no es el nuestro)
@@ -182,6 +182,7 @@ router.put('/update-profile', auth, async (req, res) => {
             { 
                 $set: { 
                     username: username,
+                    bio: bio || "",
                     instagram: instagram || "", 
                     facebook: facebook || "", 
                     twitter: twitter || "", 
@@ -430,8 +431,8 @@ router.put('/admin/verify-user/:userId', auth, async (req, res) => {
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 
-        latestVersion: "1.1.3", // El nombre de la versión
-        minVersionCode: 12,      // El versionCode que pusiste en app.json
+        latestVersion: "1.1.4", // El nombre de la versión
+        minVersionCode: 13,      // El versionCode que pusiste en app.json
         forceUpdate: true,      // Si es true, el usuario NO puede cerrar el aviso
         storeUrl: "https://play.google.com/store/apps/details?id=com.jefferson159.appwallpaper"
     });

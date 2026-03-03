@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema({
     twitter: { type: String, default: "" },
     tiktok: { type: String, default: "" },  
     web: { type: String, default: "" },
+    bio: { type: String, default: "", maxLength: 60 },
     pushToken: { type: String, default: "" },
     lastNotificationSentAt: { type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
