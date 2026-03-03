@@ -8,6 +8,7 @@ const auth = require('../middleware/authMiddleware');
 const { uploadCloud , cloudinary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
 const { OAuth2Client } = require('google-auth-library');
+
 const client = new OAuth2Client("342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com");
 
 let dailyArtistsCache = [];
@@ -75,55 +76,67 @@ router.post('/login', async (req, res) => {
 // RUTA: LOGIN / REGISTRO CON GOOGLE
 router.post('/google-login', async (req, res) => {
     const { idToken } = req.body;
-
     try {
-        // 1. Verificar el token con Google
         const ticket = await client.verifyIdToken({
             idToken,
             audience: "342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com", 
         });
-        const payload = ticket.getPayload();
-        const { email, name, picture, sub: googleId } = payload;
+        const { email } = ticket.getPayload();
 
-        // 2. Buscar si el usuario ya existe por email
+        // BUSCAMOS SI EXISTE
         let user = await User.findOne({ email });
 
         if (!user) {
-            // Si no existe, creamos la cuenta automáticamente
-            // Generamos una contraseña aleatoria (aunque no se use para login con Google, el modelo la pide)
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(googleId, salt); 
-
-            user = new User({
-                username: name.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 100),
-                email,
-                password: hashedPassword,
-                profilePic: picture, // Usamos la foto de Google
-                role: 'artist',
-                isVerified: false
-            });
-            await user.save();
-            console.log(`✅ Nuevo usuario creado vía Google: ${user.username}`);
+            // SI NO EXISTE, ENVIAMOS ERROR (No se registra solo)
+            return res.status(404).json({ msg: 'Esta cuenta de Google no está registrada. Ve a Registro primero.' });
         }
 
-        // 3. Generar el Token JWT de tu propia App (como en el login normal)
+        // SI EXISTE, LOGUEAMOS
         const jwtPayload = { user: { id: user.id } };
         jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
             if (err) throw err;
-            res.json({ 
-                token, 
-                user: { 
-                    id: user.id, 
-                    username: user.username, 
-                    profilePic: user.profilePic,
-                    isVerified: user.isVerified 
-                } 
-            });
+            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic } });
         });
-
     } catch (error) {
-        console.error("❌ Error en Google Login:", error);
-        res.status(400).json({ msg: 'Token de Google inválido o expirado' });
+        res.status(400).json({ msg: 'Error de autenticación' });
+    }
+});
+
+// 2. RUTA: REGISTRO CON GOOGLE (Solo usuarios nuevos)
+router.post('/google-register', async (req, res) => {
+    const { idToken } = req.body;
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: "342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com", 
+        });
+        const { email, name, picture, sub: googleId } = ticket.getPayload();
+
+        let user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).json({ msg: 'Esta cuenta ya está registrada. Por favor, inicia sesión.' });
+        }
+
+        // CREAMOS EL NUEVO USUARIO
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(googleId, salt);
+
+        user = new User({
+            username: name.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 100),
+            email,
+            password: hashedPassword,
+            profilePic: picture,
+            role: 'artist'
+        });
+        await user.save();
+
+        const jwtPayload = { user: { id: user.id } };
+        jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic } });
+        });
+    } catch (error) {
+        res.status(400).json({ msg: 'Error al registrar con Google' });
     }
 });
 
