@@ -17,31 +17,31 @@ let lastUpdateDate = null;
 let expo = new Expo();
 // RUTA: REGISTRO DE ARTISTA
 router.post('/register', async (req, res) => {
-    const { username, email, password } = req.body;
+    const { email, password } = req.body; 
     try {
-        // Verificar si el usuario ya existe
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ msg: 'El usuario ya existe' });
 
-        // Crear nuevo usuario
-        user = new User({ username, email, password });
+        // Generamos un ID temporal interno para que la DB sea feliz
+        const tempId = "user_" + Math.random().toString(36).substring(7);
 
-        // Encriptar contraseña
+        user = new User({ 
+            username: tempId, // Nombre temporal interno
+            email, 
+            password 
+        });
+
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
-
         await user.save();
 
-        // Crear Token de sesión
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username } });
+            res.json({ token, user: { id: user.id, username: "" } }); // Enviamos username vacío al frontend
         });
-
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Error en el servidor');
+        res.status(500).send('Error');
     }
 });
 
@@ -73,7 +73,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// RUTA: LOGIN / REGISTRO CON GOOGLE
+// RUTA: LOGIN CON GOOGLE
 router.post('/google-login', async (req, res) => {
     const { idToken } = req.body;
     try {
