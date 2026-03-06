@@ -498,6 +498,25 @@ router.put('/admin/verify-user/:userId', auth, async (req, res) => {
     }
 });
 
+// RECHAZAR VERIFICACIÓN (SOLO ADMIN)
+router.put('/admin/reject-verification/:userId', auth, async (req, res) => {
+    try {
+        const admin = await User.findById(req.user.id);
+        if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+
+        const userToReject = await User.findById(req.params.userId);
+        if (!userToReject) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        // Quitamos el estado de pendiente para que pueda volver a solicitarlo en el futuro
+        userToReject.isVerificationPending = false;
+        await userToReject.save();
+
+        res.json({ msg: `Solicitud de ${userToReject.username} rechazada.` });
+    } catch (err) {
+        res.status(500).send('Error en el servidor');
+    }
+});
+
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 
