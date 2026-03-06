@@ -10,6 +10,10 @@ const { cloudinary } = require('../config/cloudinary');
 router.post('/', auth, async (req, res) => {
     try {
         const { type, message, targetWallpaper } = req.body;
+
+        if (type === 'solicitud_verificacion') {
+          await User.findByIdAndUpdate(req.user.id, { isVerificationPending: true });
+        }
         
         const newFeedback = new Feedback({ 
             user: req.user.id, 

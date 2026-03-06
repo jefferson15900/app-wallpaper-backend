@@ -7,6 +7,7 @@ const UserSchema = new mongoose.Schema({
     profilePicId: { type: String, default: "" }, 
     role: { type: String, default: "artist" },
     isVerified: { type: Boolean, default: false },
+    isVerificationPending: { type: Boolean, default: false },
     instagram: { type: String, default: "" },
     facebook: { type: String, default: "" },
     twitter: { type: String, default: "" },

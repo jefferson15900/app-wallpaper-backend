@@ -486,6 +486,7 @@ router.put('/admin/verify-user/:userId', auth, async (req, res) => {
 
         // Cambiamos el estado (si era false pasa a true y viceversa)
         userToVerify.isVerified = !userToVerify.isVerified;
+        userToVerify.isVerificationPending = false;
         await userToVerify.save();
 
         res.json({ 
