@@ -307,6 +307,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             status: 'pending'
         });
         await newWallpaper.save();
+        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
         res.json(newWallpaper);
     } catch (err) { res.status(500).send('Error'); }
 });
@@ -353,6 +354,7 @@ router.delete('/:id', auth, async (req, res) => {
         if (wallpaper.artist.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'No autorizado' });
         }
+        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: -1 } });
 
         if (wallpaper.public_id) await cloudinary.uploader.destroy(wallpaper.public_id);
         await Wallpaper.findByIdAndDelete(req.params.id);

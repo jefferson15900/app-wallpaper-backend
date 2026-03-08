@@ -515,13 +515,29 @@ router.put('/admin/reject-verification/:userId', auth, async (req, res) => {
     } catch (err) {
         res.status(500).send('Error en el servidor');
     }
+})
+
+// RUTA PARA RELLENAR LA COLUMNA wallpaperCount (EJECUTAR UNA VEZ) PROBICIONAL
+router.get('/admin/fix-wallpaper-count', async (req, res) => {
+    try {
+        const users = await User.find();
+        for (let user of users) {
+            // Contamos cuántos wallpapers tiene este usuario en la colección wallpapers
+            const realCount = await Wallpaper.countDocuments({ artist: user._id });
+            // Actualizamos su columna física
+            await User.findByIdAndUpdate(user._id, { $set: { wallpaperCount: realCount } });
+        }
+        res.json({ msg: "Columna wallpaperCount actualizada para todos los usuarios" });
+    } catch (e) {
+        res.status(500).send("Error en la migración");
+    }
 });
 
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 
-        latestVersion: "1.1.5", // El nombre de la versión
-        minVersionCode: 14,      // El versionCode que pusiste en app.json
+        latestVersion: "1.1.6", // El nombre de la versión
+        minVersionCode: 15,      // El versionCode que pusiste en app.json
         forceUpdate: true,      // Si es true, el usuario NO puede cerrar el aviso
         storeUrl: "https://play.google.com/store/apps/details?id=com.jefferson159.appwallpaper"
     });
