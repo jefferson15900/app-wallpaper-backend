@@ -517,55 +517,6 @@ router.put('/admin/reject-verification/:userId', auth, async (req, res) => {
     }
 })
 
-// RUTA PARA RELLENAR LA COLUMNA wallpaperCount (EJECUTAR UNA VEZ) PROBICIONAL
-router.get('/admin/fix-wallpaper-count', async (req, res) => {
-    try {
-        const users = await User.find();
-        for (let user of users) {
-            // Contamos cuántos wallpapers tiene este usuario en la colección wallpapers
-            const realCount = await Wallpaper.countDocuments({ artist: user._id });
-            // Actualizamos su columna física
-            await User.findByIdAndUpdate(user._id, { $set: { wallpaperCount: realCount } });
-        }
-        res.json({ msg: "Columna wallpaperCount actualizada para todos los usuarios" });
-    } catch (e) {
-        res.status(500).send("Error en la migración");
-    }
-});
-
-// RUTA DE EMERGENCIA: Sincronización total con reporte detallado
-router.get('/admin/force-sync-total', async (req, res) => {
-    try {
-        console.log("=== INICIANDO SINCRONIZACIÓN TOTAL ===");
-        const users = await User.find();
-        let reporte = [];
-
-        for (let user of users) {
-            try {
-                // Contamos TODOS los wallpapers de este artista (aprobados y pendientes)
-                const count = await Wallpaper.countDocuments({ artist: user._id });
-                
-                // Actualizamos la columna física
-                await User.findByIdAndUpdate(user._id, { $set: { wallpaperCount: count } });
-                
-                console.log(`✅ Usuario: ${user.username} | Wallpapers encontrados: ${count}`);
-                reporte.push({ user: user.username, count: count });
-            } catch (userErr) {
-                console.log(`❌ Error procesando a ${user.username}:`, userErr.message);
-            }
-        }
-
-        console.log("=== SINCRONIZACIÓN FINALIZADA ===");
-        res.json({ 
-            msg: "Proceso terminado", 
-            usuariosProcesados: reporte.length,
-            detalle: reporte 
-        });
-    } catch (e) {
-        console.error("Error crítico:", e);
-        res.status(500).json({ error: e.message });
-    }
-});
 
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {

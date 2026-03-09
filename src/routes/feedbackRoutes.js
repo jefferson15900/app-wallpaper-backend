@@ -59,21 +59,30 @@ router.post('/admin/action', auth, async (req, res) => {
         if (admin.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
 
         if (action === 'delete_content') {
-            // A. Buscamos el wallpaper para borrarlo de Cloudinary
+            // 1. Buscamos el wallpaper para saber quién es el artista
             const wall = await Wallpaper.findById(wallpaperId);
-            if (wall && wall.public_id) {
-                await cloudinary.uploader.destroy(wall.public_id);
+            
+            if (wall) {
+                // 🟢 RESTAMOS 1 al contador físico del artista dueño de la foto
+                await User.findByIdAndUpdate(wall.artist, { $inc: { wallpaperCount: -1 } });
+
+                // 2. Borramos la imagen de Cloudinary
+                if (wall.public_id) {
+                    await cloudinary.uploader.destroy(wall.public_id);
+                }
+
+                // 3. Borramos el wallpaper de la base de datos
+                await Wallpaper.findByIdAndDelete(wallpaperId);
             }
-            // B. Borramos de la base de datos
-            await Wallpaper.findByIdAndDelete(wallpaperId);
-            // C. Borramos el reporte porque ya se solucionó
+
+            // 4. Borramos el reporte de la lista de pendientes
             await Feedback.findByIdAndDelete(reportId);
             
-            return res.json({ msg: 'Wallpaper eliminado y reporte cerrado' });
+            return res.json({ msg: 'Contenido eliminado y contador de artista actualizado' });
         } 
         
         if (action === 'dismiss_report') {
-            // Solo borramos el reporte, la foto se queda
+            // Solo borramos el reporte, no tocamos el wallpaper ni el contador
             await Feedback.findByIdAndDelete(reportId);
             return res.json({ msg: 'Reporte descartado' });
         }
