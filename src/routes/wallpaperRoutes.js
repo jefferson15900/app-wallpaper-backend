@@ -9,6 +9,10 @@ const { Expo } = require('expo-server-sdk');
 
 let expo = new Expo();
 
+// VARIABLES PARA CACHÉ #HASHTAGS
+let trendingTagsCache = [];
+let lastTagsUpdate = null;
+
 
 // --- RUTA: FEED DE SEGUIDOS (Solo para usuarios logueados) ---
 // RUTA: FEED DE SEGUIDOS (Actualizada con logs)
@@ -417,27 +421,37 @@ router.get('/featured/premium', async (req, res) => {
 });
 
 
-// OBTENER LOS 10 HASHTAGS MÁS USADOS
+// OBTENER LOS 10 HASHTAGS MÁS USADOS (Con caché de 24h)
 router.get('/tags/trending', async (req, res) => {
     try {
-        const trendingTags = await Wallpaper.aggregate([
-            // 1. Solo tomamos wallpapers aprobados
+        const today = new Date().toISOString().split('T')[0];
+
+        // 1. Si el caché es de hoy, respondemos de inmediato sin tocar la base de datos
+        if (trendingTagsCache.length > 0 && lastTagsUpdate === today) {
+            return res.json(trendingTagsCache);
+        }
+
+        // 2. Si es un día nuevo, hacemos el cálculo pesado una sola vez
+        console.log("📊 Calculando nuevas tendencias de hashtags...");
+        const result = await Wallpaper.aggregate([
             { $match: { status: 'approved' } },
-            // 2. "Desarmamos" el array de tags (si un wall tiene 3 tags, crea 3 registros temporales)
             { $unwind: "$tags" },
-            // 3. Agrupamos por nombre de etiqueta y contamos
             { $group: { _id: "$tags", count: { $sum: 1 } } },
-            // 4. Ordenamos de mayor a menor
             { $sort: { count: -1 } },
-            // 5. Tomamos los 10 mejores
             { $limit: 10 }
         ]);
 
-        // Limpiamos la respuesta para enviar solo un array de strings
-        const tagsOnly = trendingTags.map(tag => tag._id);
+        const tagsOnly = result.map(tag => tag._id);
+
+        // 3. Guardamos en el caché
+        trendingTagsCache = tagsOnly;
+        lastTagsUpdate = today;
+
         res.json(tagsOnly);
     } catch (err) {
-        res.status(500).send('Error al obtener tendencias');
+        console.error("Error en tags:", err);
+        res.status(500).send('Error');
     }
 });
+
 module.exports = router;
