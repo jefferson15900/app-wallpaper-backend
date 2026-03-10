@@ -517,7 +517,6 @@ router.put('/admin/reject-verification/:userId', auth, async (req, res) => {
     }
 })
 
-
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 

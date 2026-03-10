@@ -213,6 +213,35 @@ router.put('/admin/decide/:id', auth, async (req, res) => {
     }
 });
 
+// 2. Marcar/Desmarcar como Premium (SOLO ADMIN)
+router.put('/admin/set-premium/:id', auth, async (req, res) => {
+    try {
+        // Verificación de seguridad
+        const user = await User.findById(req.user.id);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        // Alternar estado: si es true pasa a false, si es false pasa a true
+        wallpaper.isPremium = !wallpaper.isPremium;
+        await wallpaper.save();
+
+        res.json({ 
+            msg: `Estado Premium actualizado`, 
+            isPremium: wallpaper.isPremium,
+            title: wallpaper.title 
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error al actualizar estado premium');
+    }
+});
+
 // ======================================================
 // 2. RUTAS DE INFORMACIÓN Y PERFILES
 // ======================================================
@@ -387,32 +416,28 @@ router.get('/featured/premium', async (req, res) => {
     }
 });
 
-// 2. Marcar/Desmarcar como Premium (SOLO ADMIN)
-router.put('/admin/set-premium/:id', auth, async (req, res) => {
+
+// OBTENER LOS 10 HASHTAGS MÁS USADOS
+router.get('/tags/trending', async (req, res) => {
     try {
-        // Verificación de seguridad
-        const user = await User.findById(req.user.id);
-        if (!user || user.role !== 'admin') {
-            return res.status(403).json({ msg: 'No autorizado' });
-        }
+        const trendingTags = await Wallpaper.aggregate([
+            // 1. Solo tomamos wallpapers aprobados
+            { $match: { status: 'approved' } },
+            // 2. "Desarmamos" el array de tags (si un wall tiene 3 tags, crea 3 registros temporales)
+            { $unwind: "$tags" },
+            // 3. Agrupamos por nombre de etiqueta y contamos
+            { $group: { _id: "$tags", count: { $sum: 1 } } },
+            // 4. Ordenamos de mayor a menor
+            { $sort: { count: -1 } },
+            // 5. Tomamos los 10 mejores
+            { $limit: 10 }
+        ]);
 
-        const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) {
-            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-        }
-
-        // Alternar estado: si es true pasa a false, si es false pasa a true
-        wallpaper.isPremium = !wallpaper.isPremium;
-        await wallpaper.save();
-
-        res.json({ 
-            msg: `Estado Premium actualizado`, 
-            isPremium: wallpaper.isPremium,
-            title: wallpaper.title 
-        });
+        // Limpiamos la respuesta para enviar solo un array de strings
+        const tagsOnly = trendingTags.map(tag => tag._id);
+        res.json(tagsOnly);
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Error al actualizar estado premium');
+        res.status(500).send('Error al obtener tendencias');
     }
 });
 module.exports = router;
