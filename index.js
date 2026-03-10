@@ -73,6 +73,7 @@ connectDB();
 
 // Rutas (las crearemos a continuación)
 app.use('/api/auth', require('./src/routes/authRoutes'));
+app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
 app.use('/api/feedback', require('./src/routes/feedbackRoutes'));
 
