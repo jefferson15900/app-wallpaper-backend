@@ -254,33 +254,63 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const { search, category } = req.query;
-        
-        // Lógica de Paginación
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
         const skip = (page - 1) * limit;
 
-        let query = { status: 'approved' }; 
-
-        // --- BÚSQUEDA INTELIGENTE (Título o Tags) ---
-        if (search && search.trim() !== '') {
-            query.$or = [
-                { title: { $regex: search, $options: 'i' } }, // Busca en el título
-                { tags: { $regex: search, $options: 'i' } }   // Busca dentro del array de etiquetas
-            ];
+        // --- CASO 1: NAVEGACIÓN NORMAL (Sin búsqueda) ---
+        if (!search || search.trim() === '') {
+            let query = { status: 'approved' };
+            if (category && category !== 'Todos') query.category = category;
+            
+            const walls = await Wallpaper.find(query)
+                .populate('artist', 'username profilePic isVerified')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+            return res.json(walls);
         }
-        
-        if (category && category !== 'Todos') query.category = category;
 
-        const wallpapers = await Wallpaper.find(query)
-            .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        // --- CASO 2: BÚSQUEDA PROFESIONAL (Atlas Search) ---
+        const pipeline = [
+            {
+                $search: {
+                    index: "default", // El nombre que pusiste en la web de MongoDB
+                    text: {
+                        query: search,
+                        path: ["title", "tags"], // Busca en título y etiquetas
+                        fuzzy: { 
+                            maxEdits: 1, // Permite 1 error de letra (Ej: "Goku" -> "Guko")
+                        }
+                    }
+                }
+            },
+            { $match: { status: 'approved' } }, // Filtramos solo aprobados
+            { $skip: skip },
+            { $limit: limit },
+            {
+                // Unimos con la tabla de usuarios para traer los datos del artista (es el populate manual)
+                $lookup: {
+                    from: 'users',
+                    localField: 'artist',
+                    foreignField: '_id',
+                    as: 'artist'
+                }
+            },
+            { $unwind: '$artist' } // Convertimos el array de artista en un objeto
+        ];
 
-        res.json(wallpapers);
+        // Si el usuario eligió una categoría, la filtramos dentro de la búsqueda
+        if (category && category !== 'Todos') {
+            pipeline.splice(1, 0, { $match: { category: category } });
+        }
+
+        const results = await Wallpaper.aggregate(pipeline);
+        res.json(results);
+
     } catch (err) {
-        res.status(500).send('Error al obtener wallpapers');
+        console.error("Error en motor de búsqueda:", err);
+        res.status(500).send('Error en el servidor');
     }
 });
 
