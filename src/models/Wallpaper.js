@@ -11,6 +11,8 @@ const WallpaperSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending'}, 
     isPremium: { type: Boolean, default: false }, 
+    isAITagged: { type: Boolean, default: false }
+
 
 });
 WallpaperSchema.index({ status: 1, createdAt: -1 });

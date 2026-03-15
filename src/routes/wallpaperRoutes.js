@@ -5,7 +5,7 @@ const { uploadCloud, cloudinary } = require('../config/cloudinary');
 const Wallpaper = require('../models/Wallpaper');
 const User = require('../models/User');
 const { Expo } = require('expo-server-sdk');
-
+const { getAITags } = require('../services/aiService');
 
 let expo = new Expo();
 
@@ -353,26 +353,72 @@ router.get('/user/:id', async (req, res) => {
 // ======================================================
 
 // Subir Wallpaper (Entra como pendiente)
+// RUTA: SUBIR WALLPAPER (Con IA de etiquetas y contador automático)
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
+        // 1. Validación de seguridad inicial
+        if (!req.file) {
+            return res.status(400).json({ msg: 'No se recibió ninguna imagen' });
+        }
+
         const { title, category } = req.body;
+
+        // 2. Procesar etiquetas básicas (Filtro de seguridad)
+        let baseTags = title 
+            ? title.split(',').map(tag => tag.trim().toLowerCase()).filter(t => t !== "") 
+            : [];
         
-        // Convertimos "anime, girl, 4k" en ["anime", "girl", "4k"]
-        const tagArray = title.split(',').map(tag => tag.trim().toLowerCase());
+        if (category) {
+            baseTags.push(category.toLowerCase());
+        }
 
         const newWallpaper = new Wallpaper({
-            title: title, // Guardamos el texto original
-            tags: tagArray, // Guardamos la lista para búsquedas rápidas
+            title: title || `Art by ${req.user.id.substring(0,5)}`,
+            tags: baseTags,
             imageUrl: req.file.path,
             public_id: req.file.filename,
-            category: category,
+            category: category || 'Otros',
             artist: req.user.id,
-            status: 'pending'
+            status: 'pending',
+            isAITagged: false // Se marcará como true cuando la IA termine
         });
+
         await newWallpaper.save();
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
+
+        // 5. RESPUESTA INSTANTÁNEA AL FRONTEND (UX Rápida)
         res.json(newWallpaper);
-    } catch (err) { res.status(500).send('Error'); }
+
+        // 6. PROCESO EN SEGUNDO PLANO (Cerebro de IA Gemini)
+        (async () => {
+            try {
+                console.log(`🤖 Iniciando análisis de IA para: ${newWallpaper.title}`);
+                
+                // Llamamos al servicio de IA que creamos en aiService.js
+                const aiTags = await getAITags(req.file.path);
+                
+                if (aiTags && aiTags.length > 0) {
+
+                    const finalTags = [...new Set([...baseTags, ...aiTags])];
+                    await Wallpaper.findByIdAndUpdate(newWallpaper._id, { 
+                        $set: { 
+                            tags: finalTags, 
+                            isAITagged: true 
+                        } 
+                    });
+                    
+                    console.log(`✅ IA enriqueció con éxito el arte ID: ${newWallpaper._id}`);
+                }
+            } catch (aiError) {
+
+                console.error("⚠️ La IA de Google falló, pero el wallpaper se mantuvo a salvo.");
+            }
+        })();
+
+    } catch (err) {
+        console.error("❌ Error crítico en la ruta de subida:", err);
+        res.status(500).json({ msg: 'Error interno al procesar la subida' });
+    }
 });
 
 // Dar o quitar Like
