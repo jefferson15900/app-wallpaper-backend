@@ -251,65 +251,95 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // ======================================================
 
 // Obtener todos los wallpapers aprobados (Público)
+// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN Y PARA TI
 router.get('/', async (req, res) => {
     try {
         const { search, category } = req.query;
         const page = parseInt(req.query.page) || 1;
-        const limit = 10;
+        const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        // --- CASO 1: NAVEGACIÓN NORMAL (Sin búsqueda) ---
-        if (!search || search.trim() === '') {
-            let query = { status: 'approved' };
-            if (category && category !== 'Todos') query.category = category;
-            
-            const walls = await Wallpaper.find(query)
-                .populate('artist', 'username profilePic isVerified')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit);
-            return res.json(walls);
-        }
-
-        // --- CASO 2: BÚSQUEDA PROFESIONAL (Atlas Search) ---
-        const pipeline = [
-            {
-                $search: {
-                    index: "default", // El nombre que pusiste en la web de MongoDB
-                    text: {
-                        query: search,
-                        path: ["title", "tags"], // Busca en título y etiquetas
-                        fuzzy: { 
-                            maxEdits: 1, // Permite 1 error de letra (Ej: "Goku" -> "Guko")
+        // --- CASO 1: BÚSQUEDA PROFESIONAL (Atlas Search con Fuzzy Matching) ---
+        if (search && search.trim() !== '') {
+            const pipeline = [
+                {
+                    $search: {
+                        index: "default", // Debe coincidir con el nombre en MongoDB Atlas
+                        text: {
+                            query: search,
+                            path: ["title", "tags"],
+                            fuzzy: { maxEdits: 1 } 
                         }
                     }
-                }
-            },
-            { $match: { status: 'approved' } }, // Filtramos solo aprobados
-            { $skip: skip },
-            { $limit: limit },
-            {
-                // Unimos con la tabla de usuarios para traer los datos del artista (es el populate manual)
-                $lookup: {
-                    from: 'users',
-                    localField: 'artist',
-                    foreignField: '_id',
-                    as: 'artist'
-                }
-            },
-            { $unwind: '$artist' } // Convertimos el array de artista en un objeto
-        ];
+                },
+                { $match: { status: 'approved' } } // Solo contenido aprobado
+            ];
 
-        // Si el usuario eligió una categoría, la filtramos dentro de la búsqueda
-        if (category && category !== 'Todos') {
-            pipeline.splice(1, 0, { $match: { category: category } });
+            // Filtro de categoría dentro de la búsqueda
+            if (category && category !== 'Todos') {
+                pipeline.push({ $match: { category: category } });
+            }
+
+            // Paginación y Unión con Artistas (Lookup)
+            pipeline.push(
+                { $skip: skip },
+                { $limit: limit },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'artist',
+                        foreignField: '_id',
+                        as: 'artist'
+                    }
+                },
+                { $unwind: '$artist' },
+                { $project: { 'artist.password': 0, 'artist.email': 0 } } // Seguridad
+            );
+
+            const searchResults = await Wallpaper.aggregate(pipeline);
+            return res.json(searchResults);
         }
 
-        const results = await Wallpaper.aggregate(pipeline);
-        res.json(results);
+        // --- CASO 2: ALEATORIEDAD PARA "PARA TI" (Optimización de Descubrimiento) ---
+        // Si el usuario está en la página 1 y el límite es pequeño (como los 10-20 que pide el feed personalizado),
+        // devolvemos una selección al azar para que el contenido siempre se vea fresco.
+        if (page === 1 && limit <= 20) {
+            let matchQuery = { status: 'approved' };
+            if (category && category !== 'Todos') matchQuery.category = category;
+
+            const randomResults = await Wallpaper.aggregate([
+                { $match: matchQuery },
+                { $sample: { size: limit } }, // 🎲 MONGODB ELIGE AL AZAR
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'artist',
+                        foreignField: '_id',
+                        as: 'artist'
+                    }
+                },
+                { $unwind: '$artist' },
+                { $project: { 'artist.password': 0, 'artist.email': 0 } }
+            ]);
+            
+            return res.json(randomResults);
+        }
+
+        // --- CASO 3: NAVEGACIÓN NORMAL / SCROLL INFINITO (Ordenado por Fecha) ---
+        // Este caso se activa cuando el usuario hace scroll hacia abajo (Página 2, 3...)
+        let query = { status: 'approved' };
+        if (category && category !== 'Todos') query.category = category;
+        
+        const walls = await Wallpaper.find(query)
+            .populate('artist', 'username profilePic isVerified')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        res.json(walls);
 
     } catch (err) {
-        console.error("Error en motor de búsqueda:", err);
+        console.error("Error en motor de búsqueda/navegación:", err);
         res.status(500).send('Error en el servidor');
     }
 });
