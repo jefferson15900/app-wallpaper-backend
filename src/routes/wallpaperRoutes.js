@@ -251,20 +251,19 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // ======================================================
 
 // Obtener todos los wallpapers aprobados (Público)
-// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN Y PARA TI
+// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y PARA TI (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
-        const { search, category } = req.query;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const { search, category, limit = 10, page = 1, random } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
 
-        // --- CASO 1: BÚSQUEDA PROFESIONAL (Atlas Search con Fuzzy Matching) ---
+        // --- CASO 1: BÚSQUEDA PROFESIONAL (Atlas Search) ---
         if (search && search.trim() !== '') {
             const pipeline = [
                 {
                     $search: {
-                        index: "default", // Debe coincidir con el nombre en MongoDB Atlas
+                        index: "default", 
                         text: {
                             query: search,
                             path: ["title", "tags"],
@@ -272,18 +271,16 @@ router.get('/', async (req, res) => {
                         }
                     }
                 },
-                { $match: { status: 'approved' } } // Solo contenido aprobado
+                { $match: { status: 'approved' } }
             ];
 
-            // Filtro de categoría dentro de la búsqueda
             if (category && category !== 'Todos') {
                 pipeline.push({ $match: { category: category } });
             }
 
-            // Paginación y Unión con Artistas (Lookup)
             pipeline.push(
                 { $skip: skip },
-                { $limit: limit },
+                { $limit: parsedLimit },
                 {
                     $lookup: {
                         from: 'users',
@@ -293,23 +290,22 @@ router.get('/', async (req, res) => {
                     }
                 },
                 { $unwind: '$artist' },
-                { $project: { 'artist.password': 0, 'artist.email': 0 } } // Seguridad
+                { $project: { 'artist.password': 0, 'artist.email': 0 } }
             );
 
             const searchResults = await Wallpaper.aggregate(pipeline);
             return res.json(searchResults);
         }
 
-        // --- CASO 2: ALEATORIEDAD PARA "PARA TI" (Optimización de Descubrimiento) ---
-        // Si el usuario está en la página 1 y el límite es pequeño (como los 10-20 que pide el feed personalizado),
-        // devolvemos una selección al azar para que el contenido siempre se vea fresco.
-        if (page === 1 && limit <= 20) {
+        // --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE (Solo para "Para Ti") ---
+        // Solo se activa si el frontend envía ?random=true
+        if (random === 'true') {
             let matchQuery = { status: 'approved' };
             if (category && category !== 'Todos') matchQuery.category = category;
 
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
-                { $sample: { size: limit } }, // 🎲 MONGODB ELIGE AL AZAR
+                { $sample: { size: parsedLimit } }, // 🎲 MONGODB ELIGE AL AZAR
                 {
                     $lookup: {
                         from: 'users',
@@ -325,21 +321,21 @@ router.get('/', async (req, res) => {
             return res.json(randomResults);
         }
 
-        // --- CASO 3: NAVEGACIÓN NORMAL / SCROLL INFINITO (Ordenado por Fecha) ---
-        // Este caso se activa cuando el usuario hace scroll hacia abajo (Página 2, 3...)
+        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Pestaña Explorar / Categorías) ---
+        // SIEMPRE devuelve los más nuevos primero (createdAt: -1)
         let query = { status: 'approved' };
         if (category && category !== 'Todos') query.category = category;
-        
+
         const walls = await Wallpaper.find(query)
             .populate('artist', 'username profilePic isVerified')
-            .sort({ createdAt: -1 })
+            .sort({ createdAt: -1 }) // <--- 🔑 ESTO GARANTIZA QUE LO NUEVO SALGA PRIMERO
             .skip(skip)
-            .limit(limit);
+            .limit(parsedLimit);
 
         res.json(walls);
 
     } catch (err) {
-        console.error("Error en motor de búsqueda/navegación:", err);
+        console.error("Error en ruta principal:", err);
         res.status(500).send('Error en el servidor');
     }
 });
