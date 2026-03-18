@@ -3,6 +3,7 @@ const { Expo } = require('expo-server-sdk');
 const Wallpaper = require('../models/Wallpaper');
 const Feedback = require('../models/Feedback');
 const { cloudinary } = require('../config/cloudinary');
+const { getAITags } = require('../services/aiService');
 
 let expo = new Expo();
 
@@ -158,5 +159,54 @@ exports.reportAction = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error al procesar acción');
+    }
+};
+
+// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
+exports.retryAITagging = async (req, res) => {
+    try {
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        // 1. Asegurar URL segura para la IA de Google
+        const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
+
+        console.log(`♻️ [ADMIN] Solicitando reintento de IA para: "${wallpaper.title}"`);
+        
+        // 2. Llamar al servicio de IA que creamos
+        const aiTags = await getAITags(secureUrl);
+
+        if (aiTags && aiTags.length > 0) {
+            // 3. Mezcla inteligente (Tags viejos + Tags nuevos de IA)
+            // Filtramos duplicados, pasamos a minúsculas y quitamos espacios vacíos
+            const currentTags = wallpaper.tags || [];
+            const finalTags = [...new Set([...currentTags, ...aiTags])]
+                .map(tag => tag.trim().toLowerCase())
+                .filter(tag => tag !== "");
+
+            // 4. Actualizar registro
+            wallpaper.tags = finalTags;
+            wallpaper.isAITagged = true;
+            await wallpaper.save();
+
+            console.log(`✅ [ADMIN] Éxito: ${finalTags.length} etiquetas totales para "${wallpaper.title}"`);
+
+            res.json({ 
+                msg: 'IA procesada con éxito ✨', 
+                tags: finalTags,
+                isAITagged: true
+            });
+        } else {
+            // Caso donde la IA responde pero no encuentra nada o hay saturación
+            res.status(503).json({ 
+                msg: 'La IA no pudo analizar la imagen en este momento. Espera 30 segundos y reintenta.' 
+            });
+        }
+    } catch (err) {
+        console.error("❌ Error crítico en retryAITagging:", err.message);
+        res.status(500).json({ msg: 'Error interno al conectar con el servidor de IA' });
     }
 };

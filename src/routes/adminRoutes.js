@@ -10,5 +10,6 @@ router.put('/verify-user/:userId', [auth, isAdmin], adminController.verifyUser);
 router.put('/reject-verification/:userId', [auth, isAdmin], adminController.rejectVerification);
 router.get('/reports', [auth, isAdmin], adminController.getReports);
 router.post('/report-action', [auth, isAdmin], adminController.reportAction);
+router.put('/retry-ai/:id', [auth, isAdmin], adminController.retryAITagging);
 
 module.exports = router;
