@@ -440,6 +440,15 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
         }
 
     } catch (err) {
+                // --- LOG DE ERROR MEJORADO ---
+        console.error("❌ ERROR CRÍTICO EN UPLOAD:");
+        console.error("Mensaje:", err.message);
+        console.error("Stack:", err.stack);
+
+        // Si Cloudinary dio error por tamaño o formato
+        if (err.http_code) {
+             return res.status(err.http_code).json({ msg: 'Error en la nube: ' + err.message });
+        }
         console.error("❌ Error crítico en la ruta de subida:", err);
         res.status(500).json({ msg: 'Error interno al procesar la subida' });
     }
