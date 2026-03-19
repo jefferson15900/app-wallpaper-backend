@@ -253,13 +253,16 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 
 // Obtener todos los wallpapers aprobados (Público)
 // RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
+// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
-        const { search, category, limit = 10, page = 1, random , type} = req.query;
+        // --- 🔑 LA SOLUCIÓN: Agregamos 'type' a la extracción ---
+        const { search, category, limit = 10, page = 1, random, type } = req.query; 
+        
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
 
-        // --- 🔍 CASO 1: BÚSQUEDA (Con Atlas Search) ---
+        // --- 🔍 CASO 1: BÚSQUEDA (Atlas Search) ---
         if (search && search.trim() !== '') {
             let pipeline = [
                 {
@@ -275,31 +278,24 @@ router.get('/', async (req, res) => {
                 { $match: { status: 'approved' } }
             ];
 
-            // Filtro de categoría dentro de la búsqueda
             if (category && category !== 'Todos') {
                 pipeline.push({ $match: { category: category } });
             }
 
-            // 🎲 TRUCO DE ALEATORIEDAD EN LA BÚSQUEDA
-            // Si mandamos random=true, barajamos los resultados de la búsqueda
+            // Filtro por tipo (Video o Imagen) si se solicita
+            if (type) {
+                pipeline.push({ $match: { type: type } });
+            }
+
             if (random === 'true') {
                 pipeline.push({ $sample: { size: parsedLimit } });
             } else {
-                // Si no es random, usamos paginación normal (skip y limit)
                 pipeline.push({ $skip: skip });
                 pipeline.push({ $limit: parsedLimit });
             }
 
-            // Unimos con la colección de usuarios para tener los datos del artista
             pipeline.push(
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'artist',
-                        foreignField: '_id',
-                        as: 'artist'
-                    }
-                },
+                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
                 { $unwind: '$artist' },
                 { $project: { 'artist.password': 0, 'artist.email': 0 } }
             );
@@ -308,24 +304,18 @@ router.get('/', async (req, res) => {
             return res.json(searchResults);
         }
 
-        // --- 🟢 CASO 2: ALEATORIEDAD PURA (Sección "Para Ti" o Descubrimiento sin texto) ---
+        // --- 🟢 CASO 2: ALEATORIEDAD (Sección Live o Para Ti) ---
         if (random === 'true') {
             let matchQuery = { status: 'approved' };
             if (category && category !== 'Todos') matchQuery.category = category;
-
-            if (type) matchQuery.type = type;
+            
+            // FILTRO DE TIPO (Aquí es donde daba el error)
+            if (type) matchQuery.type = type; 
 
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
-                { $sample: { size: parsedLimit } }, // 🎲 Selecciona N elementos al azar del total
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'artist',
-                        foreignField: '_id',
-                        as: 'artist'
-                    }
-                },
+                { $sample: { size: parsedLimit } }, 
+                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
                 { $unwind: '$artist' },
                 { $project: { 'artist.password': 0, 'artist.email': 0 } }
             ]);
@@ -333,14 +323,14 @@ router.get('/', async (req, res) => {
             return res.json(randomResults);
         }
 
-        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Pestaña Explorar / Categorías por Fecha) ---
-        // Devuelve siempre los más nuevos primero (Cronológico)
+        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica) ---
         let query = { status: 'approved' };
         if (category && category !== 'Todos') query.category = category;
+        if (type) query.type = type; // Filtro de tipo para navegación normal
 
         const walls = await Wallpaper.find(query)
             .populate('artist', 'username profilePic isVerified')
-            .sort({ createdAt: -1 }) // 🔑 Garantiza que lo nuevo aparezca primero
+            .sort({ createdAt: -1 }) 
             .skip(skip)
             .limit(parsedLimit);
 
