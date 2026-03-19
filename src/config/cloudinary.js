@@ -11,7 +11,8 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
-    // Definimos carpetas diferentes para iconos y wallpapers
+    
+    const isVideo = file.mimetype.startsWith('video');
     const folderName = file.fieldname === 'avatar' ? 'perfiles_app' : 'wallpapers_app';
 
     return {
