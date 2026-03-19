@@ -255,7 +255,7 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
-        const { search, category, limit = 10, page = 1, random } = req.query;
+        const { search, category, limit = 10, page = 1, random , type} = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
 
@@ -314,7 +314,7 @@ router.get('/', async (req, res) => {
             if (category && category !== 'Todos') matchQuery.category = category;
 
             if (type) matchQuery.type = type;
-            
+
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
                 { $sample: { size: parsedLimit } }, // 🎲 Selecciona N elementos al azar del total
