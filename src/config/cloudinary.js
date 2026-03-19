@@ -16,12 +16,17 @@ const storage = new CloudinaryStorage({
 
     return {
       folder: folderName,
-      allowed_formats: ['jpg', 'png', 'jpeg'],
+      resource_type: isVideo ? 'video' : 'image',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'mp4', 'mov', 'webm'],
       // --- TRUCO DE COMPRESIÓN MÁGICA ---
-      transformation: [
-        { width: 2500, crop: "limit" }, // Aumentamos a 2500 para permitir archivos 2K o 4K originales
-        { quality: "auto:best"},        // Cambiamos 'good' por 'best' para el archivo maestro
-        { fetch_format: "auto" }     // Convierte a WebP automáticamente (pesa 80% menos)
+      transformation: isVideo ? [
+        { width: 1440, crop: "limit" }, // Resolución 2K máxima
+        { quality: "auto:eco" },        // 'eco' es mejor para ahorrar ancho de banda en video
+        { fetch_format: "auto" }        // Sirve WebM a Android para que pese 50% menos
+      ] : [
+        { width: 2500, crop: "limit" },
+        { quality: "auto:best"},
+        { fetch_format: "auto" }
       ],
     };
   },

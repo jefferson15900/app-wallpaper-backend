@@ -393,13 +393,23 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
     try {
         // 1. Validación de seguridad inicial: ¿Llegó el archivo?
         if (!req.file) {
-            return res.status(400).json({ msg: 'No se recibió ninguna imagen' });
+            return res.status(400).json({ msg: 'No se recibió ninguna imagen o video' });
+        }
+
+        // Detección de tipo de archivo
+        const isVideo = req.file.mimetype.startsWith('video');
+
+        // SEGURIDAD: Solo el Administrador puede subir videos
+        const user = await User.findById(req.user.id);
+        if (isVideo && (!user || user.role !== 'admin')) {
+            // Borrado preventivo en Cloudinary si un usuario normal intenta subir video
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' });
+            return res.status(403).json({ msg: 'Acceso denegado: Solo el administrador puede subir Live Wallpapers' });
         }
 
         const { title, category } = req.body;
 
-        // 2. Procesar etiquetas básicas (Lo que el usuario escribió)
-        // Filtramos duplicados, espacios y convertimos a minúsculas
+        // 2. Procesar etiquetas básicas del usuario
         let baseTags = title 
             ? title.split(',').map(tag => tag.trim().toLowerCase()).filter(t => t !== "") 
             : [];
@@ -408,16 +418,17 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             baseTags.push(category.toLowerCase());
         }
 
-        // 3. Crear el registro en MongoDB (Estado inicial: Pendiente)
+        // 3. Crear el registro en MongoDB
         const newWallpaper = new Wallpaper({
-            title: title || `Art by ${req.user.id.substring(0,5)}`,
+            title: title || `Art by ${user.username || req.user.id.substring(0,5)}`,
             tags: baseTags,
             imageUrl: req.file.path,
             public_id: req.file.filename,
             category: category || 'Otros',
             artist: req.user.id,
-            status: 'pending',
-            isAITagged: false // La IA lo procesará luego desde la cola
+            type: isVideo ? 'video' : 'image',
+            status: isVideo ? 'approved' : 'pending', // Videos de admin se aprueban automáticamente
+            isAITagged: false 
         });
 
         // 4. Guardar en DB y aumentar el contador del artista
@@ -425,16 +436,16 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
         // 5. RESPUESTA INSTANTÁNEA AL FRONTEND
-        // Esto permite que el usuario vea su subida rápido mientras la IA trabaja de fondo
         res.json(newWallpaper);
 
-        // 6. ENVIAR A LA COLA DE PROCESAMIENTO IA (Sustituye al proceso masivo de antes)
-        // Mandamos el ID, la URL y las etiquetas base para que Gemini las enriquezca
-        aiQueue.addJob({
-            wallpaperId: newWallpaper._id,
-            imageUrl: req.file.path,
-            baseTags: baseTags
-        });
+        // 6. ENVIAR A LA COLA DE PROCESAMIENTO IA (SOLO SI ES IMAGEN)
+        if (!isVideo) {
+            aiQueue.addJob({
+                wallpaperId: newWallpaper._id,
+                imageUrl: req.file.path,
+                baseTags: baseTags
+            });
+        }
 
     } catch (err) {
         console.error("❌ Error crítico en la ruta de subida:", err);
