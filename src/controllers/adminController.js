@@ -131,25 +131,29 @@ exports.reportAction = async (req, res) => {
             const wall = await Wallpaper.findById(wallpaperId);
             
             if (wall) {
-                // Restamos 1 al contador del artista
-                await User.findByIdAndUpdate(wall.artist, { $inc: { wallpaperCount: -1 } });
-
-                // Borramos de Cloudinary
+                // 1. Borramos de Cloudinary con detección de tipo (Imagen o Video)
+                // Sin el resource_type, Cloudinary no borraría los archivos de video.
                 if (wall.public_id) {
-                    await cloudinary.uploader.destroy(wall.public_id);
+                    await cloudinary.uploader.destroy(wall.public_id, {
+                        resource_type: wall.type === 'video' ? 'video' : 'image'
+                    });
                 }
 
-                // Borramos de la DB
+                // 2. Restamos 1 al contador del artista
+                await User.findByIdAndUpdate(wall.artist, { $inc: { wallpaperCount: -1 } });
+
+                // 3. Borramos el registro de la Base de Datos
                 await Wallpaper.findByIdAndDelete(wallpaperId);
             }
 
-            // Borramos el reporte
+            // 4. Borramos el reporte de feedback
             await Feedback.findByIdAndDelete(reportId);
             
-            return res.json({ msg: 'Contenido eliminado y contador de artista actualizado' });
+            return res.json({ msg: 'Contenido eliminado de la nube y contador actualizado' });
         } 
         
         if (action === 'dismiss_report') {
+            // Solo borramos el reporte de la lista, el contenido se queda
             await Feedback.findByIdAndDelete(reportId);
             return res.json({ msg: 'Reporte descartado' });
         }
@@ -157,8 +161,8 @@ exports.reportAction = async (req, res) => {
         res.status(400).json({ msg: 'Acción no válida' });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Error al procesar acción');
+        console.error("❌ Error en reportAction:", err);
+        res.status(500).send('Error al procesar la acción del administrador');
     }
 };
 

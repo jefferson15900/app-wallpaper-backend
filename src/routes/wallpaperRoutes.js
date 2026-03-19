@@ -488,6 +488,7 @@ router.put('/download/:id', async (req, res) => {
 });
 
 // Eliminar Wallpaper (Solo el dueño)
+// Eliminar Wallpaper (Dueño) con limpieza total de Cloudinary
 router.delete('/:id', auth, async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id);
@@ -496,13 +497,21 @@ router.delete('/:id', auth, async (req, res) => {
         if (wallpaper.artist.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'No autorizado' });
         }
-        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: -1 } });
 
-        if (wallpaper.public_id) await cloudinary.uploader.destroy(wallpaper.public_id);
+        // 1. Borrar de Cloudinary especificando el tipo de recurso
+        if (wallpaper.public_id) {
+            await cloudinary.uploader.destroy(wallpaper.public_id, {
+                resource_type: wallpaper.type === 'video' ? 'video' : 'image'
+            });
+        }
+
+        // 2. Actualizar contador del artista y borrar de DB
+        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: -1 } });
         await Wallpaper.findByIdAndDelete(req.params.id);
 
         res.json({ msg: 'Eliminado correctamente' });
     } catch (err) {
+        console.error(err);
         res.status(500).send('Error al eliminar');
     }
 });
