@@ -55,18 +55,18 @@ const getAITags = async (imageUrl) => {
         try {
             return await analyzeWithModel("gemini-3-flash-preview", base64Image);
         } catch (err3) {
-            console.warn("⚠️ Gemini 3 (v3) agotado o con error. Saltando a Gemini 2.0...");
+            console.warn("⚠️ Gemini 3 (v3) agotado o con error. Saltando a Gemini 2.5 Flash...");
             
             // --- INTENTO 2: GEMINI 2.0 (Equilibrio entre velocidad y cuota) ---
             try {
                 return await analyzeWithModel("gemini-2.5-flash", base64Image);
             } catch (err2) {
-                console.warn("⚠️ Gemini 2.0 falló. Saltando al respaldo final Gemini 1.5...");
+                console.warn("⚠️ Gemini 2.5 falló. Saltando al respaldo final Gemini 2.5 Pro...");
                 
                 // --- INTENTO 3: GEMINI 1.5 (El modelo tanque, cuota masiva y estable) ---
                 try {
                     const finalTags = await analyzeWithModel("gemini-2.5-pro", base64Image);
-                    console.log("✅ Análisis completado con éxito mediante GeminiGemini 2.0 Pro.");
+                    console.log("✅ Análisis completado con éxito mediante GeminiGemini 2.5 Pro.");
                     return finalTags;
                 } catch (err1) {
                     console.error("❌ ERROR CRÍTICO: Todos los modelos de Google fallaron simultáneamente.");

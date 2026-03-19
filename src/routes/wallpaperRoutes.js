@@ -6,6 +6,7 @@ const Wallpaper = require('../models/Wallpaper');
 const User = require('../models/User');
 const { Expo } = require('expo-server-sdk');
 const { getAITags } = require('../services/aiService');
+const aiQueue = require('../services/aiQueue'); 
 
 let expo = new Expo();
 
@@ -378,18 +379,18 @@ router.get('/user/:id', async (req, res) => {
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
 
-// Subir Wallpaper (Entra como pendiente)
-// RUTA: SUBIR WALLPAPER (Con IA de etiquetas y contador automático)
+// RUTA: SUBIR WALLPAPER (Optimizada con Cola de IA Segura)
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
-        // 1. Validación de seguridad inicial
+        // 1. Validación de seguridad inicial: ¿Llegó el archivo?
         if (!req.file) {
             return res.status(400).json({ msg: 'No se recibió ninguna imagen' });
         }
 
         const { title, category } = req.body;
 
-        // 2. Procesar etiquetas básicas (Filtro de seguridad)
+        // 2. Procesar etiquetas básicas (Lo que el usuario escribió)
+        // Filtramos duplicados, espacios y convertimos a minúsculas
         let baseTags = title 
             ? title.split(',').map(tag => tag.trim().toLowerCase()).filter(t => t !== "") 
             : [];
@@ -398,6 +399,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             baseTags.push(category.toLowerCase());
         }
 
+        // 3. Crear el registro en MongoDB (Estado inicial: Pendiente)
         const newWallpaper = new Wallpaper({
             title: title || `Art by ${req.user.id.substring(0,5)}`,
             tags: baseTags,
@@ -406,40 +408,24 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             category: category || 'Otros',
             artist: req.user.id,
             status: 'pending',
-            isAITagged: false // Se marcará como true cuando la IA termine
+            isAITagged: false // La IA lo procesará luego desde la cola
         });
 
+        // 4. Guardar en DB y aumentar el contador del artista
         await newWallpaper.save();
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
-        // 5. RESPUESTA INSTANTÁNEA AL FRONTEND (UX Rápida)
+        // 5. RESPUESTA INSTANTÁNEA AL FRONTEND
+        // Esto permite que el usuario vea su subida rápido mientras la IA trabaja de fondo
         res.json(newWallpaper);
 
-        // 6. PROCESO EN SEGUNDO PLANO (Cerebro de IA Gemini)
-        (async () => {
-            try {
-                console.log(`🤖 Iniciando análisis de IA para: ${newWallpaper.title}`);
-                
-                // Llamamos al servicio de IA que creamos en aiService.js
-                const aiTags = await getAITags(req.file.path);
-                
-                if (aiTags && aiTags.length > 0) {
-
-                    const finalTags = [...new Set([...baseTags, ...aiTags])];
-                    await Wallpaper.findByIdAndUpdate(newWallpaper._id, { 
-                        $set: { 
-                            tags: finalTags, 
-                            isAITagged: true 
-                        } 
-                    });
-                    
-                    console.log(`✅ IA enriqueció con éxito el arte ID: ${newWallpaper._id}`);
-                }
-            } catch (aiError) {
-
-                console.error("⚠️ La IA de Google falló, pero el wallpaper se mantuvo a salvo.");
-            }
-        })();
+        // 6. ENVIAR A LA COLA DE PROCESAMIENTO IA (Sustituye al proceso masivo de antes)
+        // Mandamos el ID, la URL y las etiquetas base para que Gemini las enriquezca
+        aiQueue.addJob({
+            wallpaperId: newWallpaper._id,
+            imageUrl: req.file.path,
+            baseTags: baseTags
+        });
 
     } catch (err) {
         console.error("❌ Error crítico en la ruta de subida:", err);
