@@ -12,7 +12,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     
-    const isVideo = file.mimetype.startsWith('video');
+    const isVideo = file.mimetype.includes('video') || file.originalname.match(/\.(mp4|mov|webm)$|video/i);
     const folderName = file.fieldname === 'avatar' ? 'perfiles_app' : 'wallpapers_app';
 
     return {
