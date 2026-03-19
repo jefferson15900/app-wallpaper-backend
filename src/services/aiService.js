@@ -1,109 +1,85 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const Wallpaper = require("../models/Wallpaper");
 
-// Inicializamos el SDK con los modelos de nueva generación
+// Inicializamos el SDK con la llave guardada en Render
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
-// --- CONFIGURACIÓN DE LA COLA (QUEUE) ---
-const aiQueue = [];
-let isProcessing = false;
-
 /**
- * Función interna para llamar a los motores Gemini 2.0
+ * Función interna de apoyo para ejecutar el análisis con un modelo específico
+ * @param {string} modelName - Nombre técnico del modelo de Google
+ * @param {string} base64Image - Imagen convertida para la IA
+ * @returns {Promise<string[]>} - Lista de etiquetas procesadas
  */
 const analyzeWithModel = async (modelName, base64Image) => {
-    console.log(`📡 Consultando motor: ${modelName}...`);
+    console.log(`📡 Solicitando análisis a la IA: ${modelName}...`);
+    
     const model = genAI.getGenerativeModel({ model: modelName });
     
     const prompt = "Analiza esta imagen y devuelve exactamente 10 etiquetas (tags) descriptivas en español e inglés separadas por comas. Incluye el estilo artístico (ej: anime, realista, 3d, cyberpunk), los colores dominantes y los elementos clave del arte. Solo devuelve las etiquetas separadas por comas, sin explicaciones adicionales.";
+
     const result = await model.generateContent([
         prompt,
-        { inlineData: { data: base64Image, mimeType: "image/jpeg" } },
+        {
+            inlineData: {
+                data: base64Image,
+                mimeType: "image/jpeg",
+            },
+        },
     ]);
 
     const response = await result.response;
-    return response.text().split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 1);
+    const text = response.text();
+    
+    // Limpiamos la respuesta: convertimos a minúsculas, quitamos espacios y filtramos vacíos
+    return text.split(',')
+        .map(tag => tag.trim().toLowerCase())
+        .filter(tag => tag !== "" && tag.length > 1);
 };
 
 /**
- * TRIPLE FALLBACK: Solo usando la familia Gemini 2.0 (Activos 2025)
+ * Función Principal: TRIPLE FALLBACK (v3 -> v2 -> v1.5)
+ * @param {string} imageUrl - URL de Cloudinary para analizar
+ * @returns {Promise<string[]>} - Etiquetas finales
  */
-const getTagsFromAI = async (imageUrl) => {
-    try {
-        const response = await fetch(imageUrl);
-        const buffer = await response.arrayBuffer();
-        const base64Image = Buffer.from(buffer).toString("base64");
+const getAITags = async (imageUrl) => {
+    let base64Image = "";
 
-        // --- INTENTO 1: GEMINI 2.0 FLASH (El estándar de alta velocidad) ---
+    try {
+        // 1. Descargamos la imagen una sola vez para ahorrar ancho de banda
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error("Fallo al descargar imagen de Cloudinary");
+        
+        const buffer = await response.arrayBuffer();
+        base64Image = Buffer.from(buffer).toString("base64");
+
+        // --- INTENTO 1: GEMINI 3 (Máxima vanguardia, cuota limitada) ---
         try {
-            return await analyzeWithModel("gemini-2.0-flash", base64Image);
-        } catch (e1) {
-            console.warn("⚠️ 2.0 Flash saturado. Intentando con 2.0 Flash-Lite (Más capacidad)...");
+            return await analyzeWithModel("gemini-3-flash-preview", base64Image);
+        } catch (err3) {
+            console.warn("⚠️ Gemini 3 (v3) agotado o con error. Saltando a Gemini 2.0...");
             
-            // --- INTENTO 2: GEMINI 2.0 FLASH-LITE (Diseñado para mayor volumen de peticiones) ---
+            // --- INTENTO 2: GEMINI 2.0 (Equilibrio entre velocidad y cuota) ---
             try {
-                // Este modelo es el que Google recomienda para evitar el error 429
-                return await analyzeWithModel("gemini-2.0-flash-lite-preview-02-05", base64Image);
-            } catch (e2) {
-                console.warn("⚠️ Lite saturado. Usando Gemini 2.0 Pro como último recurso...");
+                return await analyzeWithModel("gemini-2.5-flash", base64Image);
+            } catch (err2) {
+                console.warn("⚠️ Gemini 2.0 falló. Saltando al respaldo final Gemini 1.5...");
                 
-                // --- INTENTO 3: GEMINI 2.0 PRO (El más inteligente por si todo falla) ---
+                // --- INTENTO 3: GEMINI 1.5 (El modelo tanque, cuota masiva y estable) ---
                 try {
-                    return await analyzeWithModel("gemini-2.0-pro-experimental-02-05", base64Image);
-                } catch (e3) {
-                    console.error("❌ Todos los modelos 2.0 fallaron. Google saturado.");
-                    return [];
+                    const finalTags = await analyzeWithModel("gemini-2.5-pro", base64Image);
+                    console.log("✅ Análisis completado con éxito mediante GeminiGemini 2.0 Pro.");
+                    return finalTags;
+                } catch (err1) {
+                    console.error("❌ ERROR CRÍTICO: Todos los modelos de Google fallaron simultáneamente.");
+                    console.error("Detalle del error final:", err1.message);
+                    return []; // Devolvemos vacío para que la app no se cuelgue
                 }
             }
         }
+
     } catch (error) {
-        console.error("❌ Error de descarga para IA:", error.message);
-        return [];
+        console.error("❌ Error en el proceso de descarga de imagen para IA:", error.message);
+        return []; 
     }
 };
 
-/**
- * PROCESADOR DE LA COLA (Ejecuta el análisis de IA uno por uno)
- * Esta función asegura que no se sature la RAM de Render ni la cuota de Google.
- */
-const processQueue = async () => {
-    if (isProcessing || aiQueue.length === 0) return;
-
-    isProcessing = true;
-
-    const { imageUrl, wallpaperId } = aiQueue.shift();
-
-    try {
-        console.log(`📦 [COLA IA] Iniciando: ${wallpaperId}. Pendientes en lista: ${aiQueue.length}`);
-        const aiTags = await getTagsFromAI(imageUrl);
-
-        if (aiTags && aiTags.length > 0) {
-            await Wallpaper.findByIdAndUpdate(wallpaperId, { 
-                $addToSet: { tags: { $each: aiTags } }, 
-                $set: { isAITagged: true } 
-            });
-            
-            console.log(`✅ [COLA IA] Enriquecido con éxito: ${wallpaperId}`);
-        } else {
-
-            await Wallpaper.findByIdAndUpdate(wallpaperId, { $set: { isAITagged: false } });
-            console.log(`⚠️ [COLA IA] No se generaron etiquetas nuevas para: ${wallpaperId}`);
-        }
-
-    } catch (err) {
-        console.error(`❌ [COLA IA] Error crítico procesando ${wallpaperId}:`, err.message);
-    } finally {
-        isProcessing = false;
-        setTimeout(processQueue, 3000); 
-    }
-};
-
-/**
- * FUNCIÓN PÚBLICA: Añade a la cola
- */
-const addToAIQueue = (imageUrl, wallpaperId) => {
-    aiQueue.push({ imageUrl, wallpaperId });
-    processQueue();
-};
-
-module.exports = { addToAIQueue };
+module.exports = { getAITags };
