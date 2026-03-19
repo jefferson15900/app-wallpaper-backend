@@ -252,16 +252,16 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // ======================================================
 
 // Obtener todos los wallpapers aprobados (Público)
-// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y PARA TI (ALEATORIA)
+// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
         const { search, category, limit = 10, page = 1, random } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
 
-        // --- CASO 1: BÚSQUEDA PROFESIONAL (Atlas Search) ---
+        // --- 🔍 CASO 1: BÚSQUEDA (Con Atlas Search) ---
         if (search && search.trim() !== '') {
-            const pipeline = [
+            let pipeline = [
                 {
                     $search: {
                         index: "default", 
@@ -275,13 +275,23 @@ router.get('/', async (req, res) => {
                 { $match: { status: 'approved' } }
             ];
 
+            // Filtro de categoría dentro de la búsqueda
             if (category && category !== 'Todos') {
                 pipeline.push({ $match: { category: category } });
             }
 
+            // 🎲 TRUCO DE ALEATORIEDAD EN LA BÚSQUEDA
+            // Si mandamos random=true, barajamos los resultados de la búsqueda
+            if (random === 'true') {
+                pipeline.push({ $sample: { size: parsedLimit } });
+            } else {
+                // Si no es random, usamos paginación normal (skip y limit)
+                pipeline.push({ $skip: skip });
+                pipeline.push({ $limit: parsedLimit });
+            }
+
+            // Unimos con la colección de usuarios para tener los datos del artista
             pipeline.push(
-                { $skip: skip },
-                { $limit: parsedLimit },
                 {
                     $lookup: {
                         from: 'users',
@@ -298,15 +308,14 @@ router.get('/', async (req, res) => {
             return res.json(searchResults);
         }
 
-        // --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE (Solo para "Para Ti") ---
-        // Solo se activa si el frontend envía ?random=true
+        // --- 🟢 CASO 2: ALEATORIEDAD PURA (Sección "Para Ti" o Descubrimiento sin texto) ---
         if (random === 'true') {
             let matchQuery = { status: 'approved' };
             if (category && category !== 'Todos') matchQuery.category = category;
 
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
-                { $sample: { size: parsedLimit } }, // 🎲 MONGODB ELIGE AL AZAR
+                { $sample: { size: parsedLimit } }, // 🎲 Selecciona N elementos al azar del total
                 {
                     $lookup: {
                         from: 'users',
@@ -322,22 +331,22 @@ router.get('/', async (req, res) => {
             return res.json(randomResults);
         }
 
-        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Pestaña Explorar / Categorías) ---
-        // SIEMPRE devuelve los más nuevos primero (createdAt: -1)
+        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Pestaña Explorar / Categorías por Fecha) ---
+        // Devuelve siempre los más nuevos primero (Cronológico)
         let query = { status: 'approved' };
         if (category && category !== 'Todos') query.category = category;
 
         const walls = await Wallpaper.find(query)
             .populate('artist', 'username profilePic isVerified')
-            .sort({ createdAt: -1 }) // <--- 🔑 ESTO GARANTIZA QUE LO NUEVO SALGA PRIMERO
+            .sort({ createdAt: -1 }) // 🔑 Garantiza que lo nuevo aparezca primero
             .skip(skip)
             .limit(parsedLimit);
 
         res.json(walls);
 
     } catch (err) {
-        console.error("Error en ruta principal:", err);
-        res.status(500).send('Error en el servidor');
+        console.error("❌ Error crítico en ruta principal:", err);
+        res.status(500).json({ msg: 'Error interno del servidor' });
     }
 });
 
