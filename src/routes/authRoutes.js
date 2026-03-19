@@ -407,8 +407,8 @@ router.put('/save-token', auth, async (req, res) => {
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 
-        latestVersion: "1.1.6", // El nombre de la versión
-        minVersionCode: 15,      // El versionCode que pusiste en app.json
+        latestVersion: "1.5.0", // El nombre de la versión
+        minVersionCode: 16,      // El versionCode que pusiste en app.json
         forceUpdate: true,      // Si es true, el usuario NO puede cerrar el aviso
         storeUrl: "https://play.google.com/store/apps/details?id=com.jefferson159.appwallpaper"
     });
