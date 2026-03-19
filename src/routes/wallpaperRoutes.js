@@ -313,6 +313,8 @@ router.get('/', async (req, res) => {
             let matchQuery = { status: 'approved' };
             if (category && category !== 'Todos') matchQuery.category = category;
 
+            if (type) matchQuery.type = type;
+            
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
                 { $sample: { size: parsedLimit } }, // 🎲 Selecciona N elementos al azar del total
