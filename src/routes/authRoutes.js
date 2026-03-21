@@ -64,7 +64,8 @@ router.post('/login', async (req, res) => {
                     id: user.id, 
                     username: user.username,
                     instagram: user.instagram,
-                    facebook: user.facebook 
+                    facebook: user.facebook,
+                    threads: user.threads 
                 } 
             });
         });
@@ -142,11 +143,11 @@ router.post('/google-register', async (req, res) => {
 
 // NUEVA RUTA: Actualizar redes sociales
 router.put('/update-social', auth, async (req, res) => {
-    const { instagram, facebook,  twitter, tiktok} = req.body;
+    const { instagram, facebook,  twitter, tiktok, threads} = req.body;
     try {
         const user = await User.findByIdAndUpdate(
             req.user.id,
-            { $set: { instagram, facebook, twitter, tiktok } },
+            { $set: { instagram, facebook, twitter, tiktok, threads } },
             { new: true }
         ).select('-password');
         
@@ -235,7 +236,7 @@ router.put('/follow/:id', auth, async (req, res) => {
 
 // ACTUALIZAR PERFIL COMPLETO (Username + Socials)
 router.put('/update-profile', auth, async (req, res) => {
-    const { username, bio, instagram, facebook, twitter, tiktok } = req.body;
+    const { username, bio, instagram, facebook, twitter, tiktok, threads } = req.body;
 
     try {
         // Verificar si el nuevo username ya existe (y no es el nuestro)
@@ -255,7 +256,8 @@ router.put('/update-profile', auth, async (req, res) => {
                     instagram: instagram || "", 
                     facebook: facebook || "", 
                     twitter: twitter || "", 
-                    tiktok: tiktok || "" 
+                    tiktok: tiktok || "",
+                    threads : threads || "" 
                 } 
             },
             { new: true }
