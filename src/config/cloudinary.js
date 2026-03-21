@@ -22,7 +22,7 @@ const storage = new CloudinaryStorage({
       // --- TRUCO DE COMPRESIÓN MÁGICA ---
       transformation: isVideo ? [
         { width: 1440, crop: "limit" }, // Resolución 2K máxima
-        { quality: "auto:eco" },        // 'eco' es mejor para ahorrar ancho de banda en video
+        { quality: "auto:good" },        // 'eco' es mejor para ahorrar ancho de banda en video
         { fetch_format: "auto" }        // Sirve WebM a Android para que pese 50% menos
       ] : [
         { width: 2500, crop: "limit" },
