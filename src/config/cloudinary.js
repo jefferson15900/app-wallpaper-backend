@@ -20,11 +20,13 @@ const storage = new CloudinaryStorage({
       resource_type: isVideo ? 'video' : 'image',
       allowed_formats: ['jpg', 'png', 'jpeg', 'mp4', 'mov', 'webm'],
       // --- TRUCO DE COMPRESIÓN MÁGICA ---
-      transformation: isVideo ? [
-        { width: 1440, crop: "limit" }, // Resolución 2K máxima
-        { quality: "auto:good" },        // 'eco' es mejor para ahorrar ancho de banda en video
-        { fetch_format: "auto" }        // Sirve WebM a Android para que pese 50% menos
-      ] : [
+transformation: isVideo ? [
+  { width: 1440, crop: "limit" }, 
+  { quality: "auto:good" },
+//  { effect: "unsharp_mask:100" }, // Opcional: mejora un poco la nitidez
+  { audio_codec: "none" },      // ⚡ EL TRUCO: Elimina la pista de audio por completo
+  { fetch_format: "auto" }
+] : [
         { width: 2500, crop: "limit" },
         { quality: "auto:best"},
         { fetch_format: "auto" }
