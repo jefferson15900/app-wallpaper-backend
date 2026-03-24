@@ -18,9 +18,11 @@ const UserSchema = new mongoose.Schema({
     bio: { type: String, default: "", maxLength: 60 },
     pushToken: { type: String, default: "" },
     lastNotificationSentAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now },
+    lastActiveAt: { type: Date, default: Date.now },
+    lastDownloadAt: {type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-   
 
 });
 module.exports = mongoose.model('User', UserSchema);

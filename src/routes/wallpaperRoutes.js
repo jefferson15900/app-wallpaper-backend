@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { Expo } = require('expo-server-sdk');
 const { getAITags } = require('../services/aiService');
 const aiQueue = require('../services/aiQueue'); 
+const Visitor = require('../models/Visitor');
 
 let expo = new Expo();
 
@@ -473,17 +474,51 @@ router.put('/like/:id', auth, async (req, res) => {
     }
 });
 
-
-// Contador de Descarga
+// RUTA: REGISTRAR DESCARGA Y RASTREAR RETENCIÓN
 router.put('/download/:id', async (req, res) => {
     try {
-        const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).send();
-        wallpaper.downloads += 1;
-        await wallpaper.save();
+        // 1. Incrementar el contador de descargas del wallpaper de forma atómica
+        const wallpaper = await Wallpaper.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { downloads: 1 } },
+            { new: true }
+        );
+
+        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+
+        // 2. LÓGICA DE RASTREO PARA ANALYTICS (RETENCIÓN)
+        const token = req.header('x-auth-token');
+        const deviceId = req.header('x-device-id'); // ID único del hardware enviado desde el frontend
+
+        // CASO A: Si el usuario está logueado, actualizamos su perfil
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                await User.findByIdAndUpdate(decoded.user.id, { 
+                    $set: { lastDownloadAt: new Date(), lastActiveAt: new Date() } 
+                });
+            } catch (e) {
+                // Token expirado o inválido: ignoramos el error para no bloquear la descarga
+            }
+        }
+
+        // CASO B: Rastrear por dispositivo (Para medir usuarios invitados y registrados por igual)
+        if (deviceId) {
+            await Visitor.findOneAndUpdate(
+                { deviceId },
+                { 
+                    $set: { lastDownloadAt: new Date(), lastActiveAt: new Date() },
+                    $setOnInsert: { createdAt: new Date() } 
+                },
+                { upsert: true } // Si no existe el dispositivo en la DB, lo crea
+            );
+        }
+
         res.json({ downloads: wallpaper.downloads });
+
     } catch (err) {
-        res.status(500).send('Error');
+        console.error("❌ Error en ruta de descarga:", err);
+        res.status(500).send('Error interno del servidor');
     }
 });
 

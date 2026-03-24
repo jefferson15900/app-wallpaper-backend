@@ -1,7 +1,8 @@
 const User = require('../models/User');
-const { Expo } = require('expo-server-sdk');
 const Wallpaper = require('../models/Wallpaper');
+const Visitor = require('../models/Visitor');
 const Feedback = require('../models/Feedback');
+const { Expo } = require('expo-server-sdk');
 const { cloudinary } = require('../config/cloudinary');
 const { getAITags } = require('../services/aiService');
 
@@ -218,41 +219,62 @@ exports.retryAITagging = async (req, res) => {
 // OBTENER ESTADÍSTICAS GLOBALES (SOLO ADMIN)
 exports.getDashboardStats = async (req, res) => {
     try {
-        // Ejecutamos varias consultas en paralelo para que sea ultra rápido
+        const now = new Date();
+        const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+        const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
+        const fourDaysAgo = new Date(now.getTime() - (4 * 24 * 60 * 60 * 1000));
+
         const [
             totalUsers,
+            newUsersWeek,
+            dau,
+            totalVisitors,
+            newVisitorsWeek,
             totalWallpapers,
             pendingWallpapers,
             totalDownloads,
             totalLikes,
-            statsByCategory
+            statsByCategory,
+            cohort
         ] = await Promise.all([
             User.countDocuments(),
+            User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+            Visitor.countDocuments({ lastActiveAt: { $gte: oneDayAgo } }),
+            Visitor.countDocuments(),
+            Visitor.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
             Wallpaper.countDocuments({ status: 'approved' }),
             Wallpaper.countDocuments({ status: 'pending' }),
-            
-            // Sumar todas las descargas de todos los wallpapers
             Wallpaper.aggregate([{ $group: { _id: null, total: { $sum: "$downloads" } } }]),
-            
-            // Contar total de likes (longitud de los arrays de likes)
             Wallpaper.aggregate([{ $project: { count: { $size: "$likes" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]),
-
-            // Wallpapers por categoría
-            Wallpaper.aggregate([
-                { $group: { _id: "$category", count: { $sum: 1 } } },
-                { $sort: { count: -1 } }
-            ])
+            Wallpaper.aggregate([{ $group: { _id: "$category", count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
+            Visitor.find({ lastDownloadAt: { $gte: fourDaysAgo, $lte: threeDaysAgo } })
         ]);
 
+        // Cálculo de Retención (Usuarios que descargaron hace 3-4 días y volvieron hoy)
+        const cohortSize = cohort.length;
+        const retained = cohort.filter(v => v.lastActiveAt >= oneDayAgo).length;
+        const retentionRate = cohortSize > 0 ? ((retained / cohortSize) * 100).toFixed(1) : 0;
+
         res.json({
-            users: totalUsers,
-            wallpapers: totalWallpapers,
-            pending: pendingWallpapers,
-            downloads: totalDownloads[0]?.total || 0,
-            likes: totalLikes[0]?.total || 0,
+            users: {
+                total: totalUsers,
+                newWeek: newUsersWeek,
+                dau: dau, 
+                totalVisitors: totalVisitors,
+                newVisitorsWeek: newVisitorsWeek
+            },
+            content: {
+                total: totalWallpapers,
+                pending: pendingWallpapers,
+                downloads: totalDownloads[0]?.total || 0,
+                likes: totalLikes[0]?.total || 0,
+                retention: retentionRate
+            },
             categories: statsByCategory
         });
     } catch (err) {
+        console.error("Error Stats:", err);
         res.status(500).json({ msg: 'Error al generar estadísticas' });
     }
 };

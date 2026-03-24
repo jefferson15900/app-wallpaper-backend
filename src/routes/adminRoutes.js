@@ -4,6 +4,22 @@ const auth = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 const adminController = require('../controllers/adminController');
 
+router.post('/ping', async (req, res) => {
+    const { deviceId } = req.body;
+    
+    if (!deviceId) return res.sendStatus(400);
+
+    try {
+        await Visitor.findOneAndUpdate(
+            { deviceId }, 
+            { $set: { lastActiveAt: new Date() } }, 
+            { upsert: true, new: true }
+        );
+        res.sendStatus(200);
+    } catch (err) {
+        res.sendStatus(500);
+    }
+});
 
 router.post('/broadcast', [auth, isAdmin], adminController.broadcast);
 router.put('/verify-user/:userId', [auth, isAdmin], adminController.verifyUser);
