@@ -214,3 +214,45 @@ exports.retryAITagging = async (req, res) => {
         res.status(500).json({ msg: 'Error interno al conectar con el servidor de IA' });
     }
 };
+
+// OBTENER ESTADÍSTICAS GLOBALES (SOLO ADMIN)
+exports.getDashboardStats = async (req, res) => {
+    try {
+        // Ejecutamos varias consultas en paralelo para que sea ultra rápido
+        const [
+            totalUsers,
+            totalWallpapers,
+            pendingWallpapers,
+            totalDownloads,
+            totalLikes,
+            statsByCategory
+        ] = await Promise.all([
+            User.countDocuments(),
+            Wallpaper.countDocuments({ status: 'approved' }),
+            Wallpaper.countDocuments({ status: 'pending' }),
+            
+            // Sumar todas las descargas de todos los wallpapers
+            Wallpaper.aggregate([{ $group: { _id: null, total: { $sum: "$downloads" } } }]),
+            
+            // Contar total de likes (longitud de los arrays de likes)
+            Wallpaper.aggregate([{ $project: { count: { $size: "$likes" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]),
+
+            // Wallpapers por categoría
+            Wallpaper.aggregate([
+                { $group: { _id: "$category", count: { $sum: 1 } } },
+                { $sort: { count: -1 } }
+            ])
+        ]);
+
+        res.json({
+            users: totalUsers,
+            wallpapers: totalWallpapers,
+            pending: pendingWallpapers,
+            downloads: totalDownloads[0]?.total || 0,
+            likes: totalLikes[0]?.total || 0,
+            categories: statsByCategory
+        });
+    } catch (err) {
+        res.status(500).json({ msg: 'Error al generar estadísticas' });
+    }
+};
