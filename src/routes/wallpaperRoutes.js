@@ -8,6 +8,7 @@ const { Expo } = require('expo-server-sdk');
 const { getAITags } = require('../services/aiService');
 const aiQueue = require('../services/aiQueue'); 
 const Visitor = require('../models/Visitor');
+const mongoose = require('mongoose'); 
 
 let expo = new Expo();
 
@@ -263,11 +264,23 @@ router.get('/', async (req, res) => {
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
 
-        // --- CONSTRUCCIÓN DEL FILTRO BASE ---
+        // --- 1. FILTRO BASE: Siempre aprobados ---
         let matchQuery = { status: 'approved' };
+        
         if (category && category !== 'Todos') matchQuery.category = category;
-        if (type) matchQuery.type = type;
-        if (artistId) matchQuery.artist = artistId; // 👈 LA CLAVE: Filtra por artista si se recibe el ID
+        if (type && type !== 'all') matchQuery.type = type;
+
+        // --- ⚡ LA CORRECCIÓN PARA EL PERFIL ---
+        if (artistId) {
+            // Convertimos el ID de texto a un ID de MongoDB real
+            try {
+                matchQuery.artist = new mongoose.Types.ObjectId(artistId);
+            } catch (e) {
+                return res.status(400).json({ msg: 'ID de artista inválido' });
+            }
+        }
+
+        
 
         // --- 🔍 CASO 1: BÚSQUEDA (Atlas Search) ---
         if (search && search.trim() !== '') {
