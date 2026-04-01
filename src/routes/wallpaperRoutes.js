@@ -257,11 +257,17 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
-        // --- 🔑 LA SOLUCIÓN: Agregamos 'type' a la extracción ---
-        const { search, category, limit = 10, page = 1, random, type } = req.query; 
+        // 1. Extraemos todos los filtros, incluyendo el nuevo artistId
+        const { search, category, limit = 10, page = 1, random, type, artistId } = req.query; 
         
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
+
+        // --- CONSTRUCCIÓN DEL FILTRO BASE ---
+        let matchQuery = { status: 'approved' };
+        if (category && category !== 'Todos') matchQuery.category = category;
+        if (type) matchQuery.type = type;
+        if (artistId) matchQuery.artist = artistId; // 👈 LA CLAVE: Filtra por artista si se recibe el ID
 
         // --- 🔍 CASO 1: BÚSQUEDA (Atlas Search) ---
         if (search && search.trim() !== '') {
@@ -276,17 +282,8 @@ router.get('/', async (req, res) => {
                         }
                     }
                 },
-                { $match: { status: 'approved' } }
+                { $match: matchQuery } // Aplicamos los filtros (categoría, tipo, artista) a la búsqueda
             ];
-
-            if (category && category !== 'Todos') {
-                pipeline.push({ $match: { category: category } });
-            }
-
-            // Filtro por tipo (Video o Imagen) si se solicita
-            if (type) {
-                pipeline.push({ $match: { type: type } });
-            }
 
             if (random === 'true') {
                 pipeline.push({ $sample: { size: parsedLimit } });
@@ -305,14 +302,8 @@ router.get('/', async (req, res) => {
             return res.json(searchResults);
         }
 
-        // --- 🟢 CASO 2: ALEATORIEDAD (Sección Live o Para Ti) ---
+        // --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Live / Descubrimiento) ---
         if (random === 'true') {
-            let matchQuery = { status: 'approved' };
-            if (category && category !== 'Todos') matchQuery.category = category;
-            
-            // FILTRO DE TIPO (Aquí es donde daba el error)
-            if (type) matchQuery.type = type; 
-
             const randomResults = await Wallpaper.aggregate([
                 { $match: matchQuery },
                 { $sample: { size: parsedLimit } }, 
@@ -324,12 +315,8 @@ router.get('/', async (req, res) => {
             return res.json(randomResults);
         }
 
-        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica) ---
-        let query = { status: 'approved' };
-        if (category && category !== 'Todos') query.category = category;
-        if (type) query.type = type; // Filtro de tipo para navegación normal
-
-        const walls = await Wallpaper.find(query)
+        // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
+        const walls = await Wallpaper.find(matchQuery)
             .populate('artist', 'username profilePic isVerified')
             .sort({ createdAt: -1 }) 
             .skip(skip)
