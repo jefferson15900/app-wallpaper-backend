@@ -18,8 +18,6 @@ exports.broadcast = async (req, res) => {
             pushToken: { $ne: "", $exists: true } 
         });
 
-        console.log(`Iniciando envío masivo a ${uniqueTokens.length} dispositivos únicos.`);
-
         if (uniqueTokens.length === 0) {
             return res.status(400).json({ msg: 'No hay dispositivos registrados para recibir notificaciones' });
         }

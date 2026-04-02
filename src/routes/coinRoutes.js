@@ -50,4 +50,39 @@ router.post('/unlock/:id', auth, async (req, res) => {
     }
 });
 
+// REGALO DIARIO 5 GEMAS
+router.post('/daily-reward', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const now = new Date();
+        const lastClaim = user.lastDailyRewardAt || new Date(0);
+
+        // Diferencia en milisegundos convertida a horas
+        const hoursPassed = (now - lastClaim) / (1000 * 60 * 60);
+
+        if (hoursPassed >= 24) {
+            user.coins = (user.coins || 0) + 5;
+            user.lastDailyRewardAt = now;
+            await user.save();
+            
+            return res.json({ 
+                success: true, 
+                msg: "¡Premio diario reclamado!", 
+                reward: 5, 
+                newBalance: user.coins 
+            });
+        }
+
+        // Si no han pasado 24h, enviamos cuánto tiempo falta
+        const hoursRemaining = Math.ceil(24 - hoursPassed);
+        res.status(400).json({ 
+            success: false, 
+            msg: `Vuelve en ${hoursRemaining} horas para más Gems.` 
+        });
+
+    } catch (err) {
+        res.status(500).send('Error en el premio diario');
+    }
+});
+
 module.exports = router;

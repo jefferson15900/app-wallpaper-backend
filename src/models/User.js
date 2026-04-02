@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
     isVerified: { type: Boolean, default: false },
     isVerificationPending: { type: Boolean, default: false },
     coins: { type: Number, default: 0 },
+    lastDailyRewardAt: { type: Date, default: null },
     unlockedWallpapers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallpaper' }],
     adsSeenToday: { type: Number, default: 0 }, 
     lastAdDate: { type: String, default: "" },    
