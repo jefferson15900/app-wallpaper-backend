@@ -346,7 +346,7 @@ if (random === 'true') {
             .sort({ createdAt: -1 }) 
             .skip(skip)
             .limit(parsedLimit)
-            .select('+price');
+            
 
         res.json(walls);
 
@@ -398,6 +398,8 @@ router.get('/user/:id', async (req, res) => {
 
 // RUTA: SUBIR WALLPAPER (Optimizada con Cola de IA Segura)
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
+
+    
     try {
         // 1. Validación de seguridad inicial: ¿Llegó el archivo?
         if (!req.file) {
@@ -414,7 +416,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' });
             return res.status(403).json({ msg: 'Acceso denegado: Solo el administrador puede subir Live Wallpapers' });
         }
-
+console.log("📦 Datos recibidos en el servidor:", req.body); 
         const { title, category , price} = req.body;
 
         // 2. Procesar etiquetas básicas del usuario
@@ -437,7 +439,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             type: isVideo ? 'video' : 'image',
             status: isVideo ? 'approved' : 'pending', // Videos de admin se aprueban automáticamente
             isAITagged: false, 
-            price: req.user.role === 'admin' ? parseInt(price || 0) : 0
+            price: user.role === 'admin' ? parseInt(price || 0) : 0
         });
 
         // 4. Guardar en DB y aumentar el contador del artista
