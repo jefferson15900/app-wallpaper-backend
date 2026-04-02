@@ -353,8 +353,9 @@ router.get('/artist/:artistId', async (req, res) => {
         // 1. Contamos cuántos hay en TOTAL en la base de datos
         const totalCount = await Wallpaper.countDocuments({ artist: req.params.artistId });
 
-        // 2. Buscamos solo los de la página actual
+        // 2. Buscamos los wallpapers e INCLUIMOS los datos del artista (FOTO, NOMBRE, ETC)
         const wallpapers = await Wallpaper.find({ artist: req.params.artistId })
+            .populate('artist', 'username profilePic isVerified') // 👈 SOLUCIÓN: Esto trae la foto para el icono
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -362,6 +363,7 @@ router.get('/artist/:artistId', async (req, res) => {
         // 3. Enviamos ambos datos
         res.json({ wallpapers, totalCount }); 
     } catch (err) {
+        console.error("Error al obtener perfil del artista:", err);
         res.status(500).send('Error al obtener perfil');
     }
 });
