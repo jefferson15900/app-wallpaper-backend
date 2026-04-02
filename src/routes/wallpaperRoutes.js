@@ -345,7 +345,8 @@ if (random === 'true') {
             .populate('artist', 'username profilePic isVerified')
             .sort({ createdAt: -1 }) 
             .skip(skip)
-            .limit(parsedLimit);
+            .limit(parsedLimit)
+            .select('+price');
 
         res.json(walls);
 
@@ -431,12 +432,12 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             tags: baseTags,
             imageUrl: req.file.path,
             public_id: req.file.filename,
-            price: req.user.role === 'admin' ? (price || 0) : 0,
             category: category || 'Otros',
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
             status: isVideo ? 'approved' : 'pending', // Videos de admin se aprueban automáticamente
-            isAITagged: false 
+            isAITagged: false, 
+            price: req.user.role === 'admin' ? parseInt(price || 0) : 0
         });
 
         // 4. Guardar en DB y aumentar el contador del artista
