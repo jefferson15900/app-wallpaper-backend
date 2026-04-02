@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, default: "artist" },
     isVerified: { type: Boolean, default: false },
     isVerificationPending: { type: Boolean, default: false },
+    coins: { type: Number, default: 0 },
     unlockedWallpapers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallpaper' }],
     adsSeenToday: { type: Number, default: 0 }, 
     lastAdDate: { type: String, default: "" },    

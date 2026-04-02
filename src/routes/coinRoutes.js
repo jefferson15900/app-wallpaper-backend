@@ -19,7 +19,7 @@ router.post('/claim-reward', auth, async (req, res) => {
         // Lógica de recompensa: 3 monedas los primeros 2 ads, luego 2
         const reward = user.adsSeenToday < 2 ? 3 : 2;
         
-        user.coins += reward;
+        user.coins = (user.coins || 0) + reward; 
         user.adsSeenToday += 1;
         
         await user.save();
