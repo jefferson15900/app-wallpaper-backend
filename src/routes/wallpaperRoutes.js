@@ -259,16 +259,18 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         // 1. Extraemos todos los filtros, incluyendo el nuevo artistId
-        const { search, category, limit = 10, page = 1, random, type, artistId } = req.query; 
+        const { search, category, limit = 10, page = 1, random, type, artistId, premium  } = req.query; 
         
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const parsedLimit = parseInt(limit);
 
         // --- 1. FILTRO BASE: Siempre aprobados ---
         let matchQuery = { status: 'approved' };
-        
         if (category && category !== 'Todos') matchQuery.category = category;
         if (type && type !== 'all') matchQuery.type = type;
+        if (premium === 'true') {
+              matchQuery.price = { $gt: 0 }; // Busca donde el precio sea mayor a 0
+            }
 
         // --- ⚡ LA CORRECCIÓN PARA EL PERFIL ---
         if (artistId) {
@@ -316,18 +318,28 @@ router.get('/', async (req, res) => {
         }
 
         // --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Live / Descubrimiento) ---
-        if (random === 'true') {
-            const randomResults = await Wallpaper.aggregate([
-                { $match: matchQuery },
-                { $sample: { size: parsedLimit } }, 
-                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-                { $unwind: '$artist' },
-                { $project: { 'artist.password': 0, 'artist.email': 0 } }
-            ]);
-            
-            return res.json(randomResults);
-        }
+if (random === 'true') {
+    let matchQuery = { status: 'approved' };
+    
+    if (category && category !== 'Todos') matchQuery.category = category;
+    if (type) matchQuery.type = type;
+    if (artistId) matchQuery.artist = new mongoose.Types.ObjectId(artistId);
 
+    // ⚡ ESTA LÍNEA ES LA CLAVE PARA LA PESTAÑA PREMIUM ALEATORIA
+    if (req.query.premium === 'true') {
+        matchQuery.price = { $gt: 0 }; // Solo wallpapers con precio > 0
+    }
+
+    const randomResults = await Wallpaper.aggregate([
+        { $match: matchQuery },
+        { $sample: { size: parsedLimit } }, // 🎲 Baraja los resultados
+        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+        { $unwind: '$artist' },
+        { $project: { 'artist.password': 0, 'artist.email': 0 } }
+    ]);
+    
+    return res.json(randomResults);
+}
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
         const walls = await Wallpaper.find(matchQuery)
             .populate('artist', 'username profilePic isVerified')
