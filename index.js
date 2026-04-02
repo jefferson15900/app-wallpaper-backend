@@ -76,6 +76,7 @@ app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
 app.use('/api/feedback', require('./src/routes/feedbackRoutes'));
+app.use('/api/coins', require('./src/routes/coinRoutes'));
 
 // Manejador de errores global
 app.use((err, req, res, next) => {

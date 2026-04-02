@@ -12,9 +12,10 @@ const WallpaperSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending'}, 
     isPremium: { type: Boolean, default: false }, 
     isAITagged: { type: Boolean, default: false },
-    type: { type: String, enum: ['image', 'video'], default: 'image' } 
-
+    type: { type: String, enum: ['image', 'video'], default: 'image' },
+    price: { type: Number, default: 0 }, 
 });
+
 WallpaperSchema.index({ status: 1, createdAt: -1 });
 WallpaperSchema.index({ category: 1 });
 WallpaperSchema.index({ artist: 1 });

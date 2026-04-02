@@ -393,7 +393,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
 
         // Detección de tipo de archivo
         const isVideo = req.file.mimetype.startsWith('video');
-
+        
         // SEGURIDAD: Solo el Administrador puede subir videos
         const user = await User.findById(req.user.id);
         if (isVideo && (!user || user.role !== 'admin')) {
@@ -402,7 +402,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             return res.status(403).json({ msg: 'Acceso denegado: Solo el administrador puede subir Live Wallpapers' });
         }
 
-        const { title, category } = req.body;
+        const { title, category , price} = req.body;
 
         // 2. Procesar etiquetas básicas del usuario
         let baseTags = title 
@@ -419,6 +419,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             tags: baseTags,
             imageUrl: req.file.path,
             public_id: req.file.filename,
+            price: req.user.role === 'admin' ? (price || 0) : 0,
             category: category || 'Otros',
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
