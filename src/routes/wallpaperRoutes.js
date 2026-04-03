@@ -318,21 +318,29 @@ router.get('/', async (req, res) => {
         }
 
         // --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Live / Descubrimiento) ---
+// --- 🟢 CASO 2: ALEATORIEDAD (Premium / Para Ti / Search Random) ---
 if (random === 'true') {
     let matchQuery = { status: 'approved' };
     
     if (category && category !== 'Todos') matchQuery.category = category;
-    if (type) matchQuery.type = type;
-    if (artistId) matchQuery.artist = new mongoose.Types.ObjectId(artistId);
+    if (type && type !== 'all') matchQuery.type = type;
+    
+    // Convertir artistId a ObjectId real para que el $match no falle
+    if (artistId) {
+        try {
+            const mongoose = require('mongoose');
+            matchQuery.artist = new mongoose.Types.ObjectId(artistId);
+        } catch (e) { /* ID inválido, ignoramos */ }
+    }
 
-    // ⚡ ESTA LÍNEA ES LA CLAVE PARA LA PESTAÑA PREMIUM ALEATORIA
+    // Filtro Premium
     if (req.query.premium === 'true') {
-        matchQuery.price = { $gt: 0 }; // Solo wallpapers con precio > 0
+        matchQuery.price = { $gt: 0 }; 
     }
 
     const randomResults = await Wallpaper.aggregate([
         { $match: matchQuery },
-        { $sample: { size: parsedLimit } }, // 🎲 Baraja los resultados
+        { $sample: { size: parsedLimit } }, // 🎲 Elegimos 12 al azar
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
         { $unwind: '$artist' },
         { $project: { 'artist.password': 0, 'artist.email': 0 } }
@@ -340,6 +348,8 @@ if (random === 'true') {
     
     return res.json(randomResults);
 }
+
+
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
         const walls = await Wallpaper.find(matchQuery)
             .populate('artist', 'username profilePic isVerified')
