@@ -21,6 +21,20 @@ router.post('/ping', async (req, res) => {
     }
 });
 
+// Una vez que lo uses, puedes borrar estas líneas.
+router.get('/fix-db-once', async (req, res) => {
+    try {
+        const Wallpaper = require('../models/Wallpaper');
+        const result = await Wallpaper.updateMany(
+            { type: { $exists: false } }, 
+            { $set: { type: "image" } }
+        );
+        res.send(`✅ Base de datos reparada. Wallpapers actualizados: ${result.modifiedCount}`);
+    } catch (err) {
+        res.status(500).send("Error: " + err.message);
+    }
+});
+
 router.post('/broadcast', [auth, isAdmin], adminController.broadcast);
 router.put('/verify-user/:userId', [auth, isAdmin], adminController.verifyUser);
 router.put('/reject-verification/:userId', [auth, isAdmin], adminController.rejectVerification);
