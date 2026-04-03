@@ -318,37 +318,60 @@ router.get('/', async (req, res) => {
         }
 
         // --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Live / Descubrimiento) ---
-// --- 🟢 CASO 2: ALEATORIEDAD (Premium / Para Ti / Search Random) ---
 if (random === 'true') {
-    let matchQuery = { status: 'approved' };
-    
+   
+    const matchQuery = { status: 'approved' };
+
     if (category && category !== 'Todos') matchQuery.category = category;
     if (type && type !== 'all') matchQuery.type = type;
     
-    // Convertir artistId a ObjectId real para que el $match no falle
-    if (artistId) {
-        try {
-            const mongoose = require('mongoose');
-            matchQuery.artist = new mongoose.Types.ObjectId(artistId);
-        } catch (e) { /* ID inválido, ignoramos */ }
-    }
-
-    // Filtro Premium
+    // Filtro Premium: Solo wallpapers con costo
     if (req.query.premium === 'true') {
         matchQuery.price = { $gt: 0 }; 
     }
 
+    // Filtro por Artista (con validación de ID para evitar errores de servidor)
+    if (artistId) {
+        try {
+            matchQuery.artist = new mongoose.Types.ObjectId(artistId);
+        } catch (e) {
+            return res.status(400).json({ msg: 'ID de artista no válido' });
+        }
+    }
     const randomResults = await Wallpaper.aggregate([
         { $match: matchQuery },
-        { $sample: { size: parsedLimit } }, // 🎲 Elegimos 12 al azar
-        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-        { $unwind: '$artist' },
-        { $project: { 'artist.password': 0, 'artist.email': 0 } }
-    ]);
-    
-    return res.json(randomResults);
-}
+        
+        // 🎲 Shuffler: $sample es muy rápido para colecciones grandes
+        { $sample: { size: parsedLimit } }, 
 
+        // Unir con la colección de usuarios
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'artist',
+                foreignField: '_id',
+                as: 'artist'
+            }
+        },
+        { $unwind: '$artist' },
+
+        {
+            $project: {
+                'artist.password': 0,
+                'artist.email': 0,
+                'artist.pushToken': 0,
+                'artist.lastActiveAt': 0
+            }
+        }
+    ]);
+
+    const sanitizedResults = randomResults.map(item => ({
+        ...item,
+        price: item.price || 0
+    }));
+    
+    return res.json(sanitizedResults);
+}
 
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
         const walls = await Wallpaper.find(matchQuery)
