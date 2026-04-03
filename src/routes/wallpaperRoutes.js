@@ -645,7 +645,7 @@ router.get('/tags/trending', async (req, res) => {
             { $match: { tags: { $nin: excludedTags } } },
             { $group: { _id: "$tags", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
-            { $limit: 10 }
+            { $limit: 30 }
         ]);
 
         const tagsOnly = result.map(tag => tag._id);
