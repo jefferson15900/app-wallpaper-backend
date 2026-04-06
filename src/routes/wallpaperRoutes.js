@@ -317,20 +317,20 @@ router.get('/', async (req, res) => {
             return res.json(searchResults);
         }
 
-        // --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Live / Descubrimiento) ---
+
+// --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Premium / Descubrimiento) ---
 if (random === 'true') {
-   
+    const { exclude } = req.query; // 👈 Recibimos los IDs que ya tiene el frontend
     const matchQuery = { status: 'approved' };
 
+    // 1. Filtros existentes
     if (category && category !== 'Todos') matchQuery.category = category;
     if (type && type !== 'all') matchQuery.type = type;
     
-    // Filtro Premium: Solo wallpapers con costo
     if (req.query.premium === 'true') {
         matchQuery.price = { $gt: 0 }; 
     }
 
-    // Filtro por Artista (con validación de ID para evitar errores de servidor)
     if (artistId) {
         try {
             matchQuery.artist = new mongoose.Types.ObjectId(artistId);
@@ -338,13 +338,23 @@ if (random === 'true') {
             return res.status(400).json({ msg: 'ID de artista no válido' });
         }
     }
+
+    // 2. 🛡️ FILTRO DE EXCLUSIÓN (LA SOLUCIÓN AL BUG)
+    // Si el frontend envía IDs, le decimos a MongoDB: "No elijas ninguno de estos"
+    if (exclude && exclude !== '') {
+        const excludeIds = exclude.split(',')
+            .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .map(id => new mongoose.Types.ObjectId(id));
+            
+        matchQuery._id = { $nin: excludeIds }; 
+    }
+
     const randomResults = await Wallpaper.aggregate([
         { $match: matchQuery },
         
-        // 🎲 Shuffler: $sample es muy rápido para colecciones grandes
+        // 🎲 $sample elegirá imágenes al azar de entre las que NO están excluidas
         { $sample: { size: parsedLimit } }, 
 
-        // Unir con la colección de usuarios
         {
             $lookup: {
                 from: 'users',
@@ -372,6 +382,7 @@ if (random === 'true') {
     
     return res.json(sanitizedResults);
 }
+
 
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
         const walls = await Wallpaper.find(matchQuery)
