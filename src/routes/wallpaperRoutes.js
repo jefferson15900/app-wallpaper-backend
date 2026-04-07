@@ -641,33 +641,36 @@ router.get('/tags/trending', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Si el caché es de hoy, respondemos de inmediato sin tocar la base de datos
         if (trendingTagsCache.length > 0 && lastTagsUpdate === today) {
             return res.json(trendingTagsCache);
         }
      
-        const excludedTags = ['espacio', 'autos', 'abstracto', 'otros', 'live', 'general'];
+        const excludedTags = ['espacio', 'autos', 'abstracto', 'otros', 'live', 'general', '', ' '];
 
-        // 2. Si es un día nuevo, hacemos el cálculo pesado una sola vez
-        console.log("📊 Calculando nuevas tendencias de hashtags...");
         const result = await Wallpaper.aggregate([
             { $match: { status: 'approved' } },
             { $unwind: "$tags" },
-            { $match: { tags: { $nin: excludedTags } } },
-            { $group: { _id: "$tags", count: { $sum: 1 } } },
+            // 🛡️ NORMALIZACIÓN: Pasamos a minúsculas y quitamos espacios en blanco
+            { 
+                $project: { 
+                    cleanTag: { $trim: { input: { $toLower: "$tags" } } } 
+                } 
+            },
+            // Filtramos las etiquetas que no queremos y las vacías
+            { $match: { cleanTag: { $nin: excludedTags } } },
+            // Agrupamos por la etiqueta limpia
+            { $group: { _id: "$cleanTag", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 30 }
         ]);
 
         const tagsOnly = result.map(tag => tag._id);
 
-        // 3. Guardamos en el caché
         trendingTagsCache = tagsOnly;
         lastTagsUpdate = today;
 
         res.json(tagsOnly);
     } catch (err) {
-        console.error("Error en tags:", err);
         res.status(500).send('Error');
     }
 });
