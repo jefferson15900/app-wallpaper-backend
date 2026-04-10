@@ -255,7 +255,6 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 
 // Obtener todos los wallpapers aprobados (Público)
 // RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
-// RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
         // 1. Extraemos todos los filtros, incluyendo el nuevo artistId
@@ -318,43 +317,69 @@ router.get('/', async (req, res) => {
         }
 
 
-// --- 🟢 CASO 2: ALEATORIEDAD (Para Ti / Premium / Descubrimiento) ---
+// --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE (Para Ti / Descubrimiento) ---
 if (random === 'true') {
-    const { exclude } = req.query; // 👈 Recibimos los IDs que ya tiene el frontend
-    const matchQuery = { status: 'approved' };
+    const { priority, exclude, category, type, artistId, premium } = req.query;
+    const parsedLimit = parseInt(req.query.limit) || 14;
 
-    // 1. Filtros existentes
-    if (category && category !== 'Todos') matchQuery.category = category;
-    if (type && type !== 'all') matchQuery.type = type;
+    // 1. CONSTRUIR FILTRO BASE (Seguridad y filtros comunes)
+    let baseMatch = { status: 'approved' };
     
-    if (req.query.premium === 'true') {
-        matchQuery.price = { $gt: 0 }; 
+    if (category && category !== 'Todos') baseMatch.category = category;
+    if (type && type !== 'all') baseMatch.type = type;
+    if (premium === 'true') baseMatch.price = { $gt: 0 };
+    
+    if (artistId && mongoose.Types.ObjectId.isValid(artistId)) {
+        baseMatch.artist = new mongoose.Types.ObjectId(artistId);
     }
 
-    if (artistId) {
-        try {
-            matchQuery.artist = new mongoose.Types.ObjectId(artistId);
-        } catch (e) {
-            return res.status(400).json({ msg: 'ID de artista no válido' });
-        }
-    }
-
-    // 2. 🛡️ FILTRO DE EXCLUSIÓN (LA SOLUCIÓN AL BUG)
-    // Si el frontend envía IDs, le decimos a MongoDB: "No elijas ninguno de estos"
+    // 🛡️ Aplicar exclusión de IDs que el usuario ya tiene en pantalla
     if (exclude && exclude !== '') {
         const excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
             .map(id => new mongoose.Types.ObjectId(id));
             
-        matchQuery._id = { $nin: excludeIds }; 
+        baseMatch._id = { $nin: excludeIds }; 
     }
 
-    const randomResults = await Wallpaper.aggregate([
-        { $match: matchQuery },
-        
-        // 🎲 $sample elegirá imágenes al azar de entre las que NO están excluidas
-        { $sample: { size: parsedLimit } }, 
+    let pipeline = [];
 
+    // 🧠 2. LÓGICA DE PRIORIDAD (Aprendizaje del gusto del usuario)
+    // Solo aplicamos la mezcla 70/30 si hay una prioridad y NO estamos filtrando por una categoría fija
+    if (priority && priority !== 'Todos' && (!category || category === 'Todos')) {
+        const priorityLimit = Math.floor(parsedLimit * 0.7); // 70% de lo que le gusta
+        const discoveryLimit = parsedLimit - priorityLimit;  // 30% de cosas nuevas
+
+        pipeline.push({
+            $facet: {
+                "priorityBlock": [
+                    { $match: { ...baseMatch, category: priority } },
+                    { $sample: { size: priorityLimit } }
+                ],
+                "discoveryBlock": [
+                    { $match: { ...baseMatch, category: { $ne: priority } } },
+                    { $sample: { size: discoveryLimit } }
+                ]
+            }
+        });
+
+        // Unir ambos bloques y mezclar el orden final
+        pipeline.push(
+            { $project: { combined: { $concatArrays: ["$priorityBlock", "$discoveryBlock"] } } },
+            { $unwind: "$combined" },
+            { $replaceRoot: { newRoot: "$combined" } },
+            { $sample: { size: parsedLimit } } 
+        );
+    } else {
+        // Si no hay perfil de intereses o ya hay un filtro manual, hacemos random normal
+        pipeline.push(
+            { $match: baseMatch },
+            { $sample: { size: parsedLimit } }
+        );
+    }
+
+    // 👤 3. UNIR CON DATOS DEL ARTISTA (Lookup)
+    pipeline.push(
         {
             $lookup: {
                 from: 'users',
@@ -364,7 +389,6 @@ if (random === 'true') {
             }
         },
         { $unwind: '$artist' },
-
         {
             $project: {
                 'artist.password': 0,
@@ -373,9 +397,12 @@ if (random === 'true') {
                 'artist.lastActiveAt': 0
             }
         }
-    ]);
+    );
 
-    const sanitizedResults = randomResults.map(item => ({
+    const results = await Wallpaper.aggregate(pipeline);
+
+    // Limpieza final de datos
+    const sanitizedResults = results.map(item => ({
         ...item,
         price: item.price || 0
     }));
