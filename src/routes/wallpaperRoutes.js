@@ -354,11 +354,12 @@ if (search && search.trim() !== '') {
 
 
 // --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE MULTI-CATEGORÍA (Para Ti / Descubrimiento) ---
+// --- 🟢 CASO 2: MOTOR DE RECOMENDACIÓN HÍBRIDO (50% Tags / 30% Cat / 20% Random) ---
 if (random === 'true') {
-    const { priority, exclude, category, type, artistId, premium } = req.query;
+    const { tags, priority, exclude, category, type, artistId, premium } = req.query;
     const parsedLimit = parseInt(req.query.limit) || 14;
 
-    // 1. CONSTRUIR FILTRO BASE (Seguridad y filtros comunes)
+    // 1. CONSTRUIR FILTRO BASE (Seguridad y filtros globales)
     let baseMatch = { status: 'approved' };
     
     if (category && category !== 'Todos') baseMatch.category = category;
@@ -369,7 +370,7 @@ if (random === 'true') {
         baseMatch.artist = new mongoose.Types.ObjectId(artistId);
     }
 
-    // 🛡️ Aplicar exclusión de IDs que el usuario ya tiene en pantalla
+    // 🛡️ Exclusión de IDs ya vistos
     if (exclude && exclude !== '') {
         const excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
@@ -378,70 +379,65 @@ if (random === 'true') {
         baseMatch._id = { $nin: excludeIds }; 
     }
 
-    // 🎯 PREPARAR LISTA DE PRIORIDADES (Convertir "Anime,Autos,Dark" en Array)
+    // 🎯 PREPARAR ADN DEL USUARIO
+    const userTags = tags ? tags.split(',').map(t => t.trim().toLowerCase()) : [];
     const priorityArray = priority && priority !== 'Todos' ? priority.split(',') : [];
 
     let pipeline = [];
 
-    // 🧠 2. LÓGICA DE PRIORIDAD MULTI-CANAL (70% Favoritos / 30% Descubrimiento)
-    if (priorityArray.length > 0 && (!category || category === 'Todos')) {
-        const priorityLimit = Math.floor(parsedLimit * 0.7); 
-        const discoveryLimit = parsedLimit - priorityLimit;
+    // 🧠 LÓGICA DE MEZCLA HÍBRIDA (Solo si no hay un filtro manual de categoría/búsqueda)
+    if ((userTags.length > 0 || priorityArray.length > 0) && (!category || category === 'Todos')) {
+        
+        // Calculamos los límites de cada bloque según los porcentajes (50/30/20)
+        const limitTags = Math.ceil(parsedLimit * 0.5);      // 50%
+        const limitCats = Math.ceil(parsedLimit * 0.3);      // 30%
+        const limitDiscovery = parsedLimit - limitTags - limitCats; // 20% (Resto)
 
         pipeline.push({
             $facet: {
-                // Bloque A: Mix de tus categorías favoritas
-                "priorityBlock": [
-                    { $match: { ...baseMatch, category: { $in: priorityArray } } },
-                    { $sample: { size: priorityLimit } }
+                // 💎 BLOQUE 1: ADN VISUAL (50%) - Coincidencia de Tags en cualquier categoría
+                "tagBlock": [
+                    { $match: { ...baseMatch, tags: { $in: userTags } } },
+                    { $sample: { size: limitTags } }
                 ],
-                // Bloque B: Descubrimiento (Cualquier cosa que NO esté en tus favoritos)
+                // 📂 BLOQUE 2: GÉNERO FAVORITO (30%) - Misma categoría líder
+                "catBlock": [
+                    { $match: { ...baseMatch, category: { $in: priorityArray } } },
+                    { $sample: { size: limitCats } }
+                ],
+                // 🌍 BLOQUE 3: DESCUBRIMIENTO (20%) - Algo totalmente diferente
                 "discoveryBlock": [
-                    { $match: { ...baseMatch, category: { $nin: priorityArray } } },
-                    { $sample: { size: discoveryLimit } }
+                    { $match: { ...baseMatch, category: { $nin: priorityArray }, tags: { $nin: userTags } } },
+                    { $sample: { size: limitDiscovery } }
                 ]
             }
         });
 
-        // Unir ambos bloques y mezclar el orden final para que no salgan por grupos
+        // Fusionar los 3 bloques y barajar el resultado final para que sea orgánico
         pipeline.push(
-            { $project: { combined: { $concatArrays: ["$priorityBlock", "$discoveryBlock"] } } },
+            { $project: { combined: { $concatArrays: ["$tagBlock", "$catBlock", "$discoveryBlock"] } } },
             { $unwind: "$combined" },
             { $replaceRoot: { newRoot: "$combined" } },
             { $sample: { size: parsedLimit } } 
         );
+
     } else {
-        // Si no hay prioridades o es una búsqueda específica, hacemos random normal
+        // Fallback: Si el usuario es nuevo o eligió una categoría fija, hacemos random normal
         pipeline.push(
             { $match: baseMatch },
             { $sample: { size: parsedLimit } }
         );
     }
 
-    // 👤 3. UNIR CON DATOS DEL ARTISTA (Lookup)
+    // 👤 UNIR CON DATOS DEL ARTISTA
     pipeline.push(
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'artist',
-                foreignField: '_id',
-                as: 'artist'
-            }
-        },
+        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
         { $unwind: '$artist' },
-        {
-            $project: {
-                'artist.password': 0,
-                'artist.email': 0,
-                'artist.pushToken': 0,
-                'artist.lastActiveAt': 0
-            }
-        }
+        { $project: { 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0, 'artist.lastActiveAt': 0 } }
     );
 
     const results = await Wallpaper.aggregate(pipeline);
 
-    // Limpieza final de datos para el frontend
     const sanitizedResults = results.map(item => ({
         ...item,
         price: item.price || 0
