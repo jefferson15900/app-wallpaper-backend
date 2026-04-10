@@ -283,38 +283,74 @@ router.get('/', async (req, res) => {
 
         
 
-        // --- 🔍 CASO 1: BÚSQUEDA (Atlas Search) ---
-        if (search && search.trim() !== '') {
-            let pipeline = [
-                {
-                    $search: {
-                        index: "default", 
-                        text: {
-                            query: search,
-                            path: ["title", "tags"],
-                            fuzzy: { maxEdits: 1 } 
-                        }
-                    }
-                },
-                { $match: matchQuery } // Aplicamos los filtros (categoría, tipo, artista) a la búsqueda
-            ];
+     
+// --- 🔍 CASO 1: BÚSQUEDA (Atlas Search + Aleatoriedad Inteligente) ---
+if (search && search.trim() !== '') {
+    const { exclude } = req.query;
+    const parsedLimit = parseInt(req.query.limit) || 14;
 
-            if (random === 'true') {
-                pipeline.push({ $sample: { size: parsedLimit } });
-            } else {
-                pipeline.push({ $skip: skip });
-                pipeline.push({ $limit: parsedLimit });
+    // 1. Procesar IDs a excluir para evitar duplicados en el scroll
+    let excludeIds = [];
+    if (exclude && exclude !== '') {
+        excludeIds = exclude.split(',')
+            .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .map(id => new mongoose.Types.ObjectId(id));
+    }
+
+    // 2. Construir el Pipeline de Atlas Search
+    let pipeline = [
+        {
+            $search: {
+                index: "default", 
+                text: {
+                    query: search,
+                    path: ["title", "tags"],
+                    fuzzy: { maxEdits: 1 } 
+                }
             }
-
-            pipeline.push(
-                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-                { $unwind: '$artist' },
-                { $project: { 'artist.password': 0, 'artist.email': 0 } }
-            );
-
-            const searchResults = await Wallpaper.aggregate(pipeline);
-            return res.json(searchResults);
         }
+    ];
+
+    // 🛡️ 3. FILTRADO POST-BÚSQUEDA (Categoría, Tipo Y EXCLUSIÓN)
+    let finalMatch = { ...matchQuery }; // Trae status: 'approved' y otros filtros previos
+    if (excludeIds.length > 0) {
+        finalMatch._id = { $nin: excludeIds }; // No traer lo que ya está en pantalla
+    }
+    pipeline.push({ $match: finalMatch });
+
+    // 🎲 4. ALEATORIEDAD vs PAGINACIÓN
+    if (req.query.random === 'true') {
+        // El secreto: $sample elige X cantidad al azar de los resultados filtrados
+        pipeline.push({ $sample: { size: parsedLimit } });
+    } else {
+        // Si no es random, usamos orden por relevancia (score de búsqueda)
+        pipeline.push({ $skip: skip });
+        pipeline.push({ $limit: parsedLimit });
+    }
+
+    // 👤 5. UNIR CON ARTISTA Y LIMPIAR DATOS
+    pipeline.push(
+        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+        { $unwind: '$artist' },
+        { 
+            $project: { 
+                'artist.password': 0, 
+                'artist.email': 0, 
+                'artist.pushToken': 0 
+            } 
+        }
+    );
+
+    const searchResults = await Wallpaper.aggregate(pipeline);
+    
+    // Asegurar que el precio siempre sea un número para el frontend
+    const sanitizedResults = searchResults.map(item => ({
+        ...item,
+        price: item.price || 0
+    }));
+
+    return res.json(sanitizedResults);
+}
 
 
 // --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE (Para Ti / Descubrimiento) ---
