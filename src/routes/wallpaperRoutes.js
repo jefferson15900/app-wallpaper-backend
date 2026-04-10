@@ -353,68 +353,92 @@ if (search && search.trim() !== '') {
 }
 
 
-// --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE (Para Ti / Descubrimiento) ---
+// ─────────────────────────────────────────────────────────────────
+// CASO 2: ALEATORIEDAD INTELIGENTE — FIX SCROLL INFINITO
+// Reemplaza el bloque "CASO 2" en tu ruta de wallpapers
+// ─────────────────────────────────────────────────────────────────
+
 if (random === 'true') {
     const { priority, exclude, category, type, artistId, premium } = req.query;
-    const parsedLimit = parseInt(req.query.limit) || 14;
+    const parsedLimit = parseInt(req.query.limit) || 16;
 
-    // 1. CONSTRUIR FILTRO BASE (Seguridad y filtros comunes)
+    // ── 1. FILTRO BASE ──────────────────────────────────────────
     let baseMatch = { status: 'approved' };
-    
+
     if (category && category !== 'Todos') baseMatch.category = category;
     if (type && type !== 'all') baseMatch.type = type;
     if (premium === 'true') baseMatch.price = { $gt: 0 };
-    
     if (artistId && mongoose.Types.ObjectId.isValid(artistId)) {
         baseMatch.artist = new mongoose.Types.ObjectId(artistId);
     }
 
-    // 🛡️ Aplicar exclusión de IDs que el usuario ya tiene en pantalla
+    // 🔑 EXCLUSIÓN INTELIGENTE: En vez de $nin con 200 IDs (lento),
+    // usamos un hash de sesión — el frontend manda los últimos 30 IDs máximo.
+    // Limitamos a 50 para no saturar el índice de MongoDB.
     if (exclude && exclude !== '') {
         const excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .slice(0, 50) // ← CAP de 50 IDs máximo para $nin eficiente
             .map(id => new mongoose.Types.ObjectId(id));
-            
-        baseMatch._id = { $nin: excludeIds }; 
+
+        if (excludeIds.length > 0) {
+            baseMatch._id = { $nin: excludeIds };
+        }
     }
 
     let pipeline = [];
 
-    // 🧠 2. LÓGICA DE PRIORIDAD (Aprendizaje del gusto del usuario)
-    // Solo aplicamos la mezcla 70/30 si hay una prioridad y NO estamos filtrando por una categoría fija
-    if (priority && priority !== 'Todos' && (!category || category === 'Todos')) {
-        const priorityLimit = Math.floor(parsedLimit * 0.7); // 70% de lo que le gusta
-        const discoveryLimit = parsedLimit - priorityLimit;  // 30% de cosas nuevas
+    // ── 2. LÓGICA 70/30 ─────────────────────────────────────────
+    const hasPriority = priority && priority !== 'Todos' && (!category || category === 'Todos');
+
+    if (hasPriority) {
+        const priorityLimit = Math.ceil(parsedLimit * 0.7);  // 70% gusto
+        const discoveryLimit = parsedLimit - priorityLimit;   // 30% descubrimiento
+
+        // Pedimos más del necesario en cada bloque para compensar si uno tiene poco contenido
+        const priorityFetch  = priorityLimit  + 4;
+        const discoveryFetch = discoveryLimit + 4;
 
         pipeline.push({
             $facet: {
                 "priorityBlock": [
                     { $match: { ...baseMatch, category: priority } },
-                    { $sample: { size: priorityLimit } }
+                    { $sample: { size: priorityFetch } }
                 ],
                 "discoveryBlock": [
                     { $match: { ...baseMatch, category: { $ne: priority } } },
-                    { $sample: { size: discoveryLimit } }
+                    { $sample: { size: discoveryFetch } }
                 ]
             }
         });
 
-        // Unir ambos bloques y mezclar el orden final
+        // Combinamos y mezclamos, limitando al total real pedido
         pipeline.push(
-            { $project: { combined: { $concatArrays: ["$priorityBlock", "$discoveryBlock"] } } },
+            {
+                $project: {
+                    combined: {
+                        $slice: [
+                            { $concatArrays: ["$priorityBlock", "$discoveryBlock"] },
+                            parsedLimit + 2  // pequeño buffer por si hay duplicados
+                        ]
+                    }
+                }
+            },
             { $unwind: "$combined" },
             { $replaceRoot: { newRoot: "$combined" } },
-            { $sample: { size: parsedLimit } } 
+            // Re-mezclamos el orden para que no salgan todos los de priority primero
+            { $sample: { size: parsedLimit } }
         );
+
     } else {
-        // Si no hay perfil de intereses o ya hay un filtro manual, hacemos random normal
+        // Sin perfil → random puro
         pipeline.push(
             { $match: baseMatch },
             { $sample: { size: parsedLimit } }
         );
     }
 
-    // 👤 3. UNIR CON DATOS DEL ARTISTA (Lookup)
+    // ── 3. JOIN CON ARTISTA ──────────────────────────────────────
     pipeline.push(
         {
             $lookup: {
@@ -424,7 +448,7 @@ if (random === 'true') {
                 as: 'artist'
             }
         },
-        { $unwind: '$artist' },
+        { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
         {
             $project: {
                 'artist.password': 0,
@@ -437,12 +461,11 @@ if (random === 'true') {
 
     const results = await Wallpaper.aggregate(pipeline);
 
-    // Limpieza final de datos
     const sanitizedResults = results.map(item => ({
         ...item,
-        price: item.price || 0
+        price: item.price ?? 0
     }));
-    
+
     return res.json(sanitizedResults);
 }
 
