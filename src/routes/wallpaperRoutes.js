@@ -281,7 +281,6 @@ router.get('/', async (req, res) => {
             }
         }
 
-        
 
      
 // ─────────────────────────────────────────────────────────────────
@@ -588,18 +587,28 @@ console.log("📦 Datos recibidos en el servidor:", req.body);
 router.put('/like/:id', auth, async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
+        const user = await User.findById(req.user.id);
+        const wallpaperId = req.params.id;
 
         if (wallpaper.likes.includes(req.user.id)) {
+
             wallpaper.likes = wallpaper.likes.filter(id => id.toString() !== req.user.id);
+            user.likedWallpapers = user.likedWallpapers.filter(id => id.toString() !== wallpaperId);
         } else {
+        
             wallpaper.likes.push(req.user.id);
+            user.likedWallpapers.push(wallpaperId);
         }
 
         await wallpaper.save();
-        res.json(wallpaper.likes);
+        await user.save();
+
+        res.json({ 
+            likesCount: wallpaper.likes.length, 
+            isLiked: user.likedWallpapers.includes(wallpaperId) 
+        });
     } catch (err) {
-        res.status(500).send('Error en el Like');
+        res.status(500).send('Error en el sistema de Likes');
     }
 });
 
@@ -742,4 +751,51 @@ router.get('/tags/trending', async (req, res) => {
     }
 });
 
-module.exports = router;
+
+// --- RUTA: GUARDAR O QUITAR DE FAVORITOS (COLECCIÓN PRIVADA) ---
+router.put('/save/:id', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const wallpaperId = req.params.id;
+
+        // Verificar si ya está guardado
+        const isSaved = user.savedWallpapers.includes(wallpaperId);
+
+        if (isSaved) {
+            // Si ya existe, lo quitamos (Unsave)
+            user.savedWallpapers = user.savedWallpapers.filter(
+                (id) => id.toString() !== wallpaperId
+            );
+        } else {
+            // Si no existe, lo agregamos (Save)
+            user.savedWallpapers.push(wallpaperId);
+        }
+
+        await user.save();
+        
+        res.json({ 
+            msg: isSaved ? 'Quitado de guardados' : 'Guardado en tu colección', 
+            savedCount: user.savedWallpapers.length,
+            isSaved: !isSaved 
+        });
+    } catch (err) {
+        res.status(500).send('Error al procesar la colección');
+    }
+});
+
+// --- RUTA: OBTENER TODOS MIS GUARDADOS (Para la pestaña de Biblioteca) ---
+router.get('/my/saved', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate({
+            path: 'savedWallpapers',
+            populate: { path: 'artist', select: 'username profilePic isVerified' }
+        });
+
+        // Enviamos solo la lista de wallpapers procesada
+        res.json(user.savedWallpapers);
+    } catch (err) {
+        res.status(500).send('Error al obtener colección');
+    }
+});
+
+module.exports = router;  
