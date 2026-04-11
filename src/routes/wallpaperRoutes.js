@@ -284,77 +284,70 @@ router.get('/', async (req, res) => {
         
 
      
-// --- 🔍 CASO 1: BÚSQUEDA (Atlas Search + Aleatoriedad Inteligente) ---
+// ─────────────────────────────────────────────────────────────────
+// FIX: Búsqueda por tag desde SearchScreen (vitrinas ADN)
+// El problema: fuzzy con maxEdits:1 en palabras cortas como "car"
+// coincide con "dark", "scar", "care", "cartoon", etc.
+// ─────────────────────────────────────────────────────────────────
+
 if (search && search.trim() !== '') {
     const { exclude } = req.query;
-    const parsedLimit = parseInt(req.query.limit) || 14;
+    const parsedLimit = parseInt(req.query.limit) || 16;
+    const searchTerm = search.trim();
 
-    // 1. Procesar IDs a excluir para evitar duplicados en el scroll
     let excludeIds = [];
     if (exclude && exclude !== '') {
         excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .slice(0, 50)
             .map(id => new mongoose.Types.ObjectId(id));
     }
 
-    // 2. Construir el Pipeline de Atlas Search
+    // 🔑 FIX: fuzzy solo para palabras LARGAS (más de 4 caracteres)
+    const useFuzzy = searchTerm.length > 4;
+
     let pipeline = [
         {
             $search: {
-                index: "default", 
+                index: "default",
                 text: {
-                    query: search,
+                    query: searchTerm,
                     path: ["title", "tags"],
-                    fuzzy: { maxEdits: 1 } 
+                    // Solo aplicamos fuzzy en palabras largas
+                    ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
                 }
             }
         }
     ];
 
-    // 🛡️ 3. FILTRADO POST-BÚSQUEDA (Categoría, Tipo Y EXCLUSIÓN)
-    let finalMatch = { ...matchQuery }; // Trae status: 'approved' y otros filtros previos
+    let finalMatch = { ...matchQuery };
     if (excludeIds.length > 0) {
-        finalMatch._id = { $nin: excludeIds }; // No traer lo que ya está en pantalla
+        finalMatch._id = { $nin: excludeIds };
     }
     pipeline.push({ $match: finalMatch });
 
-    // 🎲 4. ALEATORIEDAD vs PAGINACIÓN
     if (req.query.random === 'true') {
-        // El secreto: $sample elige X cantidad al azar de los resultados filtrados
         pipeline.push({ $sample: { size: parsedLimit } });
     } else {
-        // Si no es random, usamos orden por relevancia (score de búsqueda)
-        pipeline.push({ $skip: skip });
-        pipeline.push({ $limit: parsedLimit });
+        pipeline.push({ $skip: skip }, { $limit: parsedLimit });
     }
 
-    // 👤 5. UNIR CON ARTISTA Y LIMPIAR DATOS
     pipeline.push(
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-        { $unwind: '$artist' },
-        { 
-            $project: { 
-                'artist.password': 0, 
-                'artist.email': 0, 
-                'artist.pushToken': 0 
-            } 
-        }
+        { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
+        { $project: { 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0 } }
     );
 
     const searchResults = await Wallpaper.aggregate(pipeline);
-    
-    // Asegurar que el precio siempre sea un número para el frontend
+
     const sanitizedResults = searchResults.map(item => ({
         ...item,
-        price: item.price || 0
+        price: item.price ?? 0
     }));
 
     return res.json(sanitizedResults);
 }
 
-
-// --- 🟢 CASO 2: ALEATORIEDAD INTELIGENTE MULTI-CATEGORÍA (Para Ti / Descubrimiento) ---
-// --- 🟢 CASO 2: MOTOR DE RECOMENDACIÓN HÍBRIDO (50% Tags / 30% Cat / 20% Random) ---
 // ─────────────────────────────────────────────────────────────────
 // CASO 2: ALEATORIEDAD INTELIGENTE — HÍBRIDO 50/30/20
 // ─────────────────────────────────────────────────────────────────
