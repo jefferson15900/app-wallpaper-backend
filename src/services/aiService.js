@@ -1,20 +1,19 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Inicializamos el SDK con la llave guardada en Render
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
-/**
- * Función interna de apoyo para ejecutar el análisis con un modelo específico
- * @param {string} modelName - Nombre técnico del modelo de Google
- * @param {string} base64Image - Imagen convertida para la IA
- * @returns {Promise<string[]>} - Lista de etiquetas procesadas
- */
 const analyzeWithModel = async (modelName, base64Image) => {
     console.log(`📡 Solicitando análisis a la IA: ${modelName}...`);
     
     const model = genAI.getGenerativeModel({ model: modelName });
     
-    const prompt = "Analiza esta imagen y devuelve exactamente 10 etiquetas (tags) descriptivas en español e inglés separadas por comas. Incluye el estilo artístico (ej: anime, realista, 3d, cyberpunk), los colores dominantes y los elementos clave del arte. Solo devuelve las etiquetas separadas por comas, sin explicaciones adicionales.";
+    // ✅ FIX: 20 tags separados, 10 en español + 10 en inglés, SIN slashes
+    const prompt = `Analiza esta imagen y devuelve exactamente 20 etiquetas (tags) descriptivas separadas por comas.
+- Las primeras 10 en ESPAÑOL
+- Las siguientes 10 en INGLÉS
+- Incluye: estilo artístico, colores dominantes y elementos clave
+- Cada etiqueta debe ser una sola palabra o concepto corto
+- SIN slashes, SIN explicaciones, SOLO las etiquetas separadas por comas`;
 
     const result = await model.generateContent([
         prompt,
@@ -29,49 +28,46 @@ const analyzeWithModel = async (modelName, base64Image) => {
     const response = await result.response;
     const text = response.text();
     
-    // Limpiamos la respuesta: convertimos a minúsculas, quitamos espacios y filtramos vacíos
+    // ✅ FIX: filtramos cualquier slash que se cuele y deduplicamos
     return text.split(',')
         .map(tag => tag.trim().toLowerCase())
-        .filter(tag => tag !== "" && tag.length > 1);
+        .filter(tag => tag !== "" && tag.length > 1)
+        .filter(tag => !tag.includes('/'))           // descarta "español / english"
+        .filter((tag, i, self) => self.indexOf(tag) === i) // deduplica
+        .slice(0, 20);
 };
 
 /**
  * Función Principal: TRIPLE FALLBACK (v3 -> v2 -> v1.5)
- * @param {string} imageUrl - URL de Cloudinary para analizar
- * @returns {Promise<string[]>} - Etiquetas finales
  */
 const getAITags = async (imageUrl) => {
     let base64Image = "";
 
     try {
-        // 1. Descargamos la imagen una sola vez para ahorrar ancho de banda
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error("Fallo al descargar imagen de Cloudinary");
         
         const buffer = await response.arrayBuffer();
         base64Image = Buffer.from(buffer).toString("base64");
 
-        // --- INTENTO 1: GEMINI 3 (Máxima vanguardia, cuota limitada) ---
         try {
             return await analyzeWithModel("gemini-3-flash-preview", base64Image);
         } catch (err3) {
             console.warn("⚠️ Gemini 3 (v3) agotado o con error. Saltando a Gemini 2.5 Flash...");
             
-            // --- INTENTO 2: GEMINI 2.0 (Equilibrio entre velocidad y cuota) ---
             try {
                 return await analyzeWithModel("gemini-2.5-flash", base64Image);
             } catch (err2) {
                 console.warn("⚠️ Gemini 2.5 falló. Saltando al respaldo final Gemini 2.5 Pro...");
                 
-                // --- INTENTO 3: GEMINI 1.5 (El modelo tanque, cuota masiva y estable) ---
                 try {
                     const finalTags = await analyzeWithModel("gemini-2.5-pro", base64Image);
-                    console.log("✅ Análisis completado con éxito mediante GeminiGemini 2.5 Pro.");
+                    console.log("✅ Análisis completado con éxito mediante Gemini 2.5 Pro.");
                     return finalTags;
                 } catch (err1) {
                     console.error("❌ ERROR CRÍTICO: Todos los modelos de Google fallaron simultáneamente.");
                     console.error("Detalle del error final:", err1.message);
-                    return []; // Devolvemos vacío para que la app no se cuelgue
+                    return [];
                 }
             }
         }

@@ -348,17 +348,17 @@ if (search && search.trim() !== '') {
     return res.json(sanitizedResults);
 }
 
+
 // ─────────────────────────────────────────────────────────────────
-// CASO 2: ALEATORIEDAD INTELIGENTE — HÍBRIDO 50/30/20
+// CASO 2: FEED "PARA TI" — 100% TAGS, sin categorías
 // ─────────────────────────────────────────────────────────────────
 
 if (random === 'true') {
-    const { tags, priority, exclude, category, type, artistId, premium } = req.query;
+    const { tags, exclude, category, type, artistId, premium } = req.query;
     const parsedLimit = parseInt(req.query.limit) || 16;
 
     // ── 1. FILTRO BASE ──────────────────────────────────────────
     let baseMatch = { status: 'approved' };
-
     if (category && category !== 'Todos') baseMatch.category = category;
     if (type && type !== 'all') baseMatch.type = type;
     if (premium === 'true') baseMatch.price = { $gt: 0 };
@@ -366,80 +366,63 @@ if (random === 'true') {
         baseMatch.artist = new mongoose.Types.ObjectId(artistId);
     }
 
-    // FIX 1: Cap de 50 IDs para que $nin sea eficiente
     if (exclude && exclude !== '') {
         const excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
             .slice(0, 50)
             .map(id => new mongoose.Types.ObjectId(id));
-
-        if (excludeIds.length > 0) {
-            baseMatch._id = { $nin: excludeIds };
-        }
+        if (excludeIds.length > 0) baseMatch._id = { $nin: excludeIds };
     }
 
-    // ── 2. ADN DEL USUARIO ──────────────────────────────────────
+    // ── 2. ADN DEL USUARIO (solo tags) ─────────────────────────
     const userTags = tags
         ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
         : [];
-    const priorityArray = priority && priority !== 'Todos'
-        ? priority.split(',').map(p => p.trim()).filter(Boolean)
-        : [];
-
-    const hasProfile = (userTags.length > 0 || priorityArray.length > 0)
-                    && (!category || category === 'Todos');
 
     let pipeline = [];
 
-    if (hasProfile) {
-        const limitTags      = Math.ceil(parsedLimit * 0.5) + 3;
-        const limitCats      = Math.ceil(parsedLimit * 0.3) + 3;
-        const limitDiscovery = Math.ceil(parsedLimit * 0.2) + 3;
-
-        pipeline.push({
-            $facet: {
-                // BLOQUE 1: Tags favoritos — cualquier categoría
-                "tagBlock": [
-                    { $match: { ...baseMatch, tags: { $in: userTags } } },
-                    { $sample: { size: limitTags } }
-                ],
-                // BLOQUE 2: Categoría favorita — excluye los que ya tienen tags favoritos
-                // FIX 2: tags $nin evita duplicados entre bloques
-                "catBlock": [
-                    {
-                        $match: {
-                            ...baseMatch,
-                            category: { $in: priorityArray },
-                            tags: { $nin: userTags }
-                        }
-                    },
-                    { $sample: { size: limitCats } }
-                ],
-                // BLOQUE 3: Descubrimiento — diferente en categoría y tags
-                "discoveryBlock": [
-                    {
-                        $match: {
-                            ...baseMatch,
-                            category: { $nin: priorityArray },
-                            tags: { $nin: userTags }
-                        }
-                    },
-                    { $sample: { size: limitDiscovery } }
-                ]
-            }
-        });
-
+    if (userTags.length > 0) {
+        // ── RANKING POR AFINIDAD ────────────────────────────────
+        // Score = cuántos tags del wallpaper coinciden con el ADN
+        // Garantiza que los carros salgan primero si le gustan al usuario
         pipeline.push(
-            { $project: { combined: { $concatArrays: ["$tagBlock", "$catBlock", "$discoveryBlock"] } } },
-            { $unwind: "$combined" },
-            { $replaceRoot: { newRoot: "$combined" } },
-            // FIX 3: Deduplicar por _id antes del shuffle final
-            { $group: { _id: "$_id", doc: { $first: "$$ROOT" } } },
-            { $replaceRoot: { newRoot: "$doc" } },
-            { $sample: { size: parsedLimit } }
+            { $match: baseMatch },
+            {
+                $addFields: {
+                    affinityScore: {
+                        $size: {
+                            $ifNull: [{
+                                $filter: {
+                                    input: { $ifNull: ['$tags', []] },
+                                    as: 'tag',
+                                    cond: { $in: ['$$tag', userTags] }
+                                }
+                            }, []]
+                        }
+                    }
+                }
+            },
+            // Grupo: 0=alta afinidad(3+), 1=media(1-2), 2=descubrimiento(0)
+            {
+                $addFields: {
+                    affinityGroup: {
+                        $switch: {
+                            branches: [
+                                { case: { $gte: ['$affinityScore', 3] }, then: 0 },
+                                { case: { $gte: ['$affinityScore', 1] }, then: 1 },
+                            ],
+                            default: 2
+                        }
+                    }
+                }
+            },
+            // Ordenar: alta afinidad primero, dentro de cada grupo un poco aleatorio
+            { $sort: { affinityGroup: 1, affinityScore: -1 } },
+            { $limit: parsedLimit }
         );
 
     } else {
+        // Usuario nuevo sin ADN → random puro
         pipeline.push(
             { $match: baseMatch },
             { $sample: { size: parsedLimit } }
@@ -449,20 +432,22 @@ if (random === 'true') {
     // ── 3. JOIN CON ARTISTA ──────────────────────────────────────
     pipeline.push(
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-        // FIX 4: preserveNullAndEmptyArrays evita perder wallpapers si el artista fue borrado
         { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-        { $project: { 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0, 'artist.lastActiveAt': 0 } }
+        {
+            $project: {
+                'artist.password': 0,
+                'artist.email': 0,
+                'artist.pushToken': 0,
+                'artist.lastActiveAt': 0,
+                'affinityScore': 0,
+                'affinityGroup': 0
+            }
+        }
     );
 
     const results = await Wallpaper.aggregate(pipeline);
-
-    const sanitizedResults = results.map(item => ({
-        ...item,
-        price: item.price ?? 0
-    }));
-
-    return res.json(sanitizedResults);
-}
+    return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
+ }
 
 
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
@@ -480,6 +465,7 @@ if (random === 'true') {
         res.status(500).json({ msg: 'Error interno del servidor' });
     }
 });
+
 
 // Obtener wallpapers de un artista específico
 router.get('/artist/:artistId', async (req, res) => {
