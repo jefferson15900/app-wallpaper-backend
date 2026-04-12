@@ -587,28 +587,35 @@ console.log("📦 Datos recibidos en el servidor:", req.body);
 router.put('/like/:id', auth, async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id);
-        const user = await User.findById(req.user.id);
+        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+
+        const userId = req.user.id;
         const wallpaperId = req.params.id;
 
-        if (wallpaper.likes.includes(req.user.id)) {
+        // Verificar si ya tiene like
+        const alreadyLiked = wallpaper.likes.includes(userId);
 
-            wallpaper.likes = wallpaper.likes.filter(id => id.toString() !== req.user.id);
-            user.likedWallpapers = user.likedWallpapers.filter(id => id.toString() !== wallpaperId);
+        if (alreadyLiked) {
+            // Quitar Like de ambos modelos
+            wallpaper.likes = wallpaper.likes.filter(id => id.toString() !== userId);
+            await User.findByIdAndUpdate(userId, { $pull: { likedWallpapers: wallpaperId } });
         } else {
-        
-            wallpaper.likes.push(req.user.id);
-            user.likedWallpapers.push(wallpaperId);
+            // Poner Like en ambos modelos
+            wallpaper.likes.push(userId);
+            await User.findByIdAndUpdate(userId, { $addToSet: { likedWallpapers: wallpaperId } });
         }
 
         await wallpaper.save();
-        await user.save();
 
+        // ✅ RESPUESTA SIEMPRE EN JSON
         res.json({ 
             likesCount: wallpaper.likes.length, 
-            isLiked: user.likedWallpapers.includes(wallpaperId) 
+            isLiked: !alreadyLiked 
         });
+
     } catch (err) {
-        res.status(500).send('Error en el sistema de Likes');
+        console.error("❌ Error en Like:", err);
+        res.status(500).json({ msg: 'Error interno del servidor' });
     }
 });
 
