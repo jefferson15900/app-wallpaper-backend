@@ -415,9 +415,11 @@ if (random === 'true') {
                     }
                 }
             },
+            
             // Ordenar: alta afinidad primero, dentro de cada grupo un poco aleatorio
-            { $sort: { affinityGroup: 1, affinityScore: -1 } },
-            { $limit: parsedLimit }
+             { $sort: { affinityGroup: 1, affinityScore: -1 } },
+             { $limit: parsedLimit * 3 }, // traemos 3x más candidatos
+             { $sample: { size: parsedLimit } }
         );
 
     } else {
