@@ -15,7 +15,7 @@ router.post('/ping', async (req, res) => {
             { $set: { lastActiveAt: new Date() } }, 
             { upsert: true, new: true }
         );
-        res.sendStatus(200);
+        res.sendStatus(200); 
     } catch (err) {
         res.sendStatus(500);
     }
