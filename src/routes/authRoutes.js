@@ -411,6 +411,18 @@ router.put('/save-token', auth, async (req, res) => {
     }
 });
 
+// GUARDADO GUSTOS DEL USUARIO
+router.put('/sync-interests', auth, async (req, res) => {
+    try {
+        const { interests } = req.body;
+        // Guardamos el ADN que viene del teléfono directamente en el perfil
+        await User.findByIdAndUpdate(req.user.id, { $set: { interests } });
+        res.json({ msg: 'ADN Sincronizado ✨' });
+    } catch (err) {
+        res.status(500).send('Error de sincronización');
+    }
+});
+
 // RUTA PARA CHEQUEAR VERSIÓN (Pública)
 router.get('/version-check', (req, res) => {
     res.json({ 

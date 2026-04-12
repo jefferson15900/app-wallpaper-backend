@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema({
     coins: { type: Number, default: 0 },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallpaper' }], 
     savedWallpapers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallpaper' }],
+    interests: { type: Map, of: Number, default: {} },
     lastDailyRewardAt: { type: Date, default: null },
     unlockedWallpapers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallpaper' }],
     adsSeenToday: { type: Number, default: 0 }, 
