@@ -767,28 +767,32 @@ router.put('/save/:id', auth, async (req, res) => {
         const user = await User.findById(req.user.id);
         const wallpaperId = req.params.id;
 
-        // Verificar si ya está guardado
-        const isSaved = user.savedWallpapers.includes(wallpaperId);
+        console.log(`🔎 [DEBUG] Usuario ${user.username} intentando guardar: ${wallpaperId}`);
+
+        // 🛡️ CORRECCIÓN: Comparamos convirtiendo ambos a String
+        const isSaved = user.savedWallpapers.some(id => id.toString() === wallpaperId);
 
         if (isSaved) {
-            // Si ya existe, lo quitamos (Unsave)
+            // Si ya existe, lo quitamos
             user.savedWallpapers = user.savedWallpapers.filter(
                 (id) => id.toString() !== wallpaperId
             );
+            console.log("❌ Quitado de la base de datos");
         } else {
-            // Si no existe, lo agregamos (Save)
+            // Si no existe, lo agregamos
             user.savedWallpapers.push(wallpaperId);
+            console.log("✅ Guardado en la base de datos");
         }
 
         await user.save();
         
         res.json({ 
-            msg: isSaved ? 'Quitado de guardados' : 'Guardado en tu colección', 
-            savedCount: user.savedWallpapers.length,
+            msg: isSaved ? 'Quitado' : 'Guardado', 
             isSaved: !isSaved 
         });
     } catch (err) {
-        res.status(500).send('Error al procesar la colección');
+        console.error("🔥 Error en /save:", err);
+        res.status(500).json({ msg: 'Error de servidor' });
     }
 });
 
