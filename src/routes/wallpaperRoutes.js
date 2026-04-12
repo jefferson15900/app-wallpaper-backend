@@ -793,17 +793,15 @@ router.put('/save/:id', auth, async (req, res) => {
 });
 
 // --- RUTA: OBTENER TODOS MIS GUARDADOS (Para la pestaña de Biblioteca) ---
-router.get('/my/saved', auth, async (req, res) => {
+router.get('/my/library', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).populate({
             path: 'savedWallpapers',
             populate: { path: 'artist', select: 'username profilePic isVerified' }
         });
-
-        // Enviamos solo la lista de wallpapers procesada
         res.json(user.savedWallpapers);
     } catch (err) {
-        res.status(500).send('Error al obtener colección');
+        res.status(500).send('Error');
     }
 });
 
