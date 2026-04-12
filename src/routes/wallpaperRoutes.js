@@ -800,16 +800,32 @@ router.put('/save/:id', auth, async (req, res) => {
 // En tu archivo de rutas del backend:
 router.get('/my/library', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).populate({
+        // 1. Buscamos el usuario "crudo" para ver si los IDs están ahí
+        const user = await User.findById(req.user.id);
+        
+        console.log(`🔎 [DEBUG GET] Usuario: ${user.username}`);
+        console.log(`🔎 [DEBUG GET] IDs crudos en DB:`, user.savedWallpapers);
+
+        // 2. Ahora intentamos hacer el populate (traer la foto, el título, etc.)
+        const userPopulated = await User.findById(req.user.id).populate({
             path: 'savedWallpapers',
+            // Seleccionamos los campos necesarios del wallpaper
+            select: 'imageUrl title type tags category artist price',
+            // También traemos los datos del artista de ese wallpaper
             populate: { path: 'artist', select: 'username profilePic isVerified' }
         });
-        
-        // Si el usuario no tiene guardados, devolvemos un array vacío []
-        res.json(user.savedWallpapers || []);
+
+        // 🛡️ FILTRO DE SEGURIDAD: 
+        // Si el populate falló en alguna foto (porque se borró), eliminamos los nulls
+        const cleanLibrary = (userPopulated.savedWallpapers || []).filter(item => item !== null);
+
+        console.log(`🔎 [DEBUG GET] Total tras populate y limpieza: ${cleanLibrary.length}`);
+
+        res.json(cleanLibrary);
+
     } catch (err) {
-        console.error("Error en biblioteca:", err);
-        res.status(500).json({ msg: 'Error al obtener biblioteca' });
+        console.error("🔥 Error en GET library:", err);
+        res.status(500).json({ msg: 'Error de servidor' });
     }
 });
 
