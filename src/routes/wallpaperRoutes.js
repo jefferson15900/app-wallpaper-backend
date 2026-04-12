@@ -793,15 +793,19 @@ router.put('/save/:id', auth, async (req, res) => {
 });
 
 // --- RUTA: OBTENER TODOS MIS GUARDADOS (Para la pestaña de Biblioteca) ---
+// En tu archivo de rutas del backend:
 router.get('/my/library', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).populate({
             path: 'savedWallpapers',
             populate: { path: 'artist', select: 'username profilePic isVerified' }
         });
-        res.json(user.savedWallpapers);
+        
+        // Si el usuario no tiene guardados, devolvemos un array vacío []
+        res.json(user.savedWallpapers || []);
     } catch (err) {
-        res.status(500).send('Error');
+        console.error("Error en biblioteca:", err);
+        res.status(500).json({ msg: 'Error al obtener biblioteca' });
     }
 });
 
