@@ -735,7 +735,6 @@ router.get('/tags/trending', async (req, res) => {
         const result = await Wallpaper.aggregate([
             { $match: { status: 'approved' } },
             { $unwind: "$tags" },
-            // 🛡️ NORMALIZACIÓN: Pasamos a minúsculas y quitamos espacios en blanco
             { 
                 $project: { 
                     cleanTag: { $trim: { input: { $toLower: "$tags" } } } 
@@ -766,22 +765,15 @@ router.put('/save/:id', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         const wallpaperId = req.params.id;
-
-        console.log(`🔎 [DEBUG] Usuario ${user.username} intentando guardar: ${wallpaperId}`);
-
-        // 🛡️ CORRECCIÓN: Comparamos convirtiendo ambos a String
         const isSaved = user.savedWallpapers.some(id => id.toString() === wallpaperId);
-
         if (isSaved) {
             // Si ya existe, lo quitamos
             user.savedWallpapers = user.savedWallpapers.filter(
                 (id) => id.toString() !== wallpaperId
             );
-            console.log("❌ Quitado de la base de datos");
         } else {
             // Si no existe, lo agregamos
             user.savedWallpapers.push(wallpaperId);
-            console.log("✅ Guardado en la base de datos");
         }
 
         await user.save();
@@ -800,27 +792,16 @@ router.put('/save/:id', auth, async (req, res) => {
 // En tu archivo de rutas del backend:
 router.get('/my/library', auth, async (req, res) => {
     try {
-        // 1. Buscamos el usuario "crudo" para ver si los IDs están ahí
-        const user = await User.findById(req.user.id);
-        
-        console.log(`🔎 [DEBUG GET] Usuario: ${user.username}`);
-        console.log(`🔎 [DEBUG GET] IDs crudos en DB:`, user.savedWallpapers);
 
-        // 2. Ahora intentamos hacer el populate (traer la foto, el título, etc.)
+        const user = await User.findById(req.user.id);
         const userPopulated = await User.findById(req.user.id).populate({
             path: 'savedWallpapers',
-            // Seleccionamos los campos necesarios del wallpaper
             select: 'imageUrl title type tags category artist price',
-            // También traemos los datos del artista de ese wallpaper
             populate: { path: 'artist', select: 'username profilePic isVerified' }
         });
 
-        // 🛡️ FILTRO DE SEGURIDAD: 
-        // Si el populate falló en alguna foto (porque se borró), eliminamos los nulls
         const cleanLibrary = (userPopulated.savedWallpapers || []).filter(item => item !== null);
-
         console.log(`🔎 [DEBUG GET] Total tras populate y limpieza: ${cleanLibrary.length}`);
-
         res.json(cleanLibrary);
 
     } catch (err) {
@@ -828,5 +809,28 @@ router.get('/my/library', auth, async (req, res) => {
         res.status(500).json({ msg: 'Error de servidor' });
     }
 });
+
+// BUSCADOR DE TAGS DINÁMICO
+router.get('/tags/search', async (req, res) => {
+    try {
+        const { q } = req.query; // Lo que el usuario escribe
+        if (!q) return res.json([]);
+
+        const results = await Wallpaper.aggregate([
+            { $match: { status: 'approved' } },
+            { $unwind: "$tags" },
+            // Buscamos tags que COMIENCEN con lo que el usuario escribe
+            { $match: { tags: { $regex: `^${q}`, $options: 'i' } } }, 
+            { $group: { _id: "$tags" } }, // Agrupamos para que no salgan repetidos
+            { $limit: 15 } // Mostramos hasta 15 sugerencias
+        ]);
+
+        const tagsOnly = results.map(t => t._id);
+        res.json(tagsOnly);
+    } catch (err) {
+        res.status(500).send('Error');
+    }
+});
+
 
 module.exports = router;  
