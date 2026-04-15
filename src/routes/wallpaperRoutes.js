@@ -469,24 +469,24 @@ if (random === 'true') {
 
 
 // Obtener wallpapers de un artista específico
+const mongoose = require('mongoose'); // 👈 1. Asegúrate de importar mongoose arriba
+
 router.get('/artist/:artistId', async (req, res) => {
     try {
+        const { artistId } = req.params; // Extraemos el ID
         const page = parseInt(req.query.page) || 1;
         const limit = 12;
         const skip = (page - 1) * limit;
-
-        // 1. Contamos cuántos hay en TOTAL en la base de datos
-        const totalCount = await Wallpaper.countDocuments({ artist: req.params.artistId });
-
-        // 2. Buscamos los wallpapers e INCLUIMOS los datos del artista (FOTO, NOMBRE, ETC)
-        const wallpapers = await Wallpaper.find({ artist: req.params.artistId })
-            .populate('artist', 'username profilePic isVerified') // 👈 SOLUCIÓN: Esto trae la foto para el icono
+        const artistObjId = new mongoose.Types.ObjectId(artistId);
+        const totalCount = await Wallpaper.countDocuments({ artist: artistObjId });
+        const wallpapers = await Wallpaper.find({ artist: artistObjId })
+            .populate('artist', 'username profilePic isVerified')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
-        // 3. Enviamos ambos datos
         res.json({ wallpapers, totalCount }); 
+        
     } catch (err) {
         console.error("Error al obtener perfil del artista:", err);
         res.status(500).send('Error al obtener perfil');
