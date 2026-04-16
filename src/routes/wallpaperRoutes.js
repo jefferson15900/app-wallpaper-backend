@@ -484,7 +484,7 @@ router.get('/artist/:artistId', async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
-
+s
         res.json({ wallpapers, totalCount }); 
         
     } catch (err) {
@@ -813,22 +813,27 @@ router.get('/my/library', auth, async (req, res) => {
 // BUSCADOR DE TAGS DINÁMICO
 router.get('/tags/search', async (req, res) => {
     try {
-        const { q } = req.query; // Lo que el usuario escribe
-        if (!q) return res.json([]);
+        const { q } = req.query;
+        if (!q || typeof q !== 'string') return res.json([]);
 
+        const trimmed = q.trim();
+        if (trimmed.length < 1) return res.json([]);
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const results = await Wallpaper.aggregate([
             { $match: { status: 'approved' } },
-            { $unwind: "$tags" },
-            // Buscamos tags que COMIENCEN con lo que el usuario escribe
-            { $match: { tags: { $regex: `^${q}`, $options: 'i' } } }, 
-            { $group: { _id: "$tags" } }, // Agrupamos para que no salgan repetidos
-            { $limit: 15 } // Mostramos hasta 15 sugerencias
+            { $unwind: '$tags' },
+            { $match: { tags: { $regex: `^${escaped}`, $options: 'i' } } },
+            { $group: { _id: '$tags', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 15 },
+            { $project: { _id: 0, tag: '$_id', count: 1 } }
         ]);
 
-        const tagsOnly = results.map(t => t._id);
-        res.json(tagsOnly);
+        res.json(results.map(r => r.tag));
+
     } catch (err) {
-        res.status(500).send('Error');
+        console.error('Tag search error:', err);
+        res.status(500).json({ error: 'Error buscando tags' });
     }
 });
 
