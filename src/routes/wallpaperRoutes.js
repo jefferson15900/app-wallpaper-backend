@@ -18,7 +18,6 @@ let lastTagsUpdate = null;
 
 
 // --- RUTA: FEED DE SEGUIDOS (Solo para usuarios logueados) ---
-// RUTA: FEED DE SEGUIDOS (Actualizada con logs)
 router.get('/feed', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
