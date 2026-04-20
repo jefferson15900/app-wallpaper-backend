@@ -498,7 +498,6 @@ router.get('/artist/:artistId', async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
-s
         res.json({ wallpapers, totalCount }); 
         
     } catch (err) {
