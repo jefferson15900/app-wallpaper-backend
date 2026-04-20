@@ -9,6 +9,7 @@ const { getAITags } = require('../services/aiService');
 const aiQueue = require('../services/aiQueue'); 
 const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
+const { cleanTags } = require('../config/tags');
 
 let expo = new Expo();
 
@@ -468,7 +469,6 @@ if (random === 'true') {
 
 
 // Obtener wallpapers de un artista específico
-const mongoose = require('mongoose'); // 👈 1. Asegúrate de importar mongoose arriba
 
 router.get('/artist/:artistId', async (req, res) => {
     try {
@@ -507,82 +507,59 @@ router.get('/user/:id', async (req, res) => {
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
 
-// RUTA: SUBIR WALLPAPER (Optimizada con Cola de IA Segura)
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
-
-    
     try {
-        // 1. Validación de seguridad inicial: ¿Llegó el archivo?
         if (!req.file) {
             return res.status(400).json({ msg: 'No se recibió ninguna imagen o video' });
         }
 
-        // Detección de tipo de archivo
         const isVideo = req.file.mimetype.startsWith('video');
-        
-        // SEGURIDAD: Solo el Administrador puede subir videos
         const user = await User.findById(req.user.id);
+
         if (isVideo && (!user || user.role !== 'admin')) {
-            // Borrado preventivo en Cloudinary si un usuario normal intenta subir video
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' });
-            return res.status(403).json({ msg: 'Acceso denegado: Solo el administrador puede subir Live Wallpapers' });
-        }
-console.log("📦 Datos recibidos en el servidor:", req.body); 
-        const { title, category , price} = req.body;
-
-        // 2. Procesar etiquetas básicas del usuario
-        let baseTags = title 
-            ? title.split(',').map(tag => tag.trim().toLowerCase()).filter(t => t !== "") 
-            : [];
-        
-        if (category) {
-            baseTags.push(category.toLowerCase());
+            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers' });
         }
 
-        // 3. Crear el registro en MongoDB
+        const { title, tags, category, price } = req.body;
+        let rawTags = [];
+        if (title) rawTags.push(title);
+        if (tags) rawTags = [...rawTags, ...tags.split(',')];
+        if (category) rawTags.push(category.toLowerCase());
+        const baseTags = cleanTags(rawTags);
+
         const newWallpaper = new Wallpaper({
-            title: title || `Art by ${user.username || req.user.id.substring(0,5)}`,
-            tags: baseTags,
+            title: title || (baseTags.length > 0 ? baseTags[0] : "Vexel Art"),
+            tags: baseTags, 
             imageUrl: req.file.path,
             public_id: req.file.filename,
             category: category || 'Otros',
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
-            status: isVideo ? 'approved' : 'pending', // Videos de admin se aprueban automáticamente
-            isAITagged: false, 
+            status: isVideo ? 'approved' : 'pending',
+            isAITagged: false,
             price: user.role === 'admin' ? parseInt(price || 0) : 0
         });
 
-        // 4. Guardar en DB y aumentar el contador del artista
         await newWallpaper.save();
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
-        // 5. RESPUESTA INSTANTÁNEA AL FRONTEND
         res.json(newWallpaper);
 
-        // 6. ENVIAR A LA COLA DE PROCESAMIENTO IA (SOLO SI ES IMAGEN)
         if (!isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl: req.file.path,
-                baseTags: baseTags
+                baseTags
             });
         }
 
     } catch (err) {
-                // --- LOG DE ERROR MEJORADO ---
-        console.error("❌ ERROR CRÍTICO EN UPLOAD:");
-        console.error("Mensaje:", err.message);
-        console.error("Stack:", err.stack);
-
-        // Si Cloudinary dio error por tamaño o formato
-        if (err.http_code) {
-             return res.status(err.http_code).json({ msg: 'Error en la nube: ' + err.message });
-        }
-        console.error("❌ Error crítico en la ruta de subida:", err);
+        console.error("❌ ERROR CRÍTICO EN UPLOAD:", err.message);
         res.status(500).json({ msg: 'Error interno al procesar la subida' });
     }
 });
+
 
 // Dar o quitar Like
 router.put('/like/:id', auth, async (req, res) => {

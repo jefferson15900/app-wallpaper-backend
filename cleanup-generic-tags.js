@@ -25,7 +25,7 @@ const TAGS_TO_REMOVE = [
   'cinematic lighting', 'cinematic light',
   'natural lighting', 'natural light',
   'studio lighting', 'studio light',
-  'rim lighting', 'rim light',
+  'rim lighting', 'rim light', 
   'ambient lighting', 'ambient light', 'ambient occlusion',
   'god rays', 'god ray', 'sun rays', 'sun ray', 'sunbeam', 'sunbeams',
   'backlight', 'backlighting', 'back light',

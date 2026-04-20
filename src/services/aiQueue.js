@@ -1,74 +1,56 @@
-const { getAITags } = require('./aiService'); // Tu servicio de Gemini
-const Wallpaper = require('../models/Wallpaper'); // Tu modelo de DB
+const { getAITags } = require('./aiService');
+const Wallpaper = require('../models/Wallpaper');
+const { cleanTags } = require('../config/tags'); // 🚀 IMPORTANTE: Importar tu nuevo archivo
 
 class AIQueue {
     constructor() {
-        this.queue = [];      // Lista de espera
-        this.isProcessing = false; // Estado del trabajador
+        this.queue = [];
+        this.isProcessing = false;
     }
 
-    /**
-     * Añade un nuevo wallpaper a la fila de procesamiento
-     * @param {Object} job - { wallpaperId, imageUrl, baseTags }
-     */
     addJob(job) {
         console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola actual: ${this.queue.length + 1})`);
         this.queue.push(job);
-        this.processNext(); // Intenta procesar
+        this.processNext();
     }
 
-    /**
-     * Lógica de procesamiento secuencial (Uno por uno)
-     */
     async processNext() {
-        // 1. Si ya hay un proceso en marcha o no hay nada en la lista, nos detenemos
         if (this.isProcessing || this.queue.length === 0) return;
 
-        // 2. Bloqueamos la cola para que nadie más entre hasta terminar este
         this.isProcessing = true;
-
-        // 3. Obtenemos el primer trabajo de la lista
         const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
 
         try {
             console.log(`🤖 [COLA IA] Analizando arte: ${wallpaperId}...`);
-            
-            // 4. Llamamos a Gemini (Tu función de triple fallback)
+
             const aiTags = await getAITags(imageUrl);
 
             if (aiTags && aiTags.length > 0) {
-                // Mezclamos etiquetas del usuario + etiquetas de la IA
-                const finalTags = [...new Set([...baseTags, ...aiTags])]
-                    .map(tag => tag.toLowerCase().trim())
-                    .filter(tag => tag !== "");
+                // ⚡ AQUÍ ESTÁ EL CAMBIO MAESTRO:
+                // Unimos las etiquetas y se las pasamos a tu función profesional de limpieza
+                const finalTags = cleanTags([...baseTags, ...aiTags]);
 
-                // 5. Guardamos en la Base de Datos
-                await Wallpaper.findByIdAndUpdate(wallpaperId, { 
-                    $set: { 
-                        tags: finalTags, 
-                        isAITagged: true 
-                    } 
+                await Wallpaper.findByIdAndUpdate(wallpaperId, {
+                    $set: {
+                        tags: finalTags,
+                        isAITagged: true
+                    }
                 });
 
-                console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} enriquecido con éxito.`);
+                console.log(`✅ [COLA IA] Wallpaper enriquecido y filtrado. Etiquetas finales: ${finalTags.length}`);
             } else {
                 console.warn(`⚠️ [COLA IA] Gemini no devolvió etiquetas para ${wallpaperId}.`);
             }
 
         } catch (error) {
             console.error(`❌ [COLA IA] Error crítico procesando ${wallpaperId}:`, error.message);
+        } finally {
+            setTimeout(() => {
+                this.isProcessing = false;
+                this.processNext();
+            }, 3000);
         }
-
-        // --- PAUSA DE SEGURIDAD (ANTISATURACIÓN) ---
-        // Esperamos 3 segundos antes de procesar el siguiente wallpaper.
-        // Esto garantiza que respetamos los límites de la API gratuita de Google.
-        setTimeout(() => {
-            this.isProcessing = false;
-            this.processNext(); // Llamada recursiva para procesar el siguiente en la fila
-        }, 3000); 
     }
 }
 
-// Exportamos una única instancia de la clase (Singleton) 
-// para que todos los archivos compartan la misma fila de espera.
 module.exports = new AIQueue();
