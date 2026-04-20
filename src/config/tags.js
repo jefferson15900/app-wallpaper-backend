@@ -457,19 +457,27 @@ const SYNONYMS = {
 // ============================================================
 
 /**
+/**
  * Limpia, normaliza y deduplica etiquetas para wallpapers.
- * @param {Array} tagsArray - Etiquetas brutas (usuario + IA).
+ * @param {Array}  tagsArray        - Etiquetas brutas (usuario + IA).
  * @param {Object} options
- * @param {number} options.maxTags   - Límite de etiquetas (default: 20).
- * @param {number} options.minLength - Longitud mínima (default: 3).
- * @returns {Array}
+ * @param {number} options.maxTags   - Límite máximo de etiquetas (default: 20).
+ * @param {number} options.minLength - Longitud mínima por etiqueta (default: 3).
+ * @returns {string[]} Array de etiquetas limpias, únicas y normalizadas.
+ *
+ * @example
+ * cleanTags(['Bosque', 'FOREST', 'rojo', '!!!', 'hd'])
+ * // → ['forest', 'red']
  */
 const cleanTags = (tagsArray, { maxTags = 20, minLength = 3 } = {}) => {
   if (!Array.isArray(tagsArray)) return [];
 
-  const seen = new Set(); 
+  const seen = new Set();
+
   return tagsArray
     // ── PASO 1: Normalización básica ──────────────────────────
+    // Convierte a minúsculas, elimina caracteres especiales
+    // y colapsa espacios múltiples en uno solo
     .map(t => {
       if (typeof t !== 'string') return null;
       return t
@@ -483,19 +491,18 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 3 } = {}) => {
     .filter(Boolean)
 
     // ── PASO 3: Filtros de longitud ───────────────────────────
-    .filter(t => t.length >= minLength)
-    .filter(t => t.length <= 40)  
+    .filter(t => t.length >= minLength) // Muy cortas → fuera ("hd", "ok")
+    .filter(t => t.length <= 40)        // Muy largas → fuera (frases de IA sin sentido)
 
     // ── PASO 4: Filtros de contenido ──────────────────────────
-    .filter(t => !/^\d+$/.test(t))     
-    .filter(t => !BLACKLIST_TAGS.has(t))
-    .filter(t => !VAGUE_SINGLES.has(t))
-
-    // ── PASO 5: Resolver sinónimos ────────────────────────────
+    .filter(t => !/^\d+$/.test(t))      // Solo números → fuera ("2024", "1920x1080")
+    .filter(t => !BLACKLIST_TAGS.has(t)) // Términos sin valor → fuera ("hd", "wallpaper")
+    .filter(t => !VAGUE_SINGLES.has(t)) // Palabras vagas sueltas → fuera ("art", "style")
     .map(t => SYNONYMS[t] ?? t)
 
     // ── PASO 6: Deduplicación inteligente ─────────────────────
-
+    // Un Set simple no detectaría que "bosque" y "forest" son lo mismo.
+    // Al aplicarlo DESPUÉS del paso 5, sí lo detecta.
     .filter(t => {
       if (seen.has(t)) return false;
       seen.add(t);

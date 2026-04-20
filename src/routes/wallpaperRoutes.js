@@ -10,7 +10,7 @@ const aiQueue = require('../services/aiQueue');
 const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
 const { cleanTags } = require('../config/tags');
-
+const { SYNONYMS } = require('../config/tags'); 
 let expo = new Expo();
 
 // VARIABLES PARA CACHÉ #HASHTAGS
@@ -292,7 +292,25 @@ router.get('/', async (req, res) => {
 if (search && search.trim() !== '') {
     const { exclude } = req.query;
     const parsedLimit = parseInt(req.query.limit) || 16;
-    const searchTerm = search.trim();
+
+    // ── PASO A: Normalizar término original ───────────────────
+    const rawSearch = search.trim().toLowerCase();
+
+    const canonical = SYNONYMS[rawSearch] || rawSearch;
+    const expandedTerms = new Set([rawSearch, canonical]);
+
+    for (const [synonym, target] of Object.entries(SYNONYMS)) {
+        if (target === canonical) {
+            expandedTerms.add(synonym);
+        }
+    }
+
+    const queryString = [...expandedTerms].join(' ');
+
+    console.log(`🔍 "${rawSearch}" → canónico: "${canonical}" → [${[...expandedTerms].join(', ')}]`);
+
+    // ── PASO C: Fuzzy solo si el término ORIGINAL es largo ────
+    const useFuzzy = rawSearch.length > 4;
 
     let excludeIds = [];
     if (exclude && exclude !== '') {
@@ -302,17 +320,14 @@ if (search && search.trim() !== '') {
             .map(id => new mongoose.Types.ObjectId(id));
     }
 
-    // 🔑 FIX: fuzzy solo para palabras LARGAS (más de 4 caracteres)
-    const useFuzzy = searchTerm.length > 4;
-
+    // ── PASO D: Pipeline con todos los sinónimos ──────────────
     let pipeline = [
         {
             $search: {
                 index: "default",
                 text: {
-                    query: searchTerm,
+                    query: queryString, // "mar ocean océano sea waves olas marea..."
                     path: ["title", "tags"],
-                    // Solo aplicamos fuzzy en palabras largas
                     ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
                 }
             }
