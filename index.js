@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require('./src/config/db.js');
 const compression = require('compression');
 const app = express();
+app.set('trust proxy', 1);
 
 
 // --- RUTA PARA PERMITIR EL RASTREO DE GOOGLE (ROBOTS.TXT) ---

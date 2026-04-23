@@ -9,15 +9,22 @@ const { uploadCloud , cloudinary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
 const { OAuth2Client } = require('google-auth-library');
 const rateLimit = require('express-rate-limit'); 
+const mongoose = require('mongoose');
 
 const rateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // Tiempo de espera: 15 minutos
-    max: 10,                  // Límite: máximo 10 intentos por cada 15 min
+    windowMs: 15 * 60 * 1000, 
+    max: 10, 
+    statusCode: 429, 
     message: { 
         msg: "Has realizado demasiados intentos. Por seguridad, inténtalo de nuevo en 15 minutos." 
     },
-    standardHeaders: true, // Devuelve información del límite en los headers
-    legacyHeaders: false,  // Desactiva los headers antiguos
+    
+    standardHeaders: true, 
+    legacyHeaders: false,
+    
+    keyGenerator: (req) => {
+        return req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    }
 });
 
 
