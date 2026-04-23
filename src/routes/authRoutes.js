@@ -88,15 +88,16 @@ router.post('/login', async (req, res) => {
                 user: { 
                     id: user.id, 
                     username: user.username,
-                    profilePic: user.profilePic, // 👈 SOLUCIÓN: Agregamos la foto aquí
-                    isVerified: user.isVerified, // Útil para mostrar el check azul
-                    bio: user.bio,               // Útil para la descripción
+                    profilePic: user.profilePic, 
+                    isVerified: user.isVerified,
+                    bio: user.bio,            
                     instagram: user.instagram,
                     facebook: user.facebook,
                     threads: user.threads,
                     tiktok: user.tiktok,
                     twitter: user.twitter,
-                    role: user.role             // Necesario para el Dashboard de Admin
+                    role: user.role,
+                    isActive: true       
                 } 
             });
         });
