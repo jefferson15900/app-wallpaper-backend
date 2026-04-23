@@ -497,6 +497,7 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
 
+        // 1. Obtener y borrar archivos de Cloudinary (Wallpapers)
         const userWallpapers = await Wallpaper.find({ artist: userId })
             .select('public_id type')
             .session(session);
@@ -511,35 +512,32 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
                 )
         );
 
-        // Loguear errores de Cloudinary sin abortar
-        cloudinaryResults.forEach((result, i) => {
-            if (result.status === 'rejected') {
-                console.error(`Error eliminando archivo de Cloudinary [${userWallpapers[i].public_id}]:`, result.reason);
-            }
-        });
-
         if (user.profilePicId) {
-       await cloudinary.uploader.destroy(user.profilePicId).catch(err => console.log("Error borrando avatar:", err));
-         }
+            await cloudinary.uploader.destroy(user.profilePicId).catch(err => console.log("Error borrando avatar:", err));
+        }
 
-        // 4. Borrar todos los datos relacionados al usuario
+        // 3. LIMPIEZA MASIVA (Atómica dentro de la sesión)
         await Promise.all([
             Wallpaper.deleteMany({ artist: userId }, { session }),
-            Comment.deleteMany({ user: userId }, { session }),
-            Like.deleteMany({ user: userId }, { session }),
-            Favorite.deleteMany({ user: userId }, { session }),
-            Notification.deleteMany({ user: userId }, { session }),
+            Wallpaper.updateMany(
+                { likes: userId }, 
+                { $pull: { likes: userId } }, 
+                { session }
+            ),
+
         ]);
 
+        // 4. Borrar al usuario definitivamente
         await User.findByIdAndDelete(userId, { session });
+
         await session.commitTransaction();
+        console.log(`🗑️ Cuenta eliminada con éxito: ${userId}`);
         return res.status(204).send();
 
     } catch (err) {
         await session.abortTransaction();
-        console.error('Error crítico al eliminar cuenta:', err);
+        console.error('❌ Error crítico al eliminar cuenta:', err);
         return res.status(500).json({ msg: 'Error crítico al eliminar cuenta' });
-
     } finally {
         session.endSession();
     }
