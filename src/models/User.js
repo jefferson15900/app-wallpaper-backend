@@ -31,18 +31,11 @@ const UserSchema = new mongoose.Schema({
     lastDownloadAt: {type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    birthday: { 
-        type: Date, 
-        default: null 
-    },
-    gender: { 
-        type: String, 
-        enum: ['masculino', 'femenino', 'personalizado', ''], 
-        default: '' 
-    },
-    country: { 
-        type: String, 
-        default: "" 
-    },
+    birthday: { type: Date, default: null },
+    gender: { type: String, enum: ['masculino', 'femenino', 'personalizado', ''], default: '' },
+    country: { type: String, default: "" },
+    isActive: { type: Boolean, default: true  },
+    deactivatedAt: { type: Date, default: null },
+    
 });
 module.exports = mongoose.model('User', UserSchema);

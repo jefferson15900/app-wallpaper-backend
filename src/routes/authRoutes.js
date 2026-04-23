@@ -8,6 +8,18 @@ const auth = require('../middleware/authMiddleware');
 const { uploadCloud , cloudinary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
 const { OAuth2Client } = require('google-auth-library');
+const rateLimit = require('express-rate-limit'); 
+
+const rateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // Tiempo de espera: 15 minutos
+    max: 10,                  // Límite: máximo 10 intentos por cada 15 min
+    message: { 
+        msg: "Has realizado demasiados intentos. Por seguridad, inténtalo de nuevo en 15 minutos." 
+    },
+    standardHeaders: true, // Devuelve información del límite en los headers
+    legacyHeaders: false,  // Desactiva los headers antiguos
+});
+
 
 const client = new OAuth2Client("342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com");
 
@@ -54,6 +66,12 @@ router.post('/login', async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ msg: 'Credenciales inválidas' });
+    
+     if (!user.isActive) {
+        user.isActive = true;
+        user.deactivatedAt = null;
+        await user.save();
+    }
 
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
@@ -418,11 +436,105 @@ router.put('/save-token', auth, async (req, res) => {
 router.put('/sync-interests', auth, async (req, res) => {
     try {
         const { interests } = req.body;
-        // Guardamos el ADN que viene del teléfono directamente en el perfil
+        // Guardamos el ADN que viene del teléfono directamente en el perfil 
         await User.findByIdAndUpdate(req.user.id, { $set: { interests } });
         res.json({ msg: 'ADN Sincronizado ✨' });
     } catch (err) {
         res.status(500).send('Error de sincronización');
+    }
+});
+
+// ── DESACTIVAR CUENTA (Temporal) ──
+router.post('/deactivate', auth, rateLimiter, async (req, res) => {
+    try {
+        const { password } = req.body;
+
+        // 1. Verificar contraseña antes de proceder
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        if (user.isActive === false) {
+            return res.status(400).json({ msg: 'La cuenta ya está desactivada' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+
+        // 2. Desactivar cuenta
+        await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: { isActive: false, deactivatedAt: new Date() } }
+        );
+
+
+        return res.status(200).json({ msg: 'Cuenta desactivada correctamente' });
+
+    } catch (err) {
+        console.error('Error al desactivar cuenta:', err);
+        return res.status(500).json({ msg: 'Error al desactivar cuenta' });
+    }
+});
+
+// ── ELIMINAR CUENTA (Definitivo) ──
+router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const userId = req.user.id;
+        const { password } = req.body;
+
+        const user = await User.findById(userId).session(session);
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+
+        const userWallpapers = await Wallpaper.find({ artist: userId })
+            .select('public_id type')
+            .session(session);
+
+        const cloudinaryResults = await Promise.allSettled(
+            userWallpapers
+                .filter(w => w.public_id)
+                .map(w =>
+                    cloudinary.uploader.destroy(w.public_id, {
+                        resource_type: w.type === 'video' ? 'video' : 'image'
+                    })
+                )
+        );
+
+        // Loguear errores de Cloudinary sin abortar
+        cloudinaryResults.forEach((result, i) => {
+            if (result.status === 'rejected') {
+                console.error(`Error eliminando archivo de Cloudinary [${userWallpapers[i].public_id}]:`, result.reason);
+            }
+        });
+
+        if (user.profilePicId) {
+       await cloudinary.uploader.destroy(user.profilePicId).catch(err => console.log("Error borrando avatar:", err));
+         }
+
+        // 4. Borrar todos los datos relacionados al usuario
+        await Promise.all([
+            Wallpaper.deleteMany({ artist: userId }, { session }),
+            Comment.deleteMany({ user: userId }, { session }),
+            Like.deleteMany({ user: userId }, { session }),
+            Favorite.deleteMany({ user: userId }, { session }),
+            Notification.deleteMany({ user: userId }, { session }),
+        ]);
+
+        await User.findByIdAndDelete(userId, { session });
+        await session.commitTransaction();
+        return res.status(204).send();
+
+    } catch (err) {
+        await session.abortTransaction();
+        console.error('Error crítico al eliminar cuenta:', err);
+        return res.status(500).json({ msg: 'Error crítico al eliminar cuenta' });
+
+    } finally {
+        session.endSession();
     }
 });
 

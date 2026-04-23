@@ -11,6 +11,7 @@ const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
 const { cleanTags } = require('../config/tags');
 const { SYNONYMS } = require('../config/tags'); 
+
 let expo = new Expo();
 
 // VARIABLES PARA CACHÉ #HASHTAGS
@@ -445,41 +446,89 @@ if (random === 'true') {
         );
     }
 
-    // ── 3. JOIN CON ARTISTA ──────────────────────────────────────
+    // ── 3. JOIN CON ARTISTA Y FILTRO DE ACTIVIDAD ─────────────────
     pipeline.push(
-        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-        { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-        {
-            $project: {
-                'artist.password': 0,
-                'artist.email': 0,
-                'artist.pushToken': 0,
-                'artist.lastActiveAt': 0,
-                'affinityScore': 0,
-                'affinityGroup': 0
-            }
-        }
+        { 
+            $lookup: { 
+                from: 'users', 
+                localField: 'artist', 
+                foreignField: '_id', 
+                as: 'artist' 
+            } 
+        },
+        { $unwind: '$artist' },
+        // 🚀 FILTRO CRÍTICO: Solo artistas activos
+        { $match: { 'artist.isActive': { $ne: false } } } 
     );
+
+    // ── 4. ORDEN Y MUESTREO ───────────────────────────────────────
+    if (userTags.length > 0) {
+        pipeline.push(
+            { $sort: { affinityGroup: 1, affinityScore: -1 } },
+            { $limit: parsedLimit * 3 }, 
+            { $sample: { size: parsedLimit } }
+        );
+    } else {
+        pipeline.push({ $sample: { size: parsedLimit } });
+    }
+
+    // Limpieza de campos sensibles
+    pipeline.push({
+        $project: {
+            'artist.password': 0, 
+            'artist.email': 0,
+            'artist.pushToken': 0,
+            'artist.interests': 0,
+            'artist.lastActiveAt': 0,
+            'affinityScore': 0,
+            'affinityGroup': 0
+        }
+    });
 
     const results = await Wallpaper.aggregate(pipeline);
     return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
  }
 
-
         // --- 🔵 CASO 3: NAVEGACIÓN NORMAL (Cronológica / Perfil de Artista) ---
-        const walls = await Wallpaper.find(matchQuery)
-            .populate('artist', 'username profilePic isVerified')
-            .sort({ createdAt: -1 }) 
-            .skip(skip)
-            .limit(parsedLimit)
-            
+ const walls = await Wallpaper.aggregate([
+    { $match: matchQuery },
+    {
+        $lookup: {
+            from: 'users',
+            localField: 'artist',
+            foreignField: '_id',
+            as: 'artist'
+        }
+    },
+    { $unwind: '$artist' },
+    // 🚀 FILTRO CRÍTICO: Solo artistas activos
+    { $match: { 'artist.isActive': { $ne: false } } },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: parsedLimit },
+    {
+        $project: {
+            'artist.password': 0,
+            'artist.email': 0,
+            'artist.pushToken': 0,
+            'artist.interests': 0
+        }
+    }
+]);
 
-        res.json(walls);
+// Aseguramos que el campo price siempre exista para el frontend
+const sanitizedWalls = walls.map(item => ({
+    ...item,
+    price: item.price ?? 0
+}));
 
-    } catch (err) {
+res.json(sanitizedWalls);
+
+     } catch (err) {
         console.error("❌ Error crítico en ruta principal:", err);
         res.status(500).json({ msg: 'Error interno del servidor' });
     }
+
 });
 
 
