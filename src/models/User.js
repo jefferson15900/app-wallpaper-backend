@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema({
     instagram: { type: String, default: "" },
     facebook: { type: String, default: "" },
     twitter: { type: String, default: "" },
-    tiktok: { type: String, default: "" },
+    tiktok: { type: String, default: "" }, 
     threads: { type: String, default: "" },  
     web: { type: String, default: "" },
     bio: { type: String, default: "", maxLength: 60 },
@@ -31,6 +31,18 @@ const UserSchema = new mongoose.Schema({
     lastDownloadAt: {type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-
+    birthday: { 
+        type: Date, 
+        default: null 
+    },
+    gender: { 
+        type: String, 
+        enum: ['masculino', 'femenino', 'personalizado', ''], 
+        default: '' 
+    },
+    country: { 
+        type: String, 
+        default: "" 
+    },
 });
 module.exports = mongoose.model('User', UserSchema);
