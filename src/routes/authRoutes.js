@@ -484,62 +484,61 @@ router.post('/deactivate', auth, rateLimiter, async (req, res) => {
 
 // ── ELIMINAR CUENTA (Definitivo) ──
 router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const userId = req.user.id;
+    const { password } = req.body;
 
     try {
-        const userId = req.user.id;
-        const { password } = req.body;
-
-        const user = await User.findById(userId).session(session);
+        // 1. VERIFICACIÓN INICIAL (Fuera de la transacción para ser rápidos)
+        const user = await User.findById(userId);
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
 
-        // 1. Obtener y borrar archivos de Cloudinary (Wallpapers)
-        const userWallpapers = await Wallpaper.find({ artist: userId })
-            .select('public_id type')
-            .session(session);
-
-        const cloudinaryResults = await Promise.allSettled(
-            userWallpapers
-                .filter(w => w.public_id)
-                .map(w =>
-                    cloudinary.uploader.destroy(w.public_id, {
-                        resource_type: w.type === 'video' ? 'video' : 'image'
-                    })
-                )
-        );
-
-        if (user.profilePicId) {
-            await cloudinary.uploader.destroy(user.profilePicId).catch(err => console.log("Error borrando avatar:", err));
-        }
-
-        // 3. LIMPIEZA MASIVA (Atómica dentro de la sesión)
-        await Promise.all([
-            Wallpaper.deleteMany({ artist: userId }, { session }),
-            Wallpaper.updateMany(
-                { likes: userId }, 
-                { $pull: { likes: userId } }, 
-                { session }
+        // 2. LIMPIEZA DE CLOUDINARY (Fuera de la transacción)
+        // Cloudinary es lento. Si lo metemos en la transacción, MongoDB se cansa de esperar y da error.
+        const userWallpapers = await Wallpaper.find({ artist: userId }).select('public_id type');
+        
+        await Promise.allSettled([
+            ...userWallpapers.filter(w => w.public_id).map(w =>
+                cloudinary.uploader.destroy(w.public_id, {
+                    resource_type: w.type === 'video' ? 'video' : 'image'
+                })
             ),
-
+            user.profilePicId ? cloudinary.uploader.destroy(user.profilePicId) : Promise.resolve()
         ]);
 
-        // 4. Borrar al usuario definitivamente
-        await User.findByIdAndDelete(userId, { session });
+        // 3. TRANSACCIÓN DE BASE DE DATOS (Usando withTransaction para auto-reintentos)
+        const session = await mongoose.startSession();
+        
+        try {
+            await session.withTransaction(async () => {
+                // Paso A: Borrar sus wallpapers
+                await Wallpaper.deleteMany({ artist: userId }, { session });
 
-        await session.commitTransaction();
-        console.log(`🗑️ Cuenta eliminada con éxito: ${userId}`);
-        return res.status(204).send();
+                // Paso B: Quitar sus likes (Ejecución SECUENCIAL, no paralela para evitar conflictos)
+                await Wallpaper.updateMany(
+                    { likes: userId },
+                    { $pull: { likes: userId } },
+                    { session }
+                );
+
+                // Paso C: Borrar al usuario
+                await User.findByIdAndDelete(userId, { session });
+            });
+            
+            console.log(`🗑️ Cuenta eliminada con éxito: ${userId}`);
+            return res.status(204).send();
+
+        } finally {
+            await session.endSession();
+        }
 
     } catch (err) {
-        await session.abortTransaction();
         console.error('❌ Error crítico al eliminar cuenta:', err);
-        return res.status(500).json({ msg: 'Error crítico al eliminar cuenta' });
-    } finally {
-        session.endSession();
+        // Si el error es de MongoDB, enviamos un mensaje más claro
+        const message = err.name === 'MongoServerError' ? 'Conflicto de red en la base de datos. Por favor, intenta de nuevo.' : 'Error al eliminar cuenta';
+        return res.status(500).json({ msg: message });
     }
 });
 
