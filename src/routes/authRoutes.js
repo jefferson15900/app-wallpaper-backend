@@ -211,6 +211,20 @@ router.put('/update-social', auth, async (req, res) => {
 });
 
 
+//CORREO 
+router.get('/me', auth, async (req, res) => {
+    try {
+
+        const user = await User.findById(req.user.id).select('-password');
+        
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+        
+        res.json(user);
+    } catch (err) {
+        res.status(500).send('Error de servidor');
+    }
+});
+
 // NUEVA RUTA: Obtener datos públicos de un artista
 router.get('/user/:id', async (req, res) => {
     try {
@@ -556,21 +570,6 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
         // Si el error es de MongoDB, enviamos un mensaje más claro
         const message = err.name === 'MongoServerError' ? 'Conflicto de red en la base de datos. Por favor, intenta de nuevo.' : 'Error al eliminar cuenta';
         return res.status(500).json({ msg: message });
-    }
-});
-
-//CORREO 
-router.get('/me', auth, async (req, res) => {
-    try {
-        // Buscamos al usuario por el ID que viene en el Token (req.user.id)
-        // Incluimos el email pero ocultamos la contraseña
-        const user = await User.findById(req.user.id).select('-password');
-        
-        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
-        
-        res.json(user);
-    } catch (err) {
-        res.status(500).send('Error de servidor');
     }
 });
 
