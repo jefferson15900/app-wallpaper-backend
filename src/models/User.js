@@ -32,7 +32,7 @@ const UserSchema = new mongoose.Schema({
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     birthday: { type: Date, default: null },
-    gender: { type: String, enum: ['masculino', 'femenino', 'personalizado', ''], default: '' },
+    gender: { type: String, enum: ['masculino', 'femenino', 'personalizado', 'Masculino', 'Femenino', 'Personalizado', ''], default: '' },
     country: { type: String, default: "" },
     isActive: { type: Boolean, default: true  },
     deactivatedAt: { type: Date, default: null },
