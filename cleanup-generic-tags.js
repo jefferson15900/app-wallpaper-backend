@@ -194,7 +194,7 @@ const TAGS_TO_REMOVE = [
 'neutral', 'neutral tones', 'neutral colors',
 'earth tones', 'tonos tierra',
 'monocromático', 'black and white', 'blanco y negro',
-'golden', 'dorado', 'gold aesthetic',
+'golden', 'dorado', 'gold aesthetic','anime',
 
 // ── FRASES DE CAPTION ────────────────────────────────────
 'follow for more', 'like this', 'save this',

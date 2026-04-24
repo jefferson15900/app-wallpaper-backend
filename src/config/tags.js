@@ -1,3 +1,5 @@
+const nlp = require('compromise');
+
 // Listado de etiquetas que la IA o los usuarios ponen pero no aportan valor real
 const BLACKLIST_TAGS = new Set([
   // ── CALIDAD / TÉCNICA ─────────────────────────────────────
@@ -452,64 +454,59 @@ const SYNONYMS = {
 
 };
 
-// ============================================================
-// FUNCIÓN PRINCIPAL
-// ============================================================
-
 /**
-/**
- * Limpia, normaliza y deduplica etiquetas para wallpapers.
- * @param {Array}  tagsArray        - Etiquetas brutas (usuario + IA).
- * @param {Object} options
- * @param {number} options.maxTags   - Límite máximo de etiquetas (default: 20).
- * @param {number} options.minLength - Longitud mínima por etiqueta (default: 3).
- * @returns {string[]} Array de etiquetas limpias, únicas y normalizadas.
- *
- * @example
- * cleanTags(['Bosque', 'FOREST', 'rojo', '!!!', 'hd'])
- * // → ['forest', 'red']
+ * Limpia, normaliza y unifica etiquetas usando NLP (Compromise).
+ * @param {unknown[]} tagsArray
+ * @param {{ maxTags?: number, minLength?: number, maxLength?: number }} options
+ * @returns {string[]}
  */
-const cleanTags = (tagsArray, { maxTags = 20, minLength = 3 } = {}) => {
-  if (!Array.isArray(tagsArray)) return [];
+const cleanTags = (tagsArray, { maxTags = 20, minLength = 3, maxLength = 40 } = {}) => {
+  if (!Array.isArray(tagsArray) || tagsArray.length === 0) return [];
 
   const seen = new Set();
 
   return tagsArray
-    // ── PASO 1: Normalización básica ──────────────────────────
-    // Convierte a minúsculas, elimina caracteres especiales
-    // y colapsa espacios múltiples en uno solo
-    .map(t => {
-      if (typeof t !== 'string') return null;
-      return t
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9áéíóúñ ]/g, '')
-        .replace(/\s+/g, ' ');
-    })
+    // 1. Filtro de tipo temprano (evita procesar basura)
+    .filter(t => t != null && typeof t === 'string')
 
-    // ── PASO 2: Descartar nulos y vacíos ──────────────────────
+    // 2. Normalización básica
+    .map(t =>
+      t.toLowerCase()
+       .trim()
+       .replace(/[^a-z0-9áéíóúüñ \-]/gi, '')
+       .replace(/\s+/g, ' ')
+       .trim()
+    )
     .filter(Boolean)
 
-    // ── PASO 3: Filtros de longitud ───────────────────────────
-    .filter(t => t.length >= minLength) // Muy cortas → fuera ("hd", "ok")
-    .filter(t => t.length <= 40)        // Muy largas → fuera (frases de IA sin sentido)
+    // 3. Normalización NLP: singular (con protección contra resultados vacíos/distorsionados)
+    .map(t => {
+      const singular = nlp(t).nouns().toSingular().text().trim();
+      // Solo aceptar el resultado NLP si tiene sentido (no vacío y longitud similar)
+      return singular && Math.abs(singular.length - t.length) < 10 ? singular : t;
+    })
 
-    // ── PASO 4: Filtros de contenido ──────────────────────────
-    .filter(t => !/^\d+$/.test(t))      // Solo números → fuera ("2024", "1920x1080")
-    .filter(t => !BLACKLIST_TAGS.has(t)) // Términos sin valor → fuera ("hd", "wallpaper")
-    .filter(t => !VAGUE_SINGLES.has(t)) // Palabras vagas sueltas → fuera ("art", "style")
+    // 4. Resolución de sinónimos ANTES de filtrar
+    //    (un alias puede mapear a un tag válido que sí pasa la blacklist)
     .map(t => SYNONYMS[t] ?? t)
 
-    // ── PASO 6: Deduplicación inteligente ─────────────────────
-    // Un Set simple no detectaría que "bosque" y "forest" son lo mismo.
-    // Al aplicarlo DESPUÉS del paso 5, sí lo detecta.
+    // 5. Filtros combinados en una sola pasada
+    .filter(t =>
+      t.length >= minLength &&
+      t.length <= maxLength &&
+      !/^\d+$/.test(t) &&
+      !BLACKLIST_TAGS.has(t) &&
+      !VAGUE_SINGLES.has(t)
+    )
+
+    // 6. Deduplicación
     .filter(t => {
       if (seen.has(t)) return false;
       seen.add(t);
       return true;
     })
 
-    // ── PASO 7: Limitar cantidad ──────────────────────────────
+    // 7. Límite máximo
     .slice(0, maxTags);
 };
 
