@@ -67,22 +67,47 @@ router.post('/register', async (req, res) => {
 // RUTA: LOGIN
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`\n🔑 [INTENTO DE LOGIN] Email: ${email}`);
+
     try {
+        // 1. Buscar usuario
         let user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'Credenciales inválidas' });
+        
+        if (!user) {
+            console.log(`❌ [LOGIN FALLIDO] Usuario no encontrado: ${email}`);
+            return res.status(400).json({ msg: 'Credenciales inválidas' });
+        }
 
+        // 2. Verificar Contraseña
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ msg: 'Credenciales inválidas' });
-    
-     if (!user.isActive) {
-        user.isActive = true;
-        user.deactivatedAt = null;
-        await user.save();
-    }
+        if (!isMatch) {
+            console.log(`❌ [LOGIN FALLIDO] Contraseña incorrecta para: ${email}`);
+            return res.status(400).json({ msg: 'Credenciales inválidas' });
+        }
 
+        // 🚀 3. LÓGICA DE REACTIVACIÓN CON LOGS
+        if (user.isActive === false) {
+            console.log(`♻️ [REACTIVACIÓN] La cuenta ${email} estaba PAUSADA. Reactivando...`);
+            
+            user.isActive = true;
+            user.deactivatedAt = null;
+            await user.save();
+            
+            console.log(`✅ [REACTIVACIÓN] Cuenta ${email} activada con éxito.`);
+        } else {
+            console.log(`🟢 [ESTADO] La cuenta ${email} ya estaba activa.`);
+        }
+
+        // 4. Generación de Token
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
-            if (err) throw err;
+            if (err) {
+                console.error(`🔥 [ERROR JWT]: ${err.message}`);
+                throw err;
+            }
+            
+            console.log(`🚀 [ÉXITO] Login completado para: ${user.username}. Enviando respuesta al móvil.\n`);
+            
             res.json({ 
                 token, 
                 user: { 
@@ -101,7 +126,9 @@ router.post('/login', async (req, res) => {
                 } 
             });
         });
+
     } catch (err) {
+        console.error(`🔥 [ERROR CRÍTICO SERVER]: ${err.message}`);
         res.status(500).send('Error en el servidor');
     }
 });
