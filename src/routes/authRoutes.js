@@ -67,8 +67,6 @@ router.post('/register', async (req, res) => {
 // RUTA: LOGIN
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
-    console.log(`\n🔑 [INTENTO DE LOGIN] Email: ${email}`);
-
     try {
         // 1. Buscar usuario
         let user = await User.findOne({ email });
@@ -81,23 +79,16 @@ router.post('/login', async (req, res) => {
         // 2. Verificar Contraseña
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log(`❌ [LOGIN FALLIDO] Contraseña incorrecta para: ${email}`);
             return res.status(400).json({ msg: 'Credenciales inválidas' });
         }
 
         // 🚀 3. LÓGICA DE REACTIVACIÓN CON LOGS
         if (user.isActive === false) {
-            console.log(`♻️ [REACTIVACIÓN] La cuenta ${email} estaba PAUSADA. Reactivando...`);
-            
             user.isActive = true;
             user.deactivatedAt = null;
             await user.save();
             
-            console.log(`✅ [REACTIVACIÓN] Cuenta ${email} activada con éxito.`);
-        } else {
-            console.log(`🟢 [ESTADO] La cuenta ${email} ya estaba activa.`);
         }
-
         // 4. Generación de Token
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
@@ -105,8 +96,6 @@ router.post('/login', async (req, res) => {
                 console.error(`🔥 [ERROR JWT]: ${err.message}`);
                 throw err;
             }
-            
-            console.log(`🚀 [ÉXITO] Login completado para: ${user.username}. Enviando respuesta al móvil.\n`);
             
             res.json({ 
                 token, 
@@ -567,6 +556,21 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
         // Si el error es de MongoDB, enviamos un mensaje más claro
         const message = err.name === 'MongoServerError' ? 'Conflicto de red en la base de datos. Por favor, intenta de nuevo.' : 'Error al eliminar cuenta';
         return res.status(500).json({ msg: message });
+    }
+});
+
+//CORREO 
+router.get('/me', auth, async (req, res) => {
+    try {
+        // Buscamos al usuario por el ID que viene en el Token (req.user.id)
+        // Incluimos el email pero ocultamos la contraseña
+        const user = await User.findById(req.user.id).select('-password');
+        
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+        
+        res.json(user);
+    } catch (err) {
+        res.status(500).send('Error de servidor');
     }
 });
 
