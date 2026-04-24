@@ -329,42 +329,52 @@ const runMegaPurification = async () => {
     try {
         console.log('📡 Conectando a MongoDB...');
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Conexión exitosa. Iniciando proceso masivo...\n');
+        console.log('✅ Conexión exitosa. Iniciando proceso masivo en dos pasos...\n');
 
         const entries = Object.entries(TRANSLATIONS);
         let tagsUpdatedInDB = 0;
+        let dictionaryCount = 0;
 
         for (const [original, canonical] of entries) {
             // 1. ACTUALIZAR DICCIONARIO (TagMap)
+            // Esto siempre se hace, sea igual o diferente
             await TagMap.findOneAndUpdate(
                 { original },
-                { canonical, language: /[áéíóúñ]/i.test(original) ? 'es' : 'en' },
+                { 
+                  canonical, 
+                  language: /[áéíóúñ]/i.test(original) ? 'es' : 'en' 
+                },
                 { upsert: true }
             );
+            dictionaryCount++;
 
-            // 2. ACTUALIZAR WALLPAPERS REALES
-            // Si el original y el canónico son diferentes, limpiamos la DB
+            // 2. ACTUALIZAR WALLPAPERS REALES (Solo si el tag cambia)
             if (original !== canonical) {
+                // PASO A: Añadir el nuevo tag canónico
+                await Wallpaper.updateMany(
+                    { tags: original },
+                    { $addToSet: { tags: canonical } }
+                );
+
+                // PASO B: Quitar el tag original viejo
                 const res = await Wallpaper.updateMany(
                     { tags: original },
-                    { 
-                        $addToSet: { tags: canonical }, // Añade el bueno
-                        $pull: { tags: original }      // Quita el malo
-                    }
+                    { $pull: { tags: original } }
                 );
+
                 if (res.modifiedCount > 0) {
-                    console.log(`✨ DB: [${original}] -> [${canonical}] (${res.modifiedCount} obras)`);
+                    console.log(`✨ [${original}] -> [${canonical}] | ${res.modifiedCount} obras unificadas`);
                     tagsUpdatedInDB += res.modifiedCount;
                 }
             }
         }
 
         console.log(`\n=========================================`);
-        console.log(`✅ PROCESO COMPLETADO`);
+        console.log(`✅ PROCESO COMPLETADO EXITOSAMENTE`);
         console.log(`=========================================`);
-        console.log(`📚 Palabras en Diccionario: ${entries.length}`);
-        console.log(`🔧 Obras corregidas en DB:  ${tagsUpdatedInDB}`);
-        console.log(`🎯 Vexel es ahora más inteligente.`);
+        console.log(`📚 Tags en Diccionario:   ${dictionaryCount}`);
+        console.log(`🔧 Wallpapers corregidos: ${tagsUpdatedInDB}`);
+        console.log(`🎯 Base de datos sincronizada.`);
         console.log(`=========================================`);
 
         process.exit(0);

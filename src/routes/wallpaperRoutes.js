@@ -10,6 +10,7 @@ const aiQueue = require('../services/aiQueue');
 const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
 const { cleanTags, SYNONYMS } = require('../config/tags');
+const TagMap = require('../models/TagMap');
 
 let expo = new Expo();
 
@@ -290,43 +291,41 @@ router.get('/', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 
 if (search && search.trim() !== '') {
-    const { exclude } = req.query;
-    const parsedLimit = parseInt(req.query.limit) || 16;
+    const { exclude, limit, page, random } = req.query;
+    const parsedLimit = parseInt(limit) || 16;
+    const skip = (parseInt(page || 1) - 1) * parsedLimit;
 
-    // ── PASO A: Normalizar término original ───────────────────
+    // ── PASO A: Normalización y Traducción Dinámica (TagMap) ──
     const rawSearch = search.trim().toLowerCase();
+    
+    // Buscar el término canónico en la base de datos
+    const mapping = await TagMap.findOne({ original: rawSearch });
+    const canonical = mapping ? mapping.canonical : rawSearch;
 
-    const canonical = SYNONYMS[rawSearch] || rawSearch;
+    // ── PASO B: Expansión de Consulta (Buscar todos los sinónimos) ──
+    const allSynonyms = await TagMap.find({ canonical: canonical });
     const expandedTerms = new Set([rawSearch, canonical]);
-
-    for (const [synonym, target] of Object.entries(SYNONYMS)) {
-        if (target === canonical) {
-            expandedTerms.add(synonym);
-        }
-    }
+    allSynonyms.forEach(t => expandedTerms.add(t.original));
 
     const queryString = [...expandedTerms].join(' ');
+    console.log(`🔍 Query: "${rawSearch}" → [${queryString}]`);
 
-    console.log(`🔍 "${rawSearch}" → canónico: "${canonical}" → [${[...expandedTerms].join(', ')}]`);
-
-    // ── PASO C: Fuzzy solo si el término ORIGINAL es largo ────
+    // ── PASO C: Configuración de búsqueda ──
     const useFuzzy = rawSearch.length > 4;
-
     let excludeIds = [];
-    if (exclude && exclude !== '') {
+    if (exclude) {
         excludeIds = exclude.split(',')
             .filter(id => mongoose.Types.ObjectId.isValid(id))
-            .slice(0, 50)
             .map(id => new mongoose.Types.ObjectId(id));
     }
 
-    // ── PASO D: Pipeline con todos los sinónimos ──────────────
+    // ── PASO D: Pipeline Atlas Search ──
     let pipeline = [
         {
             $search: {
                 index: "default",
                 text: {
-                    query: queryString, // "mar ocean océano sea waves olas marea..."
+                    query: queryString,
                     path: ["title", "tags"],
                     ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
                 }
@@ -334,18 +333,19 @@ if (search && search.trim() !== '') {
         }
     ];
 
+    // Filtros adicionales (status, categoría, exclusión)
     let finalMatch = { ...matchQuery };
-    if (excludeIds.length > 0) {
-        finalMatch._id = { $nin: excludeIds };
-    }
+    if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
     pipeline.push({ $match: finalMatch });
 
-    if (req.query.random === 'true') {
+    // Paginación o Aleatoriedad
+    if (random === 'true') {
         pipeline.push({ $sample: { size: parsedLimit } });
     } else {
         pipeline.push({ $skip: skip }, { $limit: parsedLimit });
     }
 
+    // Join con Artista
     pipeline.push(
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
         { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
