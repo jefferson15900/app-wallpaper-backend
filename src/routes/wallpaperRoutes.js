@@ -10,6 +10,7 @@ const aiQueue = require('../services/aiQueue');
 const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
 const { cleanTags, SYNONYMS } = require('../config/tags');
+const nlp = require('compromise'); 
 const TagMap = require('../models/TagMap');
 const { resolveToCanonical , resolveTagsArray  } = require('../utils/tagResolver');
 
@@ -602,58 +603,80 @@ router.get('/user/:id', async (req, res) => {
 // ======================================================
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
-
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
         const isVideo = req.file.mimetype.startsWith('video');
-        const user = await User.findById(req.user.id);
 
-        if (isVideo && (!user || user.role !== 'admin')) {
-            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' });
+        // ── Validación de permisos ──────────────────────────────────────────
+        // Traemos el user una sola vez y lo reutilizamos todo el handler
+        const user = await User.findById(req.user.id).lean();
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        const isAdmin = user.role === 'admin';
+
+        if (isVideo && !isAdmin) {
+            // Limpiar Cloudinary antes de responder el error
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
+                .catch(e => console.error('❌ Error limpiando video en Cloudinary:', e));
             return res.status(403).json({ msg: 'Solo el administrador sube Live Wallpapers' });
         }
 
+        // ── Preparar tags ───────────────────────────────────────────────────
         const { title, tags, category, price } = req.body;
 
-        // 1. Recopilar y limpiar tags iniciales
-        let rawTags = [];
-        if (title) rawTags.push(title);
-        if (tags) rawTags = [...rawTags, ...tags.split(',')];
-        if (category) rawTags.push(category);
-        
-        const cleaned = cleanTags(rawTags);
+        const rawTags = [
+            title,
+            ...(tags ? tags.split(',') : []),
+            category
+        ].filter(Boolean); // elimina undefined/null/empty en una sola pasada
 
-        // 2. 🚀 TRADUCCIÓN DINÁMICA: Convertir a términos canónicos (Inglés)
+        const cleaned  = cleanTags(rawTags);
         const finalTags = await resolveTagsArray(cleaned);
 
+        // ── Crear wallpaper ─────────────────────────────────────────────────
         const newWallpaper = new Wallpaper({
-            title: title || (finalTags.length > 0 ? finalTags[0] : "Vexel Art"),
-            tags: finalTags, 
-            imageUrl: req.file.path,
+            title:     title?.trim() || finalTags[0] || 'Vexel Art',
+            tags:      finalTags,
+            imageUrl:  req.file.path,
             public_id: req.file.filename,
-            category: category || 'Otros',
-            artist: req.user.id,
-            type: isVideo ? 'video' : 'image',
-            status: isVideo ? 'approved' : 'pending',
-            price: user.role === 'admin' ? parseInt(price || 0) : 0
+            category:  category || 'Otros',
+            artist:    req.user.id,
+            type:      isVideo ? 'video' : 'image',
+            status:    isVideo ? 'approved' : 'pending',
+            price:     isAdmin ? Math.max(0, Number(price) || 0) : 0
         });
 
         await newWallpaper.save();
-        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
+        // Incrementar contador y responder en paralelo
+        await Promise.all([
+            User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } }),
+        ]);
+
+        // Responder ANTES de encolar el job pesado
         res.json(newWallpaper);
 
+        // ── Post-respuesta: encolar job de IA (solo imágenes) ───────────────
         if (!isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
-                imageUrl: req.file.path,
-                baseTags: finalTags // Pasamos los tags ya traducidos a la IA
+                imageUrl:    req.file.path,
+                baseTags:    finalTags
             });
         }
+
     } catch (err) {
-        console.error("❌ ERROR EN UPLOAD:", err.message);
+        console.error('❌ ERROR EN UPLOAD:', err);
+
+        // Si falló después de subir a Cloudinary, limpiar el archivo huérfano
+        if (req.file?.filename) {
+            const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
+                .catch(e => console.error('❌ Error limpiando Cloudinary tras fallo:', e));
+        }
+
         res.status(500).json({ msg: 'Error interno en la subida' });
     }
 });
