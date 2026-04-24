@@ -7,13 +7,24 @@ const analyzeWithModel = async (modelName, base64Image) => {
     
     const model = genAI.getGenerativeModel({ model: modelName });
     
-    // ✅ FIX: 20 tags separados, 10 en español + 10 en inglés, SIN slashes
-    const prompt = `Analiza esta imagen y devuelve exactamente 20 etiquetas (tags) descriptivas separadas por comas.
-- Las primeras 10 en ESPAÑOL
-- Las siguientes 10 en INGLÉS
-- Incluye: estilo artístico, colores dominantes y elementos clave
-- Cada etiqueta debe ser una sola palabra o concepto corto
-- SIN slashes, SIN explicaciones, SOLO las etiquetas separadas por comas`;
+
+const prompt = `You are a tagging assistant for a wallpaper app. Analyze this image and return exactly 5 tags separated by commas.
+
+Rules:
+- ALL tags in ENGLISH only
+- Single words only, no phrases
+- ONLY tags that someone would actually type in a search bar
+
+Prioritize in this order:
+1. Character/franchise  → batman, spiderman, naruto, goku, ironman, joker, deadpool
+2. Setting              → space, forest, city, ocean, desert, mountain
+3. Dominant colors      → red, blue, neon, pastel, golden, purple, black, white
+4. Key elements         → dragon, wolf, fire, flowers, robot, car, sword, cat
+5. Mood (only if very obvious) → dark, cozy, romantic
+
+NEVER use: illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
+
+Return ONLY the 5 tags separated by commas, nothing else.`;
 
     const result = await model.generateContent([
         prompt,
