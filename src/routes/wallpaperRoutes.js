@@ -11,6 +11,7 @@ const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
 const { cleanTags, SYNONYMS } = require('../config/tags');
 const TagMap = require('../models/TagMap');
+const { resolveToCanonical , resolveTagsArray  } = require('../utils/tagResolver');
 
 let expo = new Expo();
 
@@ -295,23 +296,43 @@ if (search && search.trim() !== '') {
     const parsedLimit = parseInt(limit) || 16;
     const skip = (parseInt(page || 1) - 1) * parsedLimit;
 
-    // ── PASO A: Normalización y Traducción Dinámica (TagMap) ──
+    // ── PASO A: Normalizar el término de búsqueda ──
     const rawSearch = search.trim().toLowerCase();
+
+    // Singularizar igual que como cleanTags guarda los tags en DB
+    const singularSearch = (() => {
+        const singular = nlp(rawSearch).nouns().toSingular().text().trim();
+        return singular && Math.abs(singular.length - rawSearch.length) < 10
+            ? singular
+            : rawSearch;
+    })();
+
+    // ── PASO B: Resolver canónico (sobre el término ya singularizado) ──
+    const canonical = await resolveToCanonical(singularSearch);
+
+    // ── PASO C: Expansión de Consulta (Sinónimos) ──
+    const allSynonyms = await TagMap.find({ canonical });
     
-    // Buscar el término canónico en la base de datos
-    const mapping = await TagMap.findOne({ original: rawSearch });
-    const canonical = mapping ? mapping.canonical : rawSearch;
+    // Incluimos todas las formas: original, singular y canónico
+    const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
+    allSynonyms.forEach(t => {
+        expandedTerms.add(t.original);
+        // También singularizamos cada sinónimo para máxima cobertura
+        const s = nlp(t.original).nouns().toSingular().text().trim();
+        if (s) expandedTerms.add(s);
+    });
 
-    // ── PASO B: Expansión de Consulta (Buscar todos los sinónimos) ──
-    const allSynonyms = await TagMap.find({ canonical: canonical });
-    const expandedTerms = new Set([rawSearch, canonical]);
-    allSynonyms.forEach(t => expandedTerms.add(t.original));
+    // Eliminar términos vacíos o muy cortos
+    const queryString = [...expandedTerms]
+        .filter(t => t && t.length >= 2)
+        .join(' ');
 
-    const queryString = [...expandedTerms].join(' ');
-    console.log(`🔍 Query: "${rawSearch}" → [${queryString}]`);
+    console.log(`🔍 Buscador Vexel: "${rawSearch}" → singular: "${singularSearch}" → expandido: [${queryString}]`);
 
-    // ── PASO C: Configuración de búsqueda ──
-    const useFuzzy = rawSearch.length > 4;
+    // ── PASO D: Configuración de Atlas Search ──
+    // Fuzzy solo si el término es suficientemente largo (evita falsos positivos en términos cortos)
+    const useFuzzy = singularSearch.length > 4;
+
     let excludeIds = [];
     if (exclude) {
         excludeIds = exclude.split(',')
@@ -319,8 +340,8 @@ if (search && search.trim() !== '') {
             .map(id => new mongoose.Types.ObjectId(id));
     }
 
-    // ── PASO D: Pipeline Atlas Search ──
-    let pipeline = [
+    // ── PASO E: Pipeline de Agregación ──
+    const pipeline = [
         {
             $search: {
                 index: "default",
@@ -330,38 +351,51 @@ if (search && search.trim() !== '') {
                     ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
                 }
             }
+        },
+        // Guardar score de relevancia para ordenar después si es necesario
+        {
+            $addFields: { score: { $meta: "searchScore" } }
         }
     ];
 
-    // Filtros adicionales (status, categoría, exclusión)
-    let finalMatch = { ...matchQuery };
+    // Filtros adicionales
+    const finalMatch = { ...matchQuery };
     if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
     pipeline.push({ $match: finalMatch });
 
-    // Paginación o Aleatoriedad
+    // Aleatorio o Paginado
     if (random === 'true') {
         pipeline.push({ $sample: { size: parsedLimit } });
     } else {
-        pipeline.push({ $skip: skip }, { $limit: parsedLimit });
+        // En modo paginado ordenamos por relevancia
+        pipeline.push(
+            { $sort: { score: -1 } },
+            { $skip: skip },
+            { $limit: parsedLimit }
+        );
     }
 
-    // Join con Artista
+    // Unir con datos del artista
     pipeline.push(
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
         { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-        { $project: { 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0 } }
+        {
+            $project: {
+                score: 0, // Quitar el score del response final
+                'artist.password': 0,
+                'artist.email': 0,
+                'artist.pushToken': 0
+            }
+        }
     );
 
     const searchResults = await Wallpaper.aggregate(pipeline);
 
-    const sanitizedResults = searchResults.map(item => ({
+    return res.json(searchResults.map(item => ({
         ...item,
         price: item.price ?? 0
-    }));
-
-    return res.json(sanitizedResults);
+    })));
 }
-
 
 // ─────────────────────────────────────────────────────────────────
 // CASO 2: FEED "PARA TI" — 100% TAGS, sin categorías
@@ -571,35 +605,38 @@ router.get('/user/:id', async (req, res) => {
 
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ msg: 'No se recibió ninguna imagen o video' });
-        }
+        if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
         const isVideo = req.file.mimetype.startsWith('video');
         const user = await User.findById(req.user.id);
 
         if (isVideo && (!user || user.role !== 'admin')) {
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' });
-            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers' });
+            return res.status(403).json({ msg: 'Solo el administrador sube Live Wallpapers' });
         }
 
         const { title, tags, category, price } = req.body;
+
+        // 1. Recopilar y limpiar tags iniciales
         let rawTags = [];
         if (title) rawTags.push(title);
         if (tags) rawTags = [...rawTags, ...tags.split(',')];
-        if (category) rawTags.push(category.toLowerCase());
-        const baseTags = cleanTags(rawTags);
+        if (category) rawTags.push(category);
+        
+        const cleaned = cleanTags(rawTags);
+
+        // 2. 🚀 TRADUCCIÓN DINÁMICA: Convertir a términos canónicos (Inglés)
+        const finalTags = await resolveTagsArray(cleaned);
 
         const newWallpaper = new Wallpaper({
-            title: title || (baseTags.length > 0 ? baseTags[0] : "Vexel Art"),
-            tags: baseTags, 
+            title: title || (finalTags.length > 0 ? finalTags[0] : "Vexel Art"),
+            tags: finalTags, 
             imageUrl: req.file.path,
             public_id: req.file.filename,
             category: category || 'Otros',
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
             status: isVideo ? 'approved' : 'pending',
-            isAITagged: false,
             price: user.role === 'admin' ? parseInt(price || 0) : 0
         });
 
@@ -612,16 +649,14 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl: req.file.path,
-                baseTags
+                baseTags: finalTags // Pasamos los tags ya traducidos a la IA
             });
         }
-
     } catch (err) {
-        console.error("❌ ERROR CRÍTICO EN UPLOAD:", err.message);
-        res.status(500).json({ msg: 'Error interno al procesar la subida' });
+        console.error("❌ ERROR EN UPLOAD:", err.message);
+        res.status(500).json({ msg: 'Error interno en la subida' });
     }
 });
-
 
 // Dar o quitar Like
 router.put('/like/:id', auth, async (req, res) => {
