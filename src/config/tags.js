@@ -452,6 +452,39 @@ const SYNONYMS = {
   'tower': 'tower', 'torre': 'tower',
   'lighthouse': 'lighthouse', 'faro': 'lighthouse',
 
+  'rojo y negro': 'red and black', 'negro y rojo': 'red and black',
+  'ojos brillante': 'glowing eyes', 'ojos rojos brillante': 'glowing eyes',
+  'deportivo': 'sports car', 'coche deportivo': 'sports car',
+  'auto': 'car', 'coche': 'car', 'automotive': 'car',
+  'urbano': 'urban', 'estilo urbano': 'urban', 'urban style': 'urban',
+  'fluido': 'fluid', 'fluidez': 'fluid',
+  'reflejo': 'reflection',
+  'ojo': 'eye', 'ojos': 'eye', 'eyes': 'eye',
+  'sombra': 'shadow',
+  'contraste': 'contrast', 'contraste alto': 'contrast',
+  'velocidad': 'speed',
+  'lujo': 'luxury',
+  'gafa': 'glasses', 'gafa sol': 'glasses', 'sunglass': 'glasses',
+  'brillo': 'glow', 'resplandor': 'glow', 'luminous': 'glow', 'luminoso': 'glow',
+  'sonrisa': 'smile', 'sonriente': 'smile',
+  'tatuaje': 'tattoo',
+  'calavera': 'skull', 'calabera': 'skull',
+  'luna llena': 'full moon',
+  'paisaje urbano': 'city', 'rascacielo': 'city', 'skyscraper': 'city',
+  'armadura': 'armor',
+  'espacio': 'space', 'cosmico': 'cosmic',
+  'tierno': 'adorable', 'playful': 'adorable',
+  
+  // --- Personajes (Unificación de nombres) ---
+  'itachi uchiha': 'itachi',
+  'gojo satoru': 'gojo', 'satoru gojo': 'gojo',
+  'madara uchiha': 'madara',
+  'naruto uzumaki': 'naruto',
+  'sasuke uchiha': 'sasuke',
+  'ryomen sukuna': 'sukuna',
+  'kakashi hatake': 'kakashi',
+  'miles morale': 'spiderman', 'hombre araña': 'spiderman',
+
 };
 
 /**

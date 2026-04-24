@@ -9,8 +9,7 @@ const { getAITags } = require('../services/aiService');
 const aiQueue = require('../services/aiQueue'); 
 const Visitor = require('../models/Visitor');
 const mongoose = require('mongoose'); 
-const { cleanTags } = require('../config/tags');
-const { SYNONYMS } = require('../config/tags'); 
+const { cleanTags, SYNONYMS } = require('../config/tags');
 
 let expo = new Expo();
 

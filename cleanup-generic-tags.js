@@ -194,7 +194,7 @@ const TAGS_TO_REMOVE = [
 'neutral', 'neutral tones', 'neutral colors',
 'earth tones', 'tonos tierra',
 'monocromático', 'black and white', 'blanco y negro',
-'golden', 'dorado', 'gold aesthetic','anime',
+'golden', 'dorado', 'gold aesthetic',
 
 // ── FRASES DE CAPTION ────────────────────────────────────
 'follow for more', 'like this', 'save this',
@@ -202,6 +202,14 @@ const TAGS_TO_REMOVE = [
 'credit to owner', 'not mine', 'found on pinterest',
 'source unknown', 'via pinterest',
 'tap for more', 'swipe',
+
+'digital', // Puesto #5, no dice nada, todo es digital
+  'personaje', // Puesto #29, muy genérico
+  'rendering', 'renderizado', // Ruido técnico
+  'tridimensional', // Ruido técnico
+  'vibrante', 'colorido', // Adjetivos vagos
+  'looking up', 'peeking', // Descripciones de pose muy raras
+  'otros'
 ];
 
 const cleanupTags = async () => {

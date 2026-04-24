@@ -37,15 +37,15 @@ const analyzeTags = async () => {
         console.log(`🔥 TOP 100 ETIQUETAS MÁS USADAS:`);
         console.log(`-----------------------------------------`);
         
-        stats.slice(0, 100).forEach((tag, index) => {
+        stats.slice(0, 365).forEach((tag, index) => {
             const position = (index + 1).toString().padStart(2, ' ');
             const tagName = tag._id.padEnd(20, ' ');
             console.log(`${position}. [${tagName}] -> Usada en ${tag.count} obras`);
         });
 
         console.log(`\n-----------------------------------------`);
-        if (totalUniqueTags > 100) {
-            console.log(`... y otras ${totalUniqueTags - 100} etiquetas más.`);
+        if (totalUniqueTags > 365) {
+            console.log(`... y otras ${totalUniqueTags - 365} etiquetas más.`);
         }
         console.log(`=========================================`);
 

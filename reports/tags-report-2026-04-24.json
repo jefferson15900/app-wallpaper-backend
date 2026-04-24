@@ -1,0 +1,1847 @@
+{
+  "stats": {
+    "total": 365,
+    "en": 365,
+    "es": 0,
+    "unknown": 0,
+    "top10": [
+      "red (171)",
+      "blue (169)",
+      "black (168)",
+      "orange (110)",
+      "digital (106)",
+      "purple (103)",
+      "animation (92)",
+      "neon (84)",
+      "yellow (76)",
+      "space (65)"
+    ]
+  },
+  "tags": [
+    {
+      "tag": "red",
+      "usage": 171,
+      "lang": "en"
+    },
+    {
+      "tag": "blue",
+      "usage": 169,
+      "lang": "en"
+    },
+    {
+      "tag": "black",
+      "usage": 168,
+      "lang": "en"
+    },
+    {
+      "tag": "orange",
+      "usage": 110,
+      "lang": "en"
+    },
+    {
+      "tag": "digital",
+      "usage": 106,
+      "lang": "en"
+    },
+    {
+      "tag": "purple",
+      "usage": 103,
+      "lang": "en"
+    },
+    {
+      "tag": "animation",
+      "usage": 92,
+      "lang": "en"
+    },
+    {
+      "tag": "neon",
+      "usage": 84,
+      "lang": "en"
+    },
+    {
+      "tag": "yellow",
+      "usage": 76,
+      "lang": "en"
+    },
+    {
+      "tag": "space",
+      "usage": 65,
+      "lang": "en"
+    },
+    {
+      "tag": "white",
+      "usage": 64,
+      "lang": "en"
+    },
+    {
+      "tag": "eye",
+      "usage": 63,
+      "lang": "en"
+    },
+    {
+      "tag": "dark fantasy",
+      "usage": 61,
+      "lang": "en"
+    },
+    {
+      "tag": "futuristic",
+      "usage": 60,
+      "lang": "en"
+    },
+    {
+      "tag": "cyberpunk",
+      "usage": 59,
+      "lang": "en"
+    },
+    {
+      "tag": "turquoise",
+      "usage": 57,
+      "lang": "en"
+    },
+    {
+      "tag": "car",
+      "usage": 55,
+      "lang": "en"
+    },
+    {
+      "tag": "red and black",
+      "usage": 53,
+      "lang": "en"
+    },
+    {
+      "tag": "spiderman",
+      "usage": 52,
+      "lang": "en"
+    },
+    {
+      "tag": "caricatura",
+      "usage": 52,
+      "lang": "en"
+    },
+    {
+      "tag": "water",
+      "usage": 47,
+      "lang": "en"
+    },
+    {
+      "tag": "green",
+      "usage": 45,
+      "lang": "en"
+    },
+    {
+      "tag": "ocean",
+      "usage": 44,
+      "lang": "en"
+    },
+    {
+      "tag": "fire",
+      "usage": 43,
+      "lang": "en"
+    },
+    {
+      "tag": "fantasy",
+      "usage": 43,
+      "lang": "en"
+    },
+    {
+      "tag": "minimalism",
+      "usage": 43,
+      "lang": "en"
+    },
+    {
+      "tag": "superhero",
+      "usage": 42,
+      "lang": "en"
+    },
+    {
+      "tag": "city",
+      "usage": 42,
+      "lang": "en"
+    },
+    {
+      "tag": "katana",
+      "usage": 41,
+      "lang": "en"
+    },
+    {
+      "tag": "personaje",
+      "usage": 41,
+      "lang": "en"
+    },
+    {
+      "tag": "geometric",
+      "usage": 38,
+      "lang": "en"
+    },
+    {
+      "tag": "pink",
+      "usage": 38,
+      "lang": "en"
+    },
+    {
+      "tag": "tierno",
+      "usage": 37,
+      "lang": "en"
+    },
+    {
+      "tag": "knight",
+      "usage": 37,
+      "lang": "en"
+    },
+    {
+      "tag": "fluido",
+      "usage": 37,
+      "lang": "en"
+    },
+    {
+      "tag": "reflejo",
+      "usage": 37,
+      "lang": "en"
+    },
+    {
+      "tag": "glowing",
+      "usage": 37,
+      "lang": "en"
+    },
+    {
+      "tag": "darkfantasy",
+      "usage": 36,
+      "lang": "en"
+    },
+    {
+      "tag": "auto",
+      "usage": 36,
+      "lang": "en"
+    },
+    {
+      "tag": "gray",
+      "usage": 36,
+      "lang": "en"
+    },
+    {
+      "tag": "cosmic",
+      "usage": 34,
+      "lang": "en"
+    },
+    {
+      "tag": "rojo y negro",
+      "usage": 34,
+      "lang": "en"
+    },
+    {
+      "tag": "curvas",
+      "usage": 33,
+      "lang": "en"
+    },
+    {
+      "tag": "gradient",
+      "usage": 33,
+      "lang": "en"
+    },
+    {
+      "tag": "reflection",
+      "usage": 33,
+      "lang": "en"
+    },
+    {
+      "tag": "ondas",
+      "usage": 32,
+      "lang": "en"
+    },
+    {
+      "tag": "urbano",
+      "usage": 32,
+      "lang": "en"
+    },
+    {
+      "tag": "gold",
+      "usage": 32,
+      "lang": "en"
+    },
+    {
+      "tag": "brown",
+      "usage": 32,
+      "lang": "en"
+    },
+    {
+      "tag": "ojos brillante",
+      "usage": 31,
+      "lang": "en"
+    },
+    {
+      "tag": "scifi",
+      "usage": 30,
+      "lang": "en"
+    },
+    {
+      "tag": "deportivo",
+      "usage": 29,
+      "lang": "en"
+    },
+    {
+      "tag": "contrast",
+      "usage": 29,
+      "lang": "en"
+    },
+    {
+      "tag": "cat",
+      "usage": 29,
+      "lang": "en"
+    },
+    {
+      "tag": "teal",
+      "usage": 28,
+      "lang": "en"
+    },
+    {
+      "tag": "mountain",
+      "usage": 28,
+      "lang": "en"
+    },
+    {
+      "tag": "dark blue",
+      "usage": 27,
+      "lang": "en"
+    },
+    {
+      "tag": "sunglass",
+      "usage": 27,
+      "lang": "en"
+    },
+    {
+      "tag": "dynamic",
+      "usage": 26,
+      "lang": "en"
+    },
+    {
+      "tag": "fluid",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "magenta",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "manga",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "flowers",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "naruto",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "curves",
+      "usage": 25,
+      "lang": "en"
+    },
+    {
+      "tag": "shadow",
+      "usage": 24,
+      "lang": "en"
+    },
+    {
+      "tag": "mask",
+      "usage": 24,
+      "lang": "en"
+    },
+    {
+      "tag": "degradado",
+      "usage": 24,
+      "lang": "en"
+    },
+    {
+      "tag": "graffiti",
+      "usage": 23,
+      "lang": "en"
+    },
+    {
+      "tag": "vibrante",
+      "usage": 23,
+      "lang": "en"
+    },
+    {
+      "tag": "pelaje",
+      "usage": 23,
+      "lang": "en"
+    },
+    {
+      "tag": "glossy",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "sombra",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "red eye",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "ojo",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "ninja",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "contraste",
+      "usage": 22,
+      "lang": "en"
+    },
+    {
+      "tag": "capa",
+      "usage": 21,
+      "lang": "en"
+    },
+    {
+      "tag": "streetwear",
+      "usage": 21,
+      "lang": "en"
+    },
+    {
+      "tag": "sleek",
+      "usage": 21,
+      "lang": "en"
+    },
+    {
+      "tag": "monochromatic",
+      "usage": 20,
+      "lang": "en"
+    },
+    {
+      "tag": "silueta",
+      "usage": 20,
+      "lang": "en"
+    },
+    {
+      "tag": "gojo",
+      "usage": 20,
+      "lang": "en"
+    },
+    {
+      "tag": "dog",
+      "usage": 20,
+      "lang": "en"
+    },
+    {
+      "tag": "liquid",
+      "usage": 20,
+      "lang": "en"
+    },
+    {
+      "tag": "sports car",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "glow",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "azul oscuro",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "textured",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "fluffy",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "supercar",
+      "usage": 19,
+      "lang": "en"
+    },
+    {
+      "tag": "metallic",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "itachi",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "white hair",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "skull",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "gafa",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "samurai",
+      "usage": 18,
+      "lang": "en"
+    },
+    {
+      "tag": "lujo",
+      "usage": 17,
+      "lang": "en"
+    },
+    {
+      "tag": "automotive",
+      "usage": 17,
+      "lang": "en"
+    },
+    {
+      "tag": "brillo",
+      "usage": 17,
+      "lang": "en"
+    },
+    {
+      "tag": "dragon",
+      "usage": 16,
+      "lang": "en"
+    },
+    {
+      "tag": "intense gaze",
+      "usage": 16,
+      "lang": "en"
+    },
+    {
+      "tag": "sharingan",
+      "usage": 16,
+      "lang": "en"
+    },
+    {
+      "tag": "swirl",
+      "usage": 16,
+      "lang": "en"
+    },
+    {
+      "tag": "furry",
+      "usage": 16,
+      "lang": "en"
+    },
+    {
+      "tag": "pop art",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "gafa sol",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "hoodie",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "velocidad",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "comic",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "dark aesthetic",
+      "usage": 15,
+      "lang": "en"
+    },
+    {
+      "tag": "violet",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "esfera",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "animal",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "peludo",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "mirada intensa",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "gothic",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "sonriente",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "goku",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "ciberpunk",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "psychedelic",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "black and red",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "colorido",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "letra",
+      "usage": 14,
+      "lang": "en"
+    },
+    {
+      "tag": "playful",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "beach",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "jujutsu kaisen",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "forest",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "sasuke",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "crimson",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "villain",
+      "usage": 13,
+      "lang": "en"
+    },
+    {
+      "tag": "red and blue",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "sphere",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "splatter",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "tatuaje",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "itachi uchiha",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "elegancia",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "calabera",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "male character",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "sukuna",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "darkaesthetic",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "armor",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "energy",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "eyes",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "organic",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "horror",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "synthwave",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "typography",
+      "usage": 12,
+      "lang": "en"
+    },
+    {
+      "tag": "beige",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "neon green",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "personaje masculino",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "coche",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "sonrisa",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "monster",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "starry sky",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "3d",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "street art",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "akatsuki",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "peeking",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "madara",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "oscuridad",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "desert",
+      "usage": 11,
+      "lang": "en"
+    },
+    {
+      "tag": "sneaker",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "dark atmosphere",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "satoru gojo",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "wason",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "armadura",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "bigote",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "crow",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "stylized",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "pokemon",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "spiky hair",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "robot",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "astronauta",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "resplandor",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "sword",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "fluidez",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "panda",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "adorable",
+      "usage": 10,
+      "lang": "en"
+    },
+    {
+      "tag": "minimalist background",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "bird",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "miles morale",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "dramatic",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "minion",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "realismo",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "full moon",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "calavera",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "glass",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "feather",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "silver hair",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "darkness",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "speed",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "graphic",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "big eye",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "blue eye",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "estilo urbano",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "cielo estrellado",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "tattoo",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "grafiti",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "lightning",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "depth",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "vibrant red",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "urban style",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "mystical",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "moon",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "profile",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "tropical",
+      "usage": 9,
+      "lang": "en"
+    },
+    {
+      "tag": "orange and black",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "arte urbano",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "symbiote",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "yellow background",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "neon glow",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "animale",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "porsche",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "electric blue",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "venom",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "serene",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "particle",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "rendering",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "luminoso",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "chains",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "whimsical",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "batman",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "ojos rojo",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "mario",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "sharp tooth",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "red background",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "zapatilla",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "madara uchiha",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "dark color",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "rascacielo",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "jin",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "black and gold",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "ojos grande",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "technology",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "orange and blue",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "neongreen",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "paisaje urbano",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "texturizado",
+      "usage": 8,
+      "lang": "en"
+    },
+    {
+      "tag": "lighting",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "goggle",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "capucha",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "blood",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "smooth",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "estilo oscuro",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "plumas",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "simbionte",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "arte pop",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "videojuego",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "remolino",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "palmera",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "whisker",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "madera",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "naruto uzumaki",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "contraste alto",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "sudadera",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "rojo dominante",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "relieve",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "heart",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "red hair",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "colores oscuro",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "naranja y azul",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "logo",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "headlight",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "fox",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "semirealistic anime",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "fondo minimalista",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "kakashi hatake",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "asphalt",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "gloomy",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "burbuja",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "green eye",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "deadpool",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "manhwa",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "action",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "gojo satoru",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "luna llena",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "lava",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "skyscraper",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "demon",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "long black hair",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "pink hair",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "arte digital 3d",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "silver",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "fur",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "red moon",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "muscular",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "flowing",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "infantil",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "palm tree",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "looking up",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "horn",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "ryomen sukuna",
+      "usage": 7,
+      "lang": "en"
+    },
+    {
+      "tag": "burgundy",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "snoopy",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "coche deportivo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "profundidad",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "racing",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "cadena",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "neon purple",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "3d animation",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "grumpy",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "skeleton",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "peluche",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "estilo 3d",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "demon slayer",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "curioso",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "ojos rojos brillante",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "dominant red",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "neonglow",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "realista 3d",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "luffy",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "superdeportivo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "female character",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "salpicadura",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "dientes afilado",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "realism",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "horizon",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "urban art",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "purple background",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "colores calido",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "ichigo kurosaki",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "expresivo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "nintendo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "negro y rojo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "retrato",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "happy",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "kakashi",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "sombreado",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "cinematic",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "blue and orange",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "ondulado",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "intenseexpression",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "renderizado",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "vibrant orange",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "black and grey",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "spoiler",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "dynamicpose",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "sasuke uchiha",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "doraemon",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "minimalist style",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "performance",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "angry",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "estilo realista",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "terror",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "digitalart",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "cyberpunk style",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "pirata",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "piedra",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "girl",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "aventura",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "logotipo",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "summer",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "flor",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "film",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "peanut",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "rostro",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "gothic style",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "joker",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "luminous",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "tanjiro",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "plants",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "tridimensional",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "electricblue",
+      "usage": 6,
+      "lang": "en"
+    },
+    {
+      "tag": "villano",
+      "usage": 6,
+      "lang": "en"
+    }
+  ]
+}
