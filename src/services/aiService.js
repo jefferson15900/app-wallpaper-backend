@@ -25,7 +25,7 @@ Return ONLY a JSON array, no explanations, no markdown:
   { "en": "dark",   "es": "oscuro" }
 ]`;
 
-const analyzeWithModel = async (modelName, base64Image) => {s
+const analyzeWithModel = async (modelName, base64Image) => {
     console.log(`📡 Solicitando análisis a la IA: ${modelName}...`);
 
     const model = genAI.getGenerativeModel({ model: modelName });
@@ -68,9 +68,10 @@ const getAITags = async (imageUrl) => {
         base64Image = Buffer.from(buffer).toString("base64");
 
         const models = [
+            "gemini-3-flash-preview",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
-            "gemini-2.0-flash",
+            
         ];
 
         for (const modelName of models) {
