@@ -32,19 +32,20 @@ class AIQueue {
                 return;
             }
 
-            // ── Separar en inglés y español ──────────────────────────────
+            // ── Extraer strings de cada idioma ───────────────────────────
             const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-            const esTags = aiTags.map(t => t.es.toLowerCase().trim())
-                .filter(es => !enTags.includes(es)); // evitar duplicar si son iguales (batman = batman)
+            const esTags = aiTags
+                .map(t => t.es.toLowerCase().trim())
+                .filter(es => !enTags.includes(es)); // evitar duplicar "batman" = "batman"
 
-            // ── Limpiar ambos conjuntos ──────────────────────────────────
+            // ── Limpiar y combinar ────────────────────────────────────────
             const cleanedEn = cleanTags([...baseTags, ...enTags]);
             const cleanedEs = cleanTags(esTags);
             const finalTags = [...new Set([...cleanedEn, ...cleanedEs])];
 
-            // ── Alimentar TagMap automáticamente ─────────────────────────
+            // ── Alimentar TagMap ──────────────────────────────────────────
             const tagMapOps = aiTags
-                .filter(t => t.en !== t.es) // solo si son diferentes
+                .filter(t => t.en !== t.es)
                 .map(({ en, es }) => ({
                     updateOne: {
                         filter: { original: es.toLowerCase().trim() },
@@ -54,16 +55,22 @@ class AIQueue {
                 }));
 
             if (tagMapOps.length > 0) {
-                await TagMap.bulkWrite(tagMapOps, { ordered: false });
-                console.log(`📚 [COLA IA] TagMap alimentado con ${tagMapOps.length} mapeos nuevos.`);
+                const result = await TagMap.bulkWrite(tagMapOps, { ordered: false });
+
+                // 🔍 Verificación: confirmar que se guardó en DB
+                const saved = await TagMap.find({
+                    original: { $in: aiTags.map(t => t.es) }
+                }).lean();
+
+                console.log(`📚 [TAGMAP] Insertados: ${result.upsertedCount} | Actualizados: ${result.modifiedCount}`);
+                console.log(`📚 [TAGMAP] En DB:`, saved.map(m => `${m.original} → ${m.canonical}`));
+            } else {
+                console.log(`⚠️ [TAGMAP] Sin mapeos nuevos (todos iguales en ambos idiomas)`);
             }
 
             // ── Guardar en Wallpaper ──────────────────────────────────────
             await Wallpaper.findByIdAndUpdate(wallpaperId, {
-                $set: {
-                    tags: finalTags,
-                    isAITagged: true
-                }
+                $set: { tags: finalTags, isAITagged: true }
             });
 
             console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} listo. Tags: [${finalTags.join(', ')}]`);
