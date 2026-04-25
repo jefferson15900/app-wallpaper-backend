@@ -260,23 +260,17 @@ router.put('/admin/set-premium/:id', auth, async (req, res) => {
 // RUTA PRINCIPAL: BUSQUEDA, EXPLORACIÓN (CRONOLÓGICA) Y DESCUBRIMIENTO (ALEATORIA)
 router.get('/', async (req, res) => {
     try {
-        // 1. Extraemos todos los filtros, incluyendo el nuevo artistId
-        const { search, category, limit = 10, page = 1, random, type, artistId, premium  } = req.query; 
-        
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const parsedLimit = parseInt(limit);
+        const { search, category, limit = 16, page = 1, random, type, artistId, premium, exclude } = req.query;
 
-        // --- 1. FILTRO BASE: Siempre aprobados ---
+        const parsedLimit = parseInt(limit);
+        const skip = (parseInt(page) - 1) * parsedLimit;
+
+        // ── Filtro base ──────────────────────────────────────────────────
         let matchQuery = { status: 'approved' };
         if (category && category !== 'Todos') matchQuery.category = category;
         if (type && type !== 'all') matchQuery.type = type;
-        if (premium === 'true') {
-              matchQuery.price = { $gt: 0 }; // Busca donde el precio sea mayor a 0
-            }
-
-        // --- ⚡ LA CORRECCIÓN PARA EL PERFIL ---
+        if (premium === 'true') matchQuery.price = { $gt: 0 };
         if (artistId) {
-            // Convertimos el ID de texto a un ID de MongoDB real
             try {
                 matchQuery.artist = new mongoose.Types.ObjectId(artistId);
             } catch (e) {
@@ -284,125 +278,78 @@ router.get('/', async (req, res) => {
             }
         }
 
+        // ── BÚSQUEDA ─────────────────────────────────────────────────────
+        if (search && search.trim() !== '') {
+            const rawSearch = search.trim().toLowerCase();
 
-     
-// ─────────────────────────────────────────────────────────────────
-// FIX: Búsqueda por tag desde SearchScreen (vitrinas ADN)
-// El problema: fuzzy con maxEdits:1 en palabras cortas como "car"
-// coincide con "dark", "scar", "care", "cartoon", etc.
-// ─────────────────────────────────────────────────────────────────
+            // Singularizar igual que cleanTags guarda los tags en DB
+            const singularSearch = (() => {
+                const singular = nlp(rawSearch).nouns().toSingular().text().trim();
+                return singular && Math.abs(singular.length - rawSearch.length) < 10
+                    ? singular
+                    : rawSearch;
+            })();
 
-if (search && search.trim() !== '') {
-    const { exclude, limit, page, random } = req.query;
-    const parsedLimit = parseInt(limit) || 16;
-    const skip = (parseInt(page || 1) - 1) * parsedLimit;
+            const canonical = await resolveToCanonical(singularSearch);
 
-    // ── PASO A: Normalizar el término de búsqueda ──
-    const rawSearch = search.trim().toLowerCase();
+            const allSynonyms = await TagMap.find({ canonical }).lean();
+            const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
+            allSynonyms.forEach(t => {
+                expandedTerms.add(t.original);
+                const s = nlp(t.original).nouns().toSingular().text().trim();
+                if (s) expandedTerms.add(s);
+            });
 
-    // Singularizar igual que como cleanTags guarda los tags en DB
-    const singularSearch = (() => {
-        const singular = nlp(rawSearch).nouns().toSingular().text().trim();
-        return singular && Math.abs(singular.length - rawSearch.length) < 10
-            ? singular
-            : rawSearch;
-    })();
+            const queryString = [...expandedTerms]
+                .filter(t => t && t.length >= 2)
+                .join(' ');
 
-    // ── PASO B: Resolver canónico (sobre el término ya singularizado) ──
-    const canonical = await resolveToCanonical(singularSearch);
+            console.log(`🔍 Vexel: "${rawSearch}" → singular: "${singularSearch}" → [${queryString}]`);
 
-    // ── PASO C: Expansión de Consulta (Sinónimos) ──
-    const allSynonyms = await TagMap.find({ canonical });
-    
-    // Incluimos todas las formas: original, singular y canónico
-    const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
-    allSynonyms.forEach(t => {
-        expandedTerms.add(t.original);
-        // También singularizamos cada sinónimo para máxima cobertura
-        const s = nlp(t.original).nouns().toSingular().text().trim();
-        if (s) expandedTerms.add(s);
-    });
+            const useFuzzy = singularSearch.length > 4;
 
-    // Eliminar términos vacíos o muy cortos
-    const queryString = [...expandedTerms]
-        .filter(t => t && t.length >= 2)
-        .join(' ');
-
-    console.log(`🔍 Buscador Vexel: "${rawSearch}" → singular: "${singularSearch}" → expandido: [${queryString}]`);
-
-    // ── PASO D: Configuración de Atlas Search ──
-    // Fuzzy solo si el término es suficientemente largo (evita falsos positivos en términos cortos)
-    const useFuzzy = singularSearch.length > 4;
-
-    let excludeIds = [];
-    if (exclude) {
-        excludeIds = exclude.split(',')
-            .filter(id => mongoose.Types.ObjectId.isValid(id))
-            .map(id => new mongoose.Types.ObjectId(id));
-    }
-
-    // ── PASO E: Pipeline de Agregación ──
-    const pipeline = [
-        {
-            $search: {
-                index: "default",
-                text: {
-                    query: queryString,
-                    path: ["title", "tags"],
-                    ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
-                }
+            let excludeIds = [];
+            if (exclude) {
+                excludeIds = exclude.split(',')
+                    .filter(id => mongoose.Types.ObjectId.isValid(id))
+                    .map(id => new mongoose.Types.ObjectId(id));
             }
-        },
-        // Guardar score de relevancia para ordenar después si es necesario
-        {
-            $addFields: { score: { $meta: "searchScore" } }
+
+            const finalMatch = { ...matchQuery };
+            if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
+
+            const pipeline = [
+                {
+                    $search: {
+                        index: "default",
+                        text: {
+                            query: queryString,
+                            path: ["title", "tags"],
+                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
+                        }
+                    }
+                },
+                { $addFields: { score: { $meta: "searchScore" } } },
+                { $match: finalMatch },
+                ...(random === 'true'
+                    ? [{ $sample: { size: parsedLimit } }]
+                    : [{ $sort: { score: -1 } }, { $skip: skip }, { $limit: parsedLimit }]
+                ),
+                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+                { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
+                { $project: { score: 0, 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0 } }
+            ];
+
+            const searchResults = await Wallpaper.aggregate(pipeline);
+            return res.json(searchResults.map(item => ({ ...item, price: item.price ?? 0 })));
         }
-    ];
 
-    // Filtros adicionales
-    const finalMatch = { ...matchQuery };
-    if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
-    pipeline.push({ $match: finalMatch });
 
-    // Aleatorio o Paginado
-    if (random === 'true') {
-        pipeline.push({ $sample: { size: parsedLimit } });
-    } else {
-        // En modo paginado ordenamos por relevancia
-        pipeline.push(
-            { $sort: { score: -1 } },
-            { $skip: skip },
-            { $limit: parsedLimit }
-        );
-    }
+ //  ─────────────────────────────────────────────────────────────────
+ // CASO 2: FEED "PARA TI" — 100% TAGS, sin categorías
+ // ─────────────────────────────────────────────────────────────────
 
-    // Unir con datos del artista
-    pipeline.push(
-        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-        { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-        {
-            $project: {
-                score: 0, // Quitar el score del response final
-                'artist.password': 0,
-                'artist.email': 0,
-                'artist.pushToken': 0
-            }
-        }
-    );
-
-    const searchResults = await Wallpaper.aggregate(pipeline);
-
-    return res.json(searchResults.map(item => ({
-        ...item,
-        price: item.price ?? 0
-    })));
-}
-
-// ─────────────────────────────────────────────────────────────────
-// CASO 2: FEED "PARA TI" — 100% TAGS, sin categorías
-// ─────────────────────────────────────────────────────────────────
-
-if (random === 'true') {
+ if (random === 'true') {
     const { tags, exclude, category, type, artistId, premium } = req.query;
     const parsedLimit = parseInt(req.query.limit) || 16;
 

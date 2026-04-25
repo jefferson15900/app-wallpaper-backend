@@ -1,6 +1,7 @@
 const { getAITags } = require('./aiService');
 const Wallpaper = require('../models/Wallpaper');
-const { cleanTags } = require('../config/tags'); // 🚀 IMPORTANTE: Importar tu nuevo archivo
+const TagMap = require('../models/TagMap');
+const { cleanTags } = require('../config/tags');
 
 class AIQueue {
     constructor() {
@@ -9,7 +10,7 @@ class AIQueue {
     }
 
     addJob(job) {
-        console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola actual: ${this.queue.length + 1})`);
+        console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola: ${this.queue.length + 1})`);
         this.queue.push(job);
         this.processNext();
     }
@@ -21,29 +22,54 @@ class AIQueue {
         const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
 
         try {
-            console.log(`🤖 [COLA IA] Analizando arte: ${wallpaperId}...`);
+            console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`);
 
+            // aiTags = [{ en: "city", es: "ciudad" }, ...]
             const aiTags = await getAITags(imageUrl);
 
-            if (aiTags && aiTags.length > 0) {
-                // ⚡ AQUÍ ESTÁ EL CAMBIO MAESTRO:
-                // Unimos las etiquetas y se las pasamos a tu función profesional de limpieza
-                const finalTags = cleanTags([...baseTags, ...aiTags]);
-
-                await Wallpaper.findByIdAndUpdate(wallpaperId, {
-                    $set: {
-                        tags: finalTags,
-                        isAITagged: true
-                    }
-                });
-
-                console.log(`✅ [COLA IA] Wallpaper enriquecido y filtrado. Etiquetas finales: ${finalTags.length}`);
-            } else {
-                console.warn(`⚠️ [COLA IA] Gemini no devolvió etiquetas para ${wallpaperId}.`);
+            if (!aiTags || aiTags.length === 0) {
+                console.warn(`⚠️ [COLA IA] Sin etiquetas para ${wallpaperId}.`);
+                return;
             }
 
+            // ── Separar en inglés y español ──────────────────────────────
+            const enTags = aiTags.map(t => t.en.toLowerCase().trim());
+            const esTags = aiTags.map(t => t.es.toLowerCase().trim())
+                .filter(es => !enTags.includes(es)); // evitar duplicar si son iguales (batman = batman)
+
+            // ── Limpiar ambos conjuntos ──────────────────────────────────
+            const cleanedEn = cleanTags([...baseTags, ...enTags]);
+            const cleanedEs = cleanTags(esTags);
+            const finalTags = [...new Set([...cleanedEn, ...cleanedEs])];
+
+            // ── Alimentar TagMap automáticamente ─────────────────────────
+            const tagMapOps = aiTags
+                .filter(t => t.en !== t.es) // solo si son diferentes
+                .map(({ en, es }) => ({
+                    updateOne: {
+                        filter: { original: es.toLowerCase().trim() },
+                        update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
+                        upsert: true
+                    }
+                }));
+
+            if (tagMapOps.length > 0) {
+                await TagMap.bulkWrite(tagMapOps, { ordered: false });
+                console.log(`📚 [COLA IA] TagMap alimentado con ${tagMapOps.length} mapeos nuevos.`);
+            }
+
+            // ── Guardar en Wallpaper ──────────────────────────────────────
+            await Wallpaper.findByIdAndUpdate(wallpaperId, {
+                $set: {
+                    tags: finalTags,
+                    isAITagged: true
+                }
+            });
+
+            console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} listo. Tags: [${finalTags.join(', ')}]`);
+
         } catch (error) {
-            console.error(`❌ [COLA IA] Error crítico procesando ${wallpaperId}:`, error.message);
+            console.error(`❌ [COLA IA] Error en ${wallpaperId}:`, error.message);
         } finally {
             setTimeout(() => {
                 this.isProcessing = false;

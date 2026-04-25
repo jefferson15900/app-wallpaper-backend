@@ -2,29 +2,33 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
-const analyzeWithModel = async (modelName, base64Image) => {
-    console.log(`📡 Solicitando análisis a la IA: ${modelName}...`);
-    
-    const model = genAI.getGenerativeModel({ model: modelName });
-    
-
-const prompt = `You are a tagging assistant for a wallpaper app. Analyze this image and return exactly 5 tags separated by commas.
+const prompt = `You are a tagging assistant for a wallpaper app. Analyze this image and return exactly 5 tags.
 
 Rules:
-- ALL tags in ENGLISH only
 - Single words only, no phrases
 - ONLY tags that someone would actually type in a search bar
+- NEVER use: illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
 
 Prioritize in this order:
 1. Character/franchise  → batman, spiderman, naruto, goku, ironman, joker, deadpool
 2. Setting              → space, forest, city, ocean, desert, mountain
-3. Dominant colors      → red, blue, neon, pastel, golden, purple, black, white
+3. Dominant colors      → red, blue, neon, golden, purple, black, white
 4. Key elements         → dragon, wolf, fire, flowers, robot, car, sword, cat
 5. Mood (only if very obvious) → dark, cozy, romantic
 
-NEVER use: illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
+Return ONLY a JSON array, no explanations, no markdown:
+[
+  { "en": "batman", "es": "batman" },
+  { "en": "city",   "es": "ciudad" },
+  { "en": "rain",   "es": "lluvia" },
+  { "en": "red",    "es": "rojo"   },
+  { "en": "dark",   "es": "oscuro" }
+]`;
 
-Return ONLY the 5 tags separated by commas, nothing else.`;
+const analyzeWithModel = async (modelName, base64Image) => {s
+    console.log(`📡 Solicitando análisis a la IA: ${modelName}...`);
+
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const result = await model.generateContent([
         prompt,
@@ -36,56 +40,53 @@ Return ONLY the 5 tags separated by commas, nothing else.`;
         },
     ]);
 
-    const response = await result.response;
-    const text = response.text();
-    
-    // ✅ FIX: filtramos cualquier slash que se cuele y deduplicamos
-    return text.split(',')
-        .map(tag => tag.trim().toLowerCase())
-        .filter(tag => tag !== "" && tag.length > 1)
-        .filter(tag => !tag.includes('/'))           // descarta "español / english"
-        .filter((tag, i, self) => self.indexOf(tag) === i) // deduplica
-        .slice(0, 20);
+    const text = result.response.text().trim();
+
+    // Limpiar posibles markdown fences que Gemini a veces añade
+    const clean = text.replace(/```json|```/g, '').trim();
+
+    const parsed = JSON.parse(clean);
+
+    // Validar que sea un array con la forma correcta
+    if (!Array.isArray(parsed)) throw new Error('La IA no devolvió un array');
+
+    return parsed.filter(item =>
+        item &&
+        typeof item.en === 'string' && item.en.trim() &&
+        typeof item.es === 'string' && item.es.trim()
+    ).slice(0, 5);
 };
 
-/**
- * Función Principal: TRIPLE FALLBACK (v3 -> v2 -> v1.5)
- */
 const getAITags = async (imageUrl) => {
     let base64Image = "";
 
     try {
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error("Fallo al descargar imagen de Cloudinary");
-        
+
         const buffer = await response.arrayBuffer();
         base64Image = Buffer.from(buffer).toString("base64");
 
-        try {
-            return await analyzeWithModel("gemini-3-flash-preview", base64Image);
-        } catch (err3) {
-            console.warn("⚠️ Gemini 3 (v3) agotado o con error. Saltando a Gemini 2.5 Flash...");
-            
+        const models = [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+        ];
+
+        for (const modelName of models) {
             try {
-                return await analyzeWithModel("gemini-2.5-flash", base64Image);
-            } catch (err2) {
-                console.warn("⚠️ Gemini 2.5 falló. Saltando al respaldo final Gemini 2.5 Pro...");
-                
-                try {
-                    const finalTags = await analyzeWithModel("gemini-2.5-pro", base64Image);
-                    console.log("✅ Análisis completado con éxito mediante Gemini 2.5 Pro.");
-                    return finalTags;
-                } catch (err1) {
-                    console.error("❌ ERROR CRÍTICO: Todos los modelos de Google fallaron simultáneamente.");
-                    console.error("Detalle del error final:", err1.message);
-                    return [];
-                }
+                return await analyzeWithModel(modelName, base64Image);
+            } catch (err) {
+                console.warn(`⚠️ ${modelName} falló: ${err.message}. Probando siguiente...`);
             }
         }
 
+        console.error("❌ ERROR CRÍTICO: Todos los modelos fallaron.");
+        return [];
+
     } catch (error) {
-        console.error("❌ Error en el proceso de descarga de imagen para IA:", error.message);
-        return []; 
+        console.error("❌ Error descargando imagen:", error.message);
+        return [];
     }
 };
 
