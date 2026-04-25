@@ -306,7 +306,7 @@ router.get('/', async (req, res) => {
 
             console.log(`🔍 Vexel: "${rawSearch}" → singular: "${singularSearch}" → [${queryString}]`);
 
-            const useFuzzy = singularSearch.length > 4;
+            const useFuzzy = singularSearch.length > 6;
 
             let excludeIds = [];
             if (exclude) {
@@ -316,7 +316,7 @@ router.get('/', async (req, res) => {
             }
 
             const finalMatch = { ...matchQuery };
-            if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
+            if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds }; 
 
             const pipeline = [
                 {
@@ -325,7 +325,7 @@ router.get('/', async (req, res) => {
                         text: {
                             query: queryString,
                             path: ["title", "tags"],
-                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 2 } } : {})
+                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {})
                         }
                     }
                 },

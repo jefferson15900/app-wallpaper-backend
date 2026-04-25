@@ -166,7 +166,7 @@ exports.reportAction = async (req, res) => {
     }
 };
 
-// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
+
 // REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
 exports.retryAITagging = async (req, res) => {
     try {
