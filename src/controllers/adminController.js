@@ -5,6 +5,7 @@ const Feedback = require('../models/Feedback');
 const { Expo } = require('expo-server-sdk');
 const { cloudinary } = require('../config/cloudinary');
 const { getAITags } = require('../services/aiService');
+const TagMap = require('../models/TagMap');
 
 let expo = new Expo();
 
@@ -166,48 +167,58 @@ exports.reportAction = async (req, res) => {
 };
 
 // REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
+// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
 exports.retryAITagging = async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id);
-        
-        if (!wallpaper) {
-            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-        }
+        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
-        // 1. Asegurar URL segura para la IA de Google
         const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
+        console.log(`♻️ [ADMIN] Reintento IA para: "${wallpaper.title}"`);
 
-        console.log(`♻️ [ADMIN] Solicitando reintento de IA para: "${wallpaper.title}"`);
-        
-        // 2. Llamar al servicio de IA que creamos
+        // aiTags = [{ en: "city", es: "ciudad" }, ...]
         const aiTags = await getAITags(secureUrl);
 
-        if (aiTags && aiTags.length > 0) {
-            // 3. Mezcla inteligente (Tags viejos + Tags nuevos de IA)
-            // Filtramos duplicados, pasamos a minúsculas y quitamos espacios vacíos
-            const currentTags = wallpaper.tags || [];
-            const finalTags = [...new Set([...currentTags, ...aiTags])]
-                .map(tag => tag.trim().toLowerCase())
-                .filter(tag => tag !== "");
-
-            // 4. Actualizar registro
-            wallpaper.tags = finalTags;
-            wallpaper.isAITagged = true;
-            await wallpaper.save();
-
-            console.log(`✅ [ADMIN] Éxito: ${finalTags.length} etiquetas totales para "${wallpaper.title}"`);
-
-            res.json({ 
-                msg: 'IA procesada con éxito ✨', 
-                tags: finalTags,
-                isAITagged: true
-            });
-        } else {
-            // Caso donde la IA responde pero no encuentra nada o hay saturación
-            res.status(503).json({ 
-                msg: 'La IA no pudo analizar la imagen en este momento. Espera 30 segundos y reintenta.' 
+        if (!aiTags || aiTags.length === 0) {
+            return res.status(503).json({ 
+                msg: 'La IA no pudo analizar la imagen. Espera 30 segundos y reintenta.' 
             });
         }
+
+        // ── Extraer strings ───────────────────────────────────────────
+        const enTags = aiTags.map(t => t.en.toLowerCase().trim());
+        const esTags = aiTags
+            .map(t => t.es.toLowerCase().trim())
+            .filter(es => !enTags.includes(es));
+
+        // ── Mezclar con tags existentes ───────────────────────────────
+        const currentTags = wallpaper.tags || [];
+        const finalTags = [...new Set([...currentTags, ...enTags, ...esTags])];
+
+        // ── Alimentar TagMap ──────────────────────────────────────────
+        const tagMapOps = aiTags
+            .filter(t => t.en !== t.es)
+            .map(({ en, es }) => ({
+                updateOne: {
+                    filter: { original: es.toLowerCase().trim() },
+                    update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
+                    upsert: true
+                }
+            }));
+
+        if (tagMapOps.length > 0) {
+            await TagMap.bulkWrite(tagMapOps, { ordered: false });
+            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos actualizados`);
+        }
+
+        // ── Guardar ───────────────────────────────────────────────────
+        wallpaper.tags = finalTags;
+        wallpaper.isAITagged = true;
+        await wallpaper.save();
+
+        console.log(`✅ [ADMIN] ${finalTags.length} etiquetas para "${wallpaper.title}"`);
+        res.json({ msg: 'IA procesada con éxito ✨', tags: finalTags, isAITagged: true });
+
     } catch (err) {
         console.error("❌ Error crítico en retryAITagging:", err.message);
         res.status(500).json({ msg: 'Error interno al conectar con el servidor de IA' });
