@@ -304,7 +304,7 @@ router.get('/', async (req, res) => {
                 .filter(t => t && t.length >= 2)
                 .join(' ');
 
-            console.log(`🔍 Vexel: "${rawSearch}" → singular: "${singularSearch}" → [${queryString}]`);
+           // console.log(`🔍 Vexel: "${rawSearch}" → singular: "${singularSearch}" → [${queryString}]`);
 
             const useFuzzy = singularSearch.length > 6;
 

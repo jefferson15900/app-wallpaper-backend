@@ -209,7 +209,7 @@ const TAGS_TO_REMOVE = [
   'tridimensional', // Ruido técnico
   'vibrante', 'colorido', // Adjetivos vagos
   'looking up', 'peeking', // Descripciones de pose muy raras
-  'otros'
+  'otro'
 ];
 
 const cleanupTags = async () => {

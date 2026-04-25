@@ -110,7 +110,7 @@ const BLACKLIST_TAGS = new Set([
   'trending', 'trending on artstation', 'featured',
   'official art', 'key visual', 'cover art', 'book cover',
   'graphics', 'graphic design', 'diseño gráfico',
-  'wallpaper hub', 'wallpaperhub', 'hub', 'otros', 'other',
+  'wallpaper hub', 'wallpaperhub', 'hub', 'otros', 'other','otro',
 
   // ── DESCRIPTORES VAGOS / RELLENO ─────────────────────────
   'beautiful', 'very beautiful', 'extremely beautiful',
