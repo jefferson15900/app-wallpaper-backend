@@ -58,7 +58,7 @@ const BLACKLIST_TAGS = new Set([
   'painting', 'pintura',
   'sketch', 'boceto',
   'concept art', 'concept design',
-  'fan art', 'fanart',
+  'fan art', 'fanart','anime',
   'anime style', 'estilo anime', 'anime art',
   'manga style', 'estilo manga', 'manga art',
   'cartoon', 'cartoon style', 'cartoonish',
