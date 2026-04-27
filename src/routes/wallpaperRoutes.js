@@ -552,7 +552,6 @@ router.get('/user/:id', async (req, res) => {
 // ======================================================
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
-const TagMap = require('../models/TagMap'); // Asegúrate de tenerlo importado arriba
 
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
