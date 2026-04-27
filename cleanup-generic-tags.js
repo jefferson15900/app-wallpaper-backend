@@ -152,7 +152,7 @@ const TAGS_TO_REMOVE = [
   'humanoid', 'figure', 'silhouette',
   'hombre', 'mujer', 'chico', 'chica',
   'young', 'joven', 'adult', 'adulto',
-  'cute', 'kawaii', 'lindo',
+  'cute', 'kawaii', 'lindo', 'semi-realistic anime',
   'beautiful girl', 'beautiful woman', 'handsome',
 
   // ── AMBIENTE / ESCENARIO ULTRA GENÉRICO ──────────────────

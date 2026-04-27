@@ -18,7 +18,7 @@ const removeLowUsageTags = async () => {
                     count: { $sum: 1 } 
                 } 
             },
-            { $match: { count: { $lte: 5 } } } // 👈 FILTRO: 1 o 2 usos solamente
+            { $match: { count: { $lte: 1 } } } // 👈 FILTRO: 1 o 2 usos solamente
         ]);
 
         const tagsToDelete = tagStats.map(t => t._id);
@@ -40,7 +40,7 @@ const removeLowUsageTags = async () => {
 
         console.log(`\n=========================================`);
         console.log(`✅ LIMPIEZA FINALIZADA`);
-        console.log(`=========================================`);
+        console.log(`=========================================`);s
         console.log(`🏷️  Etiquetas eliminadas:  ${tagsToDelete.length}`);
         console.log(`🖼️  Wallpapers afectados:  ${result.modifiedCount}`);
         console.log(`🎯 Resultado: Tu base de datos ahora es mucho más pura.`);

@@ -28,7 +28,7 @@ const rateLimiter = rateLimit({
 });
 
 
-const client = new OAuth2Client("342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com");
+const client = new OAuth2Client("1097525571797-38k9poarb7gbtgks5ekieddkss876cm3.apps.googleusercontent.com");
 
 let dailyArtistsCache = [];
 let lastUpdateDate = null;
@@ -128,7 +128,7 @@ router.post('/google-login', async (req, res) => {
     try {
         const ticket = await client.verifyIdToken({
             idToken,
-            audience: "342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com", 
+            audience: "1097525571797-38k9poarb7gbtgks5ekieddkss876cm3.apps.googleusercontent.com", 
         });
         const { email } = ticket.getPayload();
 
@@ -157,7 +157,7 @@ router.post('/google-register', async (req, res) => {
     try {
         const ticket = await client.verifyIdToken({
             idToken,
-            audience: "342764820033-lo8036tgoeeoc4eltu21k70fhq3cskd2.apps.googleusercontent.com", 
+            audience: "1097525571797-38k9poarb7gbtgks5ekieddkss876cm3.apps.googleusercontent.com", 
         });
         const { email, name, picture, sub: googleId } = ticket.getPayload();
 

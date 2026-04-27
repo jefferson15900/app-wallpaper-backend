@@ -189,7 +189,7 @@ const BLACKLIST_TAGS = new Set([
 'romantic', 'romántico',
 'mysterious', 'misterioso',
 'vintage', 'retro', 'old school',
-'modern', 'moderno', 'contemporary',
+'modern', 'moderno', 'contemporary','semi-realistic anime',
 'luxury', 'lujoso', 'premium',
 'grunge', 'edgy',
 'pastel', 'pastel colors', 'pastel aesthetic',
