@@ -266,7 +266,7 @@ router.get('/', async (req, res) => {
         const skip = (parseInt(page) - 1) * parsedLimit;
 
         // ── Filtro base ──────────────────────────────────────────────────
-        let matchQuery = { status: 'approved' };
+        let matchQuery = { status: 'approved' }; // ⚠️ RECUERDA: Si no están aprobados, no saldrán
         if (category && category !== 'Todos') matchQuery.category = category;
         if (type && type !== 'all') matchQuery.type = type;
         if (premium === 'true') matchQuery.price = { $gt: 0 };
@@ -282,7 +282,6 @@ router.get('/', async (req, res) => {
         if (search && search.trim() !== '') {
             const rawSearch = search.trim().toLowerCase();
 
-            // Singularizar igual que cleanTags guarda los tags en DB
             const singularSearch = (() => {
                 const singular = nlp(rawSearch).nouns().toSingular().text().trim();
                 return singular && Math.abs(singular.length - rawSearch.length) < 10
@@ -290,9 +289,12 @@ router.get('/', async (req, res) => {
                     : rawSearch;
             })();
 
-            const canonical = await resolveToCanonical(singularSearch);
+            // 🚀 CORRECCIÓN AQUÍ: Destructuramos el objeto para obtener solo el string
+            const { canonical } = await resolveToCanonical(singularSearch);
 
+            // Buscamos todos los términos relacionados en el TagMap
             const allSynonyms = await TagMap.find({ canonical }).lean();
+            
             const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
             allSynonyms.forEach(t => {
                 expandedTerms.add(t.original);
@@ -304,9 +306,7 @@ router.get('/', async (req, res) => {
                 .filter(t => t && t.length >= 2)
                 .join(' ');
 
-           // console.log(`🔍 Vexel: "${rawSearch}" → singular: "${singularSearch}" → [${queryString}]`);
-
-            const useFuzzy = singularSearch.length > 6;
+            const useFuzzy = singularSearch.length > 5;
 
             let excludeIds = [];
             if (exclude) {
@@ -324,8 +324,9 @@ router.get('/', async (req, res) => {
                         index: "default",
                         text: {
                             query: queryString,
-                            path: ["title", "tags"],
-                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {})
+                            // 🚀 MEJORA: También buscamos en el campo "category" del Wallpaper
+                            path: ["title", "tags", "category"], 
+                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {})
                         }
                     }
                 },
@@ -343,6 +344,7 @@ router.get('/', async (req, res) => {
             const searchResults = await Wallpaper.aggregate(pipeline);
             return res.json(searchResults.map(item => ({ ...item, price: item.price ?? 0 })));
         }
+
 
 
  //  ─────────────────────────────────────────────────────────────────
