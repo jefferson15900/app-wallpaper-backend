@@ -5,11 +5,12 @@ const TagMap = require('../models/TagMap');
  * Recibe una palabra y busca su traducción oficial en TagMap.
  */
 const resolveToCanonical = async (word) => {
-    if (!word) return '';
+    // CORRECCIÓN: Devolvemos un objeto consistente incluso si no hay palabra
+    if (!word) return { canonical: '', category: null };
     const term = word.toLowerCase().trim();
 
     try {
-        // 🚀 LA MAGIA: Buscamos en ambas columnas
+        // Buscamos en ambas columnas
         const mapping = await TagMap.findOne({
             $or: [
                 { original: term },
@@ -38,24 +39,29 @@ const resolveTagsArray = async (tagsArray) => {
         .map(t => t.toLowerCase().trim());
 
     try {
-        // Una sola query trae todos los mapeos de golpe
-        const mappings = await TagMap.find({ original: { $in: terms } })
-            .select('original canonical')
-            .lean();
+        // 🚀 MEJORA: Búsqueda masiva inteligente en ambas columnas
+        const mappings = await TagMap.find({
+            $or: [
+                { original: { $in: terms } },
+                { canonical: { $in: terms } }
+            ]
+        }).select('original canonical').lean();
 
-        // Construimos un diccionario { original -> canonical }
-        const dict = Object.fromEntries(
-            mappings.map(m => [m.original, m.canonical])
-        );
+        // 🧠 DICCIONARIO INTELIGENTE:
+        // Mapeamos tanto el original como el canonical hacia el canonical.
+        // Esto cubre: "ciudad" -> "city" Y "city" -> "city".
+        const dict = {};
+        mappings.forEach(m => {
+            dict[m.original] = m.canonical;
+            dict[m.canonical] = m.canonical;
+        });
 
-        // Resolvemos cada tag usando el diccionario, fallback al término original
         const resolved = terms.map(t => dict[t] ?? t);
 
-        // Eliminamos duplicados que surjan tras la traducción
         return [...new Set(resolved)];
     } catch (error) {
         console.error("❌ Error en resolveTagsArray:", error);
-        return [...new Set(tagsArray)]; // fallback seguro
+        return [...new Set(terms)]; 
     }
 };
 
