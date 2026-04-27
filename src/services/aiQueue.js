@@ -3,15 +3,32 @@ const Wallpaper = require('../models/Wallpaper');
 const TagMap = require('../models/TagMap');
 const { cleanTags } = require('../config/tags');
 
+const QUEUE_DELAY_MS = 3000;
+const MAX_RETRIES = 3;
+const RETRY_BACKOFF_MS = 5000;
+
 class AIQueue {
     constructor() {
         this.queue = [];
         this.isProcessing = false;
+        this.stats = { processed: 0, failed: 0, skipped: 0 };
     }
 
     addJob(job) {
-        console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola: ${this.queue.length + 1})`);
-        this.queue.push(job);
+        if (!job?.wallpaperId || !job?.imageUrl) {
+            console.warn('⚠️ [COLA IA] Job inválido ignorado:', job);
+            return;
+        }
+
+        const isDuplicate = this.queue.some(j => j.wallpaperId === job.wallpaperId);
+        if (isDuplicate) {
+            console.log(`⏭️ [COLA IA] ${job.wallpaperId} ya está en cola, ignorado.`);
+            return;
+        }
+
+        const enrichedJob = { ...job, retries: 0, addedAt: Date.now() };
+        this.queue.push(enrichedJob);
+        console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola: ${this.queue.length})`);
         this.processNext();
     }
 
@@ -19,91 +36,109 @@ class AIQueue {
         if (this.isProcessing || this.queue.length === 0) return;
 
         this.isProcessing = true;
-        const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
+        const job = this.queue.shift();
 
         try {
-            console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`);
-
-            // aiTags = [{ en, es, category }, ...]
-            const aiTags = await getAITags(imageUrl);
-
-            if (!aiTags || aiTags.length === 0) {
-                console.warn(`⚠️ [COLA IA] Sin etiquetas para ${wallpaperId}.`);
-                return;
-            }
-
-            // ── Extraer tags por idioma ───────────────────────────────────
-           const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-           const esTags = aiTags.map(t => t.es.toLowerCase().trim());
-
-            // ── Limpiar y combinar ────────────────────────────────────────
-            const cleanedEn = cleanTags([...baseTags, ...enTags]);
-            const cleanedEs = cleanTags(esTags);
-            const finalTags = cleanTags([...baseTags, ...enTags]);
-
-            // ── Detectar categoría dominante ──────────────────────────────
-            // Contamos qué categoría aparece más entre los 5 tags
-            const categoryCounts = {};
-            aiTags.forEach(t => {
-                if (t.category) {
-                    categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
-                }
-            });
-
-            const dominantCategory = Object.keys(categoryCounts).length > 0
-                ? Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0][0]
-                : null;
-
-            console.log(`🗂️ Categoría dominante: ${dominantCategory ?? 'ninguna'}`);
-
-            // ── Alimentar TagMap ──────────────────────────────────────────
-const tagMapOps = aiTags.map(({ en, es, category }) => ({
-    updateOne: {
-        filter: { original: es }, 
-        update: { 
-            $set: { 
-                canonical: en, 
-                category: category,
-                language: 'es' 
-            } 
-        },
-        upsert: true
-    }
-}));
-
-if (tagMapOps.length > 0) {
-    const result = await TagMap.bulkWrite(tagMapOps, { ordered: false });
-    console.log(`📚 [TAGMAP] Sincronizados: ${result.upsertedCount + result.modifiedCount} mapeos.`);
-}else {
-                console.log(`⚠️ [TAGMAP] Sin mapeos nuevos`);
-            }
-
-            // ── Guardar en Wallpaper ──────────────────────────────────────
-            const updateData = {
-                tags: finalTags,
-                isAITagged: true,
-                // Solo actualizar categoría si la tiene "Otros" o vacía
-                // para no sobreescribir una categoría que el artista puso manualmente
-            };
-
-            const wallpaper = await Wallpaper.findById(wallpaperId);
-            if (wallpaper && (!wallpaper.category || wallpaper.category === 'Otros') && dominantCategory) {
-                updateData.category = dominantCategory;
-                console.log(`🗂️ Categoría asignada: ${dominantCategory}`);
-            }
-
-            await Wallpaper.findByIdAndUpdate(wallpaperId, { $set: updateData });
-
-            console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} listo. Tags: [${finalTags.join(', ')}]`);
-
+            await this._processJob(job);
+            this.stats.processed++;
         } catch (error) {
-            console.error(`❌ [COLA IA] Error en ${wallpaperId}:`, error.message);
+            await this._handleJobError(job, error);
         } finally {
             setTimeout(() => {
                 this.isProcessing = false;
                 this.processNext();
-            }, 3000);
+            }, QUEUE_DELAY_MS);
         }
+    }
+
+    async _processJob({ wallpaperId, imageUrl, baseTags = [] }) {
+        console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`);
+
+        const aiTags = await getAITags(imageUrl);
+
+        if (!aiTags?.length) {
+            this.stats.skipped++;
+            console.warn(`⚠️ [COLA IA] Sin etiquetas para ${wallpaperId}. Omitido.`);
+            return;
+        }
+
+        // ── 1. LIMPIEZA DE ENTRADA ───────────────────────────────────
+        const cleanAiTags = aiTags.map(({ en, es, category }) => ({
+            en: en.toLowerCase().trim(),
+            es: es.toLowerCase().trim(),
+            category,
+        }));
+
+        // ── 2. ETIQUETAS PARA EL WALLPAPER (SOLO INGLÉS) ─────────────
+        const finalTags = cleanTags([...baseTags, ...cleanAiTags.map(t => t.en)]);
+
+        // ── 3. DETECTAR CATEGORÍA DOMINANTE ──────────────────────────
+        const dominantCategory = this._getDominantCategory(cleanAiTags);
+
+        // ── 4. ALIMENTAR TAGMAP (DICCIONARIO ES -> EN) ────────────────
+        await this._upsertTagMap(cleanAiTags);
+
+        // ── 5. GUARDAR EN BASE DE DATOS ───────────────────────────────
+        const updateData = { tags: finalTags, isAITagged: true };
+
+        if (dominantCategory) {
+            const wallpaper = await Wallpaper.findById(wallpaperId).select('category').lean();
+            const shouldUpdateCategory = !wallpaper?.category || wallpaper.category === 'Otros';
+            if (shouldUpdateCategory) updateData.category = dominantCategory;
+        }
+
+        await Wallpaper.findByIdAndUpdate(wallpaperId, { $set: updateData });
+
+        console.log(`✅ [COLA IA] ${wallpaperId} listo. Cat: ${updateData.category ?? 'sin cambio'} | Tags: ${finalTags.length}`);
+    }
+
+    _getDominantCategory(cleanAiTags) {
+        const counts = cleanAiTags.reduce((acc, { category }) => {
+            if (category) acc[category] = (acc[category] ?? 0) + 1;
+            return acc;
+        }, {});
+
+        if (!Object.keys(counts).length) return null;
+        return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    async _upsertTagMap(cleanAiTags) {
+        const ops = cleanAiTags.map(({ en, es, category }) => ({
+            updateOne: {
+                filter: { original: es },
+                update: { $set: { canonical: en, category, language: 'es' } },
+                upsert: true,
+            },
+        }));
+
+        if (ops.length) {
+            await TagMap.bulkWrite(ops, { ordered: false });
+        }
+    }
+
+    async _handleJobError(job, error) {
+        this.stats.failed++;
+        console.error(`❌ [COLA IA] Error en ${job.wallpaperId} (intento ${job.retries + 1}):`, error.message);
+
+        if (job.retries < MAX_RETRIES) {
+            job.retries++;
+            const delay = RETRY_BACKOFF_MS * job.retries;
+            console.log(`🔁 [COLA IA] Reintentando ${job.wallpaperId} en ${delay / 1000}s...`);
+            setTimeout(() => {
+                this.queue.unshift(job); // Reinsertar al frente
+                if (!this.isProcessing) this.processNext();
+            }, delay);
+        } else {
+            console.error(`🚫 [COLA IA] ${job.wallpaperId} descartado tras ${MAX_RETRIES} intentos.`);
+        }
+    }
+
+    getStats() {
+        return {
+            ...this.stats,
+            queued: this.queue.length,
+            isProcessing: this.isProcessing,
+        };
     }
 }
 
