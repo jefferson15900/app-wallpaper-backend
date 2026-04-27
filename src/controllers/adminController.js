@@ -167,7 +167,7 @@ exports.reportAction = async (req, res) => {
 };
 
 
-// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
+// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN) - VERSIÓN INTELIGENTE
 exports.retryAITagging = async (req, res) => {
     try {
         const wallpaper = await Wallpaper.findById(req.params.id);
@@ -176,7 +176,7 @@ exports.retryAITagging = async (req, res) => {
         const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
         console.log(`♻️ [ADMIN] Reintento IA para: "${wallpaper.title}"`);
 
-        // aiTags = [{ en: "city", es: "ciudad" }, ...]
+        // aiTags ahora devuelve: [{ en, es, category }, ...]
         const aiTags = await getAITags(secureUrl);
 
         if (!aiTags || aiTags.length === 0) {
@@ -185,39 +185,65 @@ exports.retryAITagging = async (req, res) => {
             });
         }
 
-        // ── Extraer strings ───────────────────────────────────────────
-        const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-        const esTags = aiTags
-            .map(t => t.es.toLowerCase().trim())
-            .filter(es => !enTags.includes(es));
+        // ── 1. DETERMINAR CATEGORÍA DOMINANTE ──────────────────────────
+        const categoryCounts = {};
+        aiTags.forEach(t => {
+            if (t.category) {
+                categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+            }
+        });
 
-        // ── Mezclar con tags existentes ───────────────────────────────
+        const dominantCategory = Object.keys(categoryCounts).length > 0
+            ? Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0][0]
+            : null;
+
+        // ── 2. PREPARAR TAGS (UNIFICACIÓN) ──────────────────────────────
+        const enTags = aiTags.map(t => t.en.toLowerCase().trim());
+        const esTags = aiTags.map(t => t.es.toLowerCase().trim());
+
         const currentTags = wallpaper.tags || [];
+        // Combinamos todo y eliminamos duplicados
         const finalTags = [...new Set([...currentTags, ...enTags, ...esTags])];
 
-        // ── Alimentar TagMap ──────────────────────────────────────────
-        const tagMapOps = aiTags
-            .filter(t => t.en !== t.es)
-            .map(({ en, es }) => ({
-                updateOne: {
-                    filter: { original: es.toLowerCase().trim() },
-                    update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
-                    upsert: true
-                }
-            }));
+        // ── 3. ACTUALIZAR EL CEREBRO (TAGMAP) CON CATEGORÍAS ────────────
+        const tagMapOps = aiTags.map(({ en, es, category }) => ({
+            updateOne: {
+                filter: { original: es.toLowerCase().trim() },
+                update: { 
+                    $set: { 
+                        canonical: en.toLowerCase().trim(), 
+                        category: category, // 👈 IMPORTANTE: Guardamos la categoría
+                        language: 'es' 
+                    } 
+                },
+                upsert: true
+            }
+        }));
 
         if (tagMapOps.length > 0) {
             await TagMap.bulkWrite(tagMapOps, { ordered: false });
-            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos actualizados`);
+            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos con categoría actualizados`);
         }
 
-        // ── Guardar ───────────────────────────────────────────────────
+        // ── 4. ACTUALIZAR EL WALLPAPER ──────────────────────────────────
         wallpaper.tags = finalTags;
         wallpaper.isAITagged = true;
+
+        // Solo cambiamos la categoría si el wallpaper está en el default "Otros"
+        const isDefault = !wallpaper.category || wallpaper.category === 'Otros';
+        if (isDefault && dominantCategory) {
+            wallpaper.category = dominantCategory;
+            console.log(`🗂️ Nueva categoría asignada: ${dominantCategory}`);
+        }
+
         await wallpaper.save();
 
-        console.log(`✅ [ADMIN] ${finalTags.length} etiquetas para "${wallpaper.title}"`);
-        res.json({ msg: 'IA procesada con éxito ✨', tags: finalTags, isAITagged: true });
+        res.json({ 
+            msg: 'IA procesada con éxito ✨', 
+            tags: finalTags, 
+            category: wallpaper.category,
+            isAITagged: true 
+        });
 
     } catch (err) {
         console.error("❌ Error crítico en retryAITagging:", err.message);

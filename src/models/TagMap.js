@@ -10,7 +10,7 @@ const TagMapSchema = new mongoose.Schema({
             'Anime', 'Cyberpunk', 'Nature', 'Vehicles', 
             'Dark', 'Space', 'Abstract', 'Gaming', 
             'Architecture', 'Animals', 'Superheroes', 'Artistic',
-            null // Permitimos null para mantener el control manual
+            null 
         ],
         default: null 
     }

@@ -9,11 +9,20 @@ const resolveToCanonical = async (word) => {
     const term = word.toLowerCase().trim();
 
     try {
-        const mapping = await TagMap.findOne({ original: term }).lean();
-        return mapping?.canonical ?? term;
+        // 🚀 LA MAGIA: Buscamos en ambas columnas
+        const mapping = await TagMap.findOne({
+            $or: [
+                { original: term },
+                { canonical: term }
+            ]
+        }).lean();
+
+        return {
+            canonical: mapping?.canonical ?? term,
+            category: mapping?.category ?? null
+        };
     } catch (error) {
-        console.error("❌ Error en resolveToCanonical:", error);
-        return term;
+        return { canonical: term, category: null };
     }
 };
 

@@ -24,7 +24,7 @@ class AIQueue {
         try {
             console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`);
 
-            // aiTags = [{ en: "city", es: "ciudad" }, ...]
+            // aiTags = [{ en, es, category }, ...]
             const aiTags = await getAITags(imageUrl);
 
             if (!aiTags || aiTags.length === 0) {
@@ -32,46 +32,70 @@ class AIQueue {
                 return;
             }
 
-            // ── Extraer strings de cada idioma ───────────────────────────
-            const enTags = aiTags.map(t => t.en.toLowerCase().trim());
+            // ── Extraer tags por idioma ───────────────────────────────────
+            const enTags = aiTags.map(t => t.en);
             const esTags = aiTags
-                .map(t => t.es.toLowerCase().trim())
-                .filter(es => !enTags.includes(es)); // evitar duplicar "batman" = "batman"
+                .map(t => t.es)
+                .filter(es => !enTags.includes(es));
 
             // ── Limpiar y combinar ────────────────────────────────────────
             const cleanedEn = cleanTags([...baseTags, ...enTags]);
             const cleanedEs = cleanTags(esTags);
             const finalTags = [...new Set([...cleanedEn, ...cleanedEs])];
 
+            // ── Detectar categoría dominante ──────────────────────────────
+            // Contamos qué categoría aparece más entre los 5 tags
+            const categoryCounts = {};
+            aiTags.forEach(t => {
+                if (t.category) {
+                    categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+                }
+            });
+
+            const dominantCategory = Object.keys(categoryCounts).length > 0
+                ? Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0][0]
+                : null;
+
+            console.log(`🗂️ Categoría dominante: ${dominantCategory ?? 'ninguna'}`);
+
             // ── Alimentar TagMap ──────────────────────────────────────────
-            const tagMapOps = aiTags
-                .filter(t => t.en !== t.es)
-                .map(({ en, es }) => ({
-                    updateOne: {
-                        filter: { original: es.toLowerCase().trim() },
-                        update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
-                        upsert: true
-                    }
-                }));
+const tagMapOps = aiTags.map(({ en, es, category }) => ({
+    updateOne: {
+        // Buscamos siempre por el término en español (original)
+        filter: { original: es.toLowerCase().trim() }, 
+        update: { 
+            $set: { 
+                canonical: en.toLowerCase().trim(), // Palabra maestra en inglés
+                category: category,                 // 🚀 LA CATEGORÍA AHORA SE GUARDA
+                language: 'es' 
+            } 
+        },
+        upsert: true 
+    }
+}));
 
-            if (tagMapOps.length > 0) {
-                const result = await TagMap.bulkWrite(tagMapOps, { ordered: false });
-
-                // 🔍 Verificación: confirmar que se guardó en DB
-                const saved = await TagMap.find({
-                    original: { $in: aiTags.map(t => t.es) }
-                }).lean();
-
-                console.log(`📚 [TAGMAP] Insertados: ${result.upsertedCount} | Actualizados: ${result.modifiedCount}`);
-                console.log(`📚 [TAGMAP] En DB:`, saved.map(m => `${m.original} → ${m.canonical}`));
-            } else {
-                console.log(`⚠️ [TAGMAP] Sin mapeos nuevos (todos iguales en ambos idiomas)`);
+if (tagMapOps.length > 0) {
+    const result = await TagMap.bulkWrite(tagMapOps, { ordered: false });
+    console.log(`📚 [TAGMAP] Sincronizados: ${result.upsertedCount + result.modifiedCount} mapeos.`);
+}else {
+                console.log(`⚠️ [TAGMAP] Sin mapeos nuevos`);
             }
 
             // ── Guardar en Wallpaper ──────────────────────────────────────
-            await Wallpaper.findByIdAndUpdate(wallpaperId, {
-                $set: { tags: finalTags, isAITagged: true }
-            });
+            const updateData = {
+                tags: finalTags,
+                isAITagged: true,
+                // Solo actualizar categoría si la tiene "Otros" o vacía
+                // para no sobreescribir una categoría que el artista puso manualmente
+            };
+
+            const wallpaper = await Wallpaper.findById(wallpaperId);
+            if (wallpaper && (!wallpaper.category || wallpaper.category === 'Otros') && dominantCategory) {
+                updateData.category = dominantCategory;
+                console.log(`🗂️ Categoría asignada: ${dominantCategory}`);
+            }
+
+            await Wallpaper.findByIdAndUpdate(wallpaperId, { $set: updateData });
 
             console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} listo. Tags: [${finalTags.join(', ')}]`);
 

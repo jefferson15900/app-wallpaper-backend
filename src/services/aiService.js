@@ -2,12 +2,25 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
-const prompt = `You are a tagging assistant for a wallpaper app. Analyze this image and return exactly 5 tags.
+const VALID_CATEGORIES = new Set([
+    'Anime', 'Cyberpunk', 'Nature', 'Vehicles', 'Dark',
+    'Space', 'Abstract', 'Gaming', 'Architecture', 'Animals',
+    'Superheroes', 'Artistic'
+]);
+
+const prompt = `You are a tagging assistant for Vexel, a premium wallpaper app.
+Analyze this image and return exactly 5 tags.
+
+MASTER CATEGORIES:
+[Anime, Cyberpunk, Nature, Vehicles, Dark, Space, Abstract, Gaming, Architecture, Animals, Superheroes, Artistic]
 
 Rules:
+- Exactly 5 tags
 - Single words only, no phrases
 - ONLY tags that someone would actually type in a search bar
 - NEVER use: illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
+- Assign one MASTER CATEGORY per tag (use the most fitting one)
+- If a tag truly doesn't fit any category, use null
 
 Prioritize in this order:
 1. Character/franchise  → batman, spiderman, naruto, goku, ironman, joker, deadpool
@@ -16,13 +29,13 @@ Prioritize in this order:
 4. Key elements         → dragon, wolf, fire, flowers, robot, car, sword, cat
 5. Mood (only if very obvious) → dark, cozy, romantic
 
-Return ONLY a JSON array, no explanations, no markdown:
+Return ONLY a JSON array, no markdown, no explanations:
 [
-  { "en": "batman", "es": "batman" },
-  { "en": "city",   "es": "ciudad" },
-  { "en": "rain",   "es": "lluvia" },
-  { "en": "red",    "es": "rojo"   },
-  { "en": "dark",   "es": "oscuro" }
+  { "en": "batman", "es": "batman", "category": "Superheroes" },
+  { "en": "city",   "es": "ciudad", "category": "Architecture" },
+  { "en": "rain",   "es": "lluvia", "category": "Nature" },
+  { "en": "neon",   "es": "neon",   "category": "Cyberpunk" },
+  { "en": "dark",   "es": "oscuro", "category": "Dark" }
 ]`;
 
 const analyzeWithModel = async (modelName, base64Image) => {
@@ -41,31 +54,38 @@ const analyzeWithModel = async (modelName, base64Image) => {
     ]);
 
     const text = result.response.text().trim();
-
-    // Limpiar posibles markdown fences que Gemini a veces añade
     const clean = text.replace(/```json|```/g, '').trim();
-
     const parsed = JSON.parse(clean);
 
-    // Validar que sea un array con la forma correcta
     if (!Array.isArray(parsed)) throw new Error('La IA no devolvió un array');
 
-    return parsed.filter(item =>
+    const validated = parsed.filter(item =>
         item &&
         typeof item.en === 'string' && item.en.trim() &&
         typeof item.es === 'string' && item.es.trim()
-    ).slice(0, 5);
+    ).map(item => ({
+        en: item.en.toLowerCase().trim(),
+        es: item.es.toLowerCase().trim(),
+        // Validar que la categoría sea una de las 12 válidas
+        category: item.category && VALID_CATEGORIES.has(item.category) ? item.category : null
+    })).slice(0, 5);
+
+    if (validated.length < 5) {
+        console.warn(`⚠️ [IA] Solo devolvió ${validated.length}/5 tags`);
+    }
+
+    console.log(`🏷️ Tags generados:`, validated.map(t => `${t.en} (${t.category ?? 'sin categoría'})`));
+
+    return validated;
 };
 
 const getAITags = async (imageUrl) => {
-    let base64Image = "";
-
     try {
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error("Fallo al descargar imagen de Cloudinary");
 
         const buffer = await response.arrayBuffer();
-        base64Image = Buffer.from(buffer).toString("base64");
+        const base64Image = Buffer.from(buffer).toString("base64");
 
         const models = [
             "gemini-3-flash-preview",
@@ -91,4 +111,4 @@ const getAITags = async (imageUrl) => {
     }
 };
 
-module.exports = { getAITags };
+module.exports = { getAITags, VALID_CATEGORIES };
