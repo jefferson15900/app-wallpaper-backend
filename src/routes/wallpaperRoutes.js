@@ -350,7 +350,7 @@ router.get('/', async (req, res) => {
  //  ─────────────────────────────────────────────────────────────────
  // CASO 2: FEED "PARA TI" — 100% TAGS, sin categorías
  // ─────────────────────────────────────────────────────────────────
-
+ 
  if (random === 'true') {
     const { tags, exclude, category, type, artistId, premium } = req.query;
     const parsedLimit = parseInt(req.query.limit) || 16;
@@ -552,80 +552,112 @@ router.get('/user/:id', async (req, res) => {
 // ======================================================
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
+const TagMap = require('../models/TagMap'); // Asegúrate de tenerlo importado arriba
+
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
-
+ 
         const isVideo = req.file.mimetype.startsWith('video');
+        const { title, tags, category, price, manualMetadata } = req.body;
 
-        // ── Validación de permisos ──────────────────────────────────────────
-        // Traemos el user una sola vez y lo reutilizamos todo el handler
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
         const isAdmin = user.role === 'admin';
 
         if (isVideo && !isAdmin) {
-            // Limpiar Cloudinary antes de responder el error
-            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
-                .catch(e => console.error('❌ Error limpiando video en Cloudinary:', e));
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' }).catch(() => {});
             return res.status(403).json({ msg: 'Solo el administrador sube Live Wallpapers' });
         }
 
-        // ── Preparar tags ───────────────────────────────────────────────────
-        const { title, tags, category, price } = req.body;
+        // ── 1. Preparación inicial de tags del formulario ──
+        const rawTags = [title, ...(tags ? tags.split(',') : []), category].filter(Boolean);
+        const cleaned = cleanTags(rawTags);
+        let finalTags = await resolveTagsArray(cleaned);
+        let selectedCategory = category || 'Otros';
+        let processedManually = false;
 
-        const rawTags = [
-            title,
-            ...(tags ? tags.split(',') : []),
-            category
-        ].filter(Boolean); // elimina undefined/null/empty en una sola pasada
+        // ── 2. Procesamiento de Metadatos Manuales (JSON) ──
+        if (manualMetadata && manualMetadata.trim() !== "") {
+            try {
+                const parsedData = JSON.parse(manualMetadata);
+                
+                if (Array.isArray(parsedData) && parsedData.length > 0) {
+                    // A. Alimentar el TagMap (Cerebro)
+                    const tagMapOps = parsedData.map(item => ({
+                        updateOne: {
+                            filter: { original: item.es.toLowerCase().trim() },
+                            update: { 
+                                $set: { 
+                                    canonical: item.en.toLowerCase().trim(),
+                                    category: item.category,
+                                    language: 'es'
+                                } 
+                            },
+                            upsert: true
+                        }
+                    }));
+                    await TagMap.bulkWrite(tagMapOps, { ordered: false });
 
-        const cleaned  = cleanTags(rawTags);
-        const finalTags = await resolveTagsArray(cleaned);
+                    // B. Extraer tags del JSON para el Wallpaper
+                    const manualTagsList = parsedData.flatMap(i => [
+                        i.en.toLowerCase().trim(), 
+                        i.es.toLowerCase().trim()
+                    ]);
+                    
+                    // C. Combinar todo
+                    finalTags = [...new Set([...finalTags, ...manualTagsList])];
+                    
+                    // D. Determinar categoría dominante del JSON
+                    const counts = {};
+                    parsedData.forEach(i => { if(i.category) counts[i.category] = (counts[i.category] || 0) + 1 });
+                    const dominant = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+                    if (dominant) selectedCategory = dominant[0];
 
-        // ── Crear wallpaper ─────────────────────────────────────────────────
+                    processedManually = true;
+                }
+            } catch (e) {
+                console.error("❌ Error parseando manualMetadata:", e.message);
+            }
+        }
+
+        // ── 3. Crear registro en Base de Datos ──
         const newWallpaper = new Wallpaper({
-            title:     title?.trim() || finalTags[0] || 'Vexel Art',
-            tags:      finalTags,
-            imageUrl:  req.file.path,
+            title: title?.trim() || finalTags[0] || 'Vexel Art',
+            tags: finalTags,
+            imageUrl: req.file.path,
             public_id: req.file.filename,
-            category:  category || 'Otros',
-            artist:    req.user.id,
-            type:      isVideo ? 'video' : 'image',
-            status:    isVideo ? 'approved' : 'pending',
-            price:     isAdmin ? Math.max(0, Number(price) || 0) : 0
+            category: selectedCategory,
+            artist: req.user.id,
+            type: isVideo ? 'video' : 'image',
+            status: isVideo ? 'approved' : 'pending',
+            price: isAdmin ? Math.max(0, Number(price) || 0) : 0,
+            isAITagged: processedManually // Si fue manual, ya no necesita IA
         });
 
         await newWallpaper.save();
 
-        // Incrementar contador y responder en paralelo
-        await Promise.all([
-            User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } }),
-        ]);
+        // ── 4. Actualizar contador del usuario ──
+        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
-        // Responder ANTES de encolar el job pesado
         res.json(newWallpaper);
 
-        // ── Post-respuesta: encolar job de IA (solo imágenes) ───────────────
-        if (!isVideo) {
+        // ── 5. Encolar job de IA solo si NO fue manual y NO es video ──
+        if (!processedManually && !isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
-                imageUrl:    req.file.path,
-                baseTags:    finalTags
+                imageUrl: req.file.path,
+                baseTags: finalTags
             });
         }
 
     } catch (err) {
         console.error('❌ ERROR EN UPLOAD:', err);
-
-        // Si falló después de subir a Cloudinary, limpiar el archivo huérfano
         if (req.file?.filename) {
             const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
-            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
-                .catch(e => console.error('❌ Error limpiando Cloudinary tras fallo:', e));
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType }).catch(() => {});
         }
-
         res.status(500).json({ msg: 'Error interno en la subida' });
     }
 });
