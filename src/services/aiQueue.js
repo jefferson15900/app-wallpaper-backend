@@ -33,15 +33,13 @@ class AIQueue {
             }
 
             // ── Extraer tags por idioma ───────────────────────────────────
-            const enTags = aiTags.map(t => t.en);
-            const esTags = aiTags
-                .map(t => t.es)
-                .filter(es => !enTags.includes(es));
+           const enTags = aiTags.map(t => t.en.toLowerCase().trim());
+           const esTags = aiTags.map(t => t.es.toLowerCase().trim());
 
             // ── Limpiar y combinar ────────────────────────────────────────
             const cleanedEn = cleanTags([...baseTags, ...enTags]);
             const cleanedEs = cleanTags(esTags);
-            const finalTags = [...new Set([...cleanedEn, ...cleanedEs])];
+            const finalTags = cleanTags([...baseTags, ...enTags]);
 
             // ── Detectar categoría dominante ──────────────────────────────
             // Contamos qué categoría aparece más entre los 5 tags
@@ -61,16 +59,15 @@ class AIQueue {
             // ── Alimentar TagMap ──────────────────────────────────────────
 const tagMapOps = aiTags.map(({ en, es, category }) => ({
     updateOne: {
-        // Buscamos siempre por el término en español (original)
-        filter: { original: es.toLowerCase().trim() }, 
+        filter: { original: es }, 
         update: { 
             $set: { 
-                canonical: en.toLowerCase().trim(), // Palabra maestra en inglés
-                category: category,                 // 🚀 LA CATEGORÍA AHORA SE GUARDA
+                canonical: en, 
+                category: category,
                 language: 'es' 
             } 
         },
-        upsert: true 
+        upsert: true
     }
 }));
 
