@@ -263,7 +263,7 @@ router.get('/', async (req, res) => {
         const { search, category, limit = 16, page = 1, random, type, artistId, premium, exclude } = req.query;
 
         const parsedLimit = parseInt(limit);
-        const skip = (parseInt(page) - 1) * parsedLimit;
+        const skip = (parseInt(page) - 1) * parsedLimit; 
 
         // ── Filtro base ──────────────────────────────────────────────────
         let matchQuery = { status: 'approved' }; // ⚠️ RECUERDA: Si no están aprobados, no saldrán
@@ -279,71 +279,98 @@ router.get('/', async (req, res) => {
         }
 
         // ── BÚSQUEDA ─────────────────────────────────────────────────────
-        if (search && search.trim() !== '') {
-            const rawSearch = search.trim().toLowerCase();
+if (search && search.trim() !== '') {
+    const rawSearch = search.trim().toLowerCase();
 
-            const singularSearch = (() => {
-                const singular = nlp(rawSearch).nouns().toSingular().text().trim();
-                return singular && Math.abs(singular.length - rawSearch.length) < 10
-                    ? singular
-                    : rawSearch;
-            })();
+    // 1. Singularizar el término de búsqueda usando NLP (Compromise)
+    // Esto asegura que si buscas "carros", el motor busque "carro"
+    const singularSearch = (() => {
+        const singular = nlp(rawSearch).nouns().toSingular().text().trim();
+        // Solo aceptamos la singularización si no deforma demasiado la palabra original
+        return singular && Math.abs(singular.length - rawSearch.length) < 10
+            ? singular
+            : rawSearch;
+    })();
 
-            // 🚀 CORRECCIÓN AQUÍ: Destructuramos el objeto para obtener solo el string
-            const { canonical } = await resolveToCanonical(singularSearch);
+    // 2. Resolver el término canónico (Traducción/Unificación)
+    // Ej: si buscas "coche", el resolver devuelve "car" basándose en tu TagMap
+    const canonical = await resolveToCanonical(singularSearch);
 
-            // Buscamos todos los términos relacionados en el TagMap
-            const allSynonyms = await TagMap.find({ canonical }).lean();
-            
-            const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
-            allSynonyms.forEach(t => {
-                expandedTerms.add(t.original);
-                const s = nlp(t.original).nouns().toSingular().text().trim();
-                if (s) expandedTerms.add(s);
-            });
+    // 3. Expandir términos: Buscar todos los sinónimos registrados en la DB
+    const allSynonyms = await TagMap.find({ canonical }).lean();
+    
+    // Creamos un Set para tener términos únicos de búsqueda
+    const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
+    
+    // Añadimos los originales de los sinónimos encontrados
+    allSynonyms.forEach(t => {
+        expandedTerms.add(t.original);
+        // También singularizamos los sinónimos por si acaso
+        const s = nlp(t.original).nouns().toSingular().text().trim();
+        if (s) expandedTerms.add(s);
+    });
 
-            const queryString = [...expandedTerms]
-                .filter(t => t && t.length >= 2)
-                .join(' ');
+    const queryString = [...expandedTerms]
+        .filter(t => t && t.length >= 2)
+        .join(' ');
 
-            const useFuzzy = singularSearch.length > 5;
+    // console.log(`🔍 Buscando: "${rawSearch}" → [${queryString}]`);
 
-            let excludeIds = [];
-            if (exclude) {
-                excludeIds = exclude.split(',')
-                    .filter(id => mongoose.Types.ObjectId.isValid(id))
-                    .map(id => new mongoose.Types.ObjectId(id));
+    const useFuzzy = singularSearch.length > 6;
+
+    // 5. Manejar exclusión de IDs (para no repetir en scroll infinito)
+    let excludeIds = [];
+    if (exclude) {
+        excludeIds = exclude.split(',')
+            .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .map(id => new mongoose.Types.ObjectId(id));
+    }
+
+    const finalMatch = { ...matchQuery };
+    if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds }; 
+
+    // 6. PIPELINE DE AGREGACIÓN (MongoDB Atlas Search)
+    const pipeline = [
+        {
+            $search: {
+                index: "default", // Debe coincidir con el nombre en Atlas
+                text: {
+                    query: queryString,
+                    path: ["title", "tags"], // Busca en estos dos campos
+                    ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {})
+                }
             }
+        },
+        { $addFields: { score: { $meta: "searchScore" } } }, // Puntuación de relevancia
+        { $match: finalMatch }, // Filtros adicionales (categoría, estado, etc.)
+        
+        // Si el cliente pide 'random', barajamos los resultados
+        ...(random === 'true'
+            ? [{ $sample: { size: parsedLimit } }]
+            : [{ $sort: { score: -1 } }, { $skip: skip }, { $limit: parsedLimit }]
+        ),
+        
+        // Traer datos del artista (Join)
+        { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+        { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
+        
+        // Seguridad: Quitar datos sensibles del artista antes de enviar
+        { $project: { 
+            score: 0, 
+            'artist.password': 0, 
+            'artist.email': 0, 
+            'artist.pushToken': 0 
+        }}
+    ];
 
-            const finalMatch = { ...matchQuery };
-            if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds }; 
-
-            const pipeline = [
-                {
-                    $search: {
-                        index: "default",
-                        text: {
-                            query: queryString,
-                            // 🚀 MEJORA: También buscamos en el campo "category" del Wallpaper
-                            path: ["title", "tags", "category"], 
-                            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {})
-                        }
-                    }
-                },
-                { $addFields: { score: { $meta: "searchScore" } } },
-                { $match: finalMatch },
-                ...(random === 'true'
-                    ? [{ $sample: { size: parsedLimit } }]
-                    : [{ $sort: { score: -1 } }, { $skip: skip }, { $limit: parsedLimit }]
-                ),
-                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-                { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-                { $project: { score: 0, 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0 } }
-            ];
-
-            const searchResults = await Wallpaper.aggregate(pipeline);
-            return res.json(searchResults.map(item => ({ ...item, price: item.price ?? 0 })));
-        }
+    const searchResults = await Wallpaper.aggregate(pipeline);
+    
+    // Aseguramos que el campo 'price' siempre exista como número
+    return res.json(searchResults.map(item => ({ 
+        ...item, 
+        price: item.price ?? 0 
+    })));
+} 
 
 
 
@@ -555,111 +582,85 @@ router.get('/user/:id', async (req, res) => {
 
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
- 
-        const isVideo = req.file.mimetype.startsWith('video');
-        const { title, tags, category, price, manualMetadata } = req.body;
+        // 1. Validar que se haya recibido un archivo
+        if (!req.file) {
+            return res.status(400).json({ msg: 'No se recibió ningún archivo de imagen o video' });
+        }
 
+        const isVideo = req.file.mimetype.startsWith('video');
+
+        // 2. Validación de permisos (Solo admins suben videos)
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
         const isAdmin = user.role === 'admin';
 
         if (isVideo && !isAdmin) {
-            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' }).catch(() => {});
-            return res.status(403).json({ msg: 'Solo el administrador sube Live Wallpapers' });
+            // Si no es admin y subió un video, lo borramos de Cloudinary inmediatamente
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
+                .catch(e => console.error('❌ Error limpiando video no autorizado:', e));
+            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers (videos)' });
         }
 
-        // ── 1. Preparación inicial de tags del formulario ──
-        const rawTags = [title, ...(tags ? tags.split(',') : []), category].filter(Boolean);
+        // 3. Preparar y normalizar etiquetas (Tags)
+        const { title, tags, category, price } = req.body;
+
+        // Mezclamos título, tags manuales y categoría para procesarlos
+        const rawTags = [ 
+            title,
+            ...(tags ? tags.split(',') : []),
+            category
+        ].filter(Boolean); // Limpia valores nulos o vacíos
+
+        // Limpieza con NLP y resolución de sinónimos/canónicos
         const cleaned = cleanTags(rawTags);
-        let finalTags = await resolveTagsArray(cleaned);
-        let selectedCategory = category || 'Otros';
-        let processedManually = false;
+        const finalTags = await resolveTagsArray(cleaned);
 
-        // ── 2. Procesamiento de Metadatos Manuales (JSON) ──
-        if (manualMetadata && manualMetadata.trim() !== "") {
-            try {
-                const parsedData = JSON.parse(manualMetadata);
-                
-                if (Array.isArray(parsedData) && parsedData.length > 0) {
-                    // A. Alimentar el TagMap (Cerebro)
-                    const tagMapOps = parsedData.map(item => ({
-                        updateOne: {
-                            filter: { original: item.es.toLowerCase().trim() },
-                            update: { 
-                                $set: { 
-                                    canonical: item.en.toLowerCase().trim(),
-                                    category: item.category,
-                                    language: 'es'
-                                } 
-                            },
-                            upsert: true
-                        }
-                    }));
-                    await TagMap.bulkWrite(tagMapOps, { ordered: false });
-
-                    // B. Extraer tags del JSON para el Wallpaper
-                    const manualTagsList = parsedData.flatMap(i => [
-                        i.en.toLowerCase().trim(), 
-                        i.es.toLowerCase().trim()
-                    ]);
-                    
-                    // C. Combinar todo
-                    finalTags = [...new Set([...finalTags, ...manualTagsList])];
-                    
-                    // D. Determinar categoría dominante del JSON
-                    const counts = {};
-                    parsedData.forEach(i => { if(i.category) counts[i.category] = (counts[i.category] || 0) + 1 });
-                    const dominant = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
-                    if (dominant) selectedCategory = dominant[0];
-
-                    processedManually = true;
-                }
-            } catch (e) {
-                console.error("❌ Error parseando manualMetadata:", e.message);
-            }
-        }
-
-        // ── 3. Crear registro en Base de Datos ──
+        // 4. Crear el registro en la Base de Datos
         const newWallpaper = new Wallpaper({
             title: title?.trim() || finalTags[0] || 'Vexel Art',
             tags: finalTags,
-            imageUrl: req.file.path,
-            public_id: req.file.filename,
-            category: selectedCategory,
+            imageUrl: req.file.path,     // URL que nos da Cloudinary
+            public_id: req.file.filename, // ID para borrarlo después
+            category: category || 'Otros',
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
+            // Los videos se aprueban auto si los sube el admin, imágenes quedan en 'pending'
             status: isVideo ? 'approved' : 'pending',
-            price: isAdmin ? Math.max(0, Number(price) || 0) : 0,
-            isAITagged: processedManually // Si fue manual, ya no necesita IA
+            price: isAdmin ? Math.max(0, Number(price) || 0) : 0
         });
 
         await newWallpaper.save();
 
-        // ── 4. Actualizar contador del usuario ──
+        // 5. Incrementar el contador de obras del artista
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
+        // 6. Responder al cliente (para que el frontend no espere a la IA)
         res.json(newWallpaper);
 
-        // ── 5. Encolar job de IA solo si NO fue manual y NO es video ──
-        if (!processedManually && !isVideo) {
+        // 7. PROCESO EN SEGUNDO PLANO: Encolar para etiquetado por IA (solo si es imagen)
+        if (!isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl: req.file.path,
                 baseTags: finalTags
             });
-        }
+        } 
 
     } catch (err) {
-        console.error('❌ ERROR EN UPLOAD:', err);
-        if (req.file?.filename) {
+        console.error('❌ ERROR CRÍTICO EN UPLOAD:', err);
+
+        // LIMPIEZA DE EMERGENCIA: Si la DB falló pero el archivo se subió a Cloudinary, lo borramos
+        if (req.file && req.file.filename) {
             const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
-            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType }).catch(() => {});
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
+                .catch(e => console.error('❌ Error en limpieza tras fallo de DB:', e));
         }
-        res.status(500).json({ msg: 'Error interno en la subida' });
+
+        res.status(500).json({ msg: 'Error interno en la subida del servidor' });
     }
 });
+
 
 // Dar o quitar Like
 router.put('/like/:id', auth, async (req, res) => {

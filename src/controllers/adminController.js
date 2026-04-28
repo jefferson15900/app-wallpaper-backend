@@ -168,15 +168,19 @@ exports.reportAction = async (req, res) => {
 
 
 // REINTENTAR ETIQUETADO POR IA (SOLO ADMIN) - VERSIÓN INTELIGENTE
+// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
 exports.retryAITagging = async (req, res) => {
     try {
+        // 1. Buscar el wallpaper en la base de datos
         const wallpaper = await Wallpaper.findById(req.params.id);
         if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
+        // Aseguramos que la URL use HTTPS para evitar problemas con la API de Google
         const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
         console.log(`♻️ [ADMIN] Reintento IA para: "${wallpaper.title}"`);
 
-        // aiTags ahora devuelve: [{ en, es, category }, ...]
+        // 2. Llamar al servicio de IA (Gemini)
+        // Se espera un formato: [{ en: "city", es: "ciudad" }, ...]
         const aiTags = await getAITags(secureUrl);
 
         if (!aiTags || aiTags.length === 0) {
@@ -185,63 +189,44 @@ exports.retryAITagging = async (req, res) => {
             });
         }
 
-        // ── 1. DETERMINAR CATEGORÍA DOMINANTE ──────────────────────────
-        const categoryCounts = {};
-        aiTags.forEach(t => {
-            if (t.category) {
-                categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
-            }
-        });
-
-        const dominantCategory = Object.keys(categoryCounts).length > 0
-            ? Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0][0]
-            : null;
-
-        // ── 2. PREPARAR TAGS (UNIFICACIÓN) ──────────────────────────────
+        // 3. Procesar y separar etiquetas por idioma
         const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-        const esTags = aiTags.map(t => t.es.toLowerCase().trim());
+        const esTags = aiTags
+            .map(t => t.es.toLowerCase().trim())
+            .filter(es => !enTags.includes(es)); // Evitar duplicar si la palabra es igual en ambos idiomas
 
+        // 4. Mezclar con las etiquetas que ya tenía el wallpaper (sin repetir)
         const currentTags = wallpaper.tags || [];
-        // Combinamos todo y eliminamos duplicados
         const finalTags = [...new Set([...currentTags, ...enTags, ...esTags])];
 
-        // ── 3. ACTUALIZAR EL CEREBRO (TAGMAP) CON CATEGORÍAS ────────────
-        const tagMapOps = aiTags.map(({ en, es, category }) => ({
-            updateOne: {
-                filter: { original: es.toLowerCase().trim() },
-                update: { 
-                    $set: { 
-                        canonical: en.toLowerCase().trim(), 
-                        category: category, // 👈 IMPORTANTE: Guardamos la categoría
-                        language: 'es' 
-                    } 
-                },
-                upsert: true
-            }
-        }));
+        // 5. ACTUALIZAR DICCIONARIO (TagMap)
+        // Esto permite que el sistema "aprenda" la traducción para futuras búsquedas
+        const tagMapOps = aiTags
+            .filter(t => t.en !== t.es) // Solo mapeamos si son palabras distintas (ej: ciudad -> city)
+            .map(({ en, es }) => ({
+                updateOne: {
+                    filter: { original: es.toLowerCase().trim() },
+                    update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
+                    upsert: true
+                }
+            }));
 
         if (tagMapOps.length > 0) {
+            // Operación masiva para no saturar la DB
             await TagMap.bulkWrite(tagMapOps, { ordered: false });
-            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos con categoría actualizados`);
+            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos actualizados desde el panel admin`);
         }
 
-        // ── 4. ACTUALIZAR EL WALLPAPER ──────────────────────────────────
+        // 6. Guardar cambios en el Wallpaper
         wallpaper.tags = finalTags;
         wallpaper.isAITagged = true;
-
-        // Solo cambiamos la categoría si el wallpaper está en el default "Otros"
-        const isDefault = !wallpaper.category || wallpaper.category === 'Otros';
-        if (isDefault && dominantCategory) {
-            wallpaper.category = dominantCategory;
-            console.log(`🗂️ Nueva categoría asignada: ${dominantCategory}`);
-        }
-
         await wallpaper.save();
 
+        console.log(`✅ [ADMIN] ${finalTags.length} etiquetas actualizadas para "${wallpaper.title}"`);
+        
         res.json({ 
             msg: 'IA procesada con éxito ✨', 
             tags: finalTags, 
-            category: wallpaper.category,
             isAITagged: true 
         });
 
