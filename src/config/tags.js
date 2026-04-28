@@ -58,8 +58,8 @@ const BLACKLIST_TAGS = new Set([
   'painting', 'pintura',
   'sketch', 'boceto',
   'concept art', 'concept design', 
-  'fan art', 'fanart','anime',
-  'anime style', 'estilo anime', 'anime art',
+  'fan art', 'fanart', 'anime style',
+  'estilo anime', 'anime art',
   'manga style', 'estilo manga', 'manga art',
   'cartoon style', 'cartoonish',
   'comic style', 'estilo cómic', 'comic book style', 'comic book',
@@ -150,7 +150,7 @@ const BLACKLIST_TAGS = new Set([
   // ── TÉRMINOS GENÉRICOS DE PERSONAJE ──────────────────────
   'character', 'character design', 'original character', 'oc',
   'humanoid', 'figure', 'silhouette',
-  'male', 'female', 'boy', 'girl', 'man', 'woman',
+  'male', 'female', 'boy', 'man', 'woman',
   'hombre', 'mujer', 'chico', 'chica',
   'young', 'joven', 'adult', 'adulto',
   'cute', 'kawaii', 'lindo',
@@ -165,8 +165,7 @@ const BLACKLIST_TAGS = new Set([
   'day', 'night', 'día', 'noche',
   'sunrise', 'sunset', 'amanecer', 'atardecer',
   'sky', 'cielo', 'clouds', 'nubes',
-  'nature', 'naturaleza',
-  'dark', 'oscuro', 'bright', 'brillante',
+  'nature', 'naturaleza', 'oscuro', 'bright', 'brillante',
 
   // ── PINTEREST / MOOD BOARDS ───────────────────────────────
 'aesthetic', 'aesthetics', 'estética',

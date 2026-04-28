@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db.js');
 const compression = require('compression');
+const configRoutes = require('./src/routes/configRoutes');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -78,6 +79,7 @@ app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
 app.use('/api/feedback', require('./src/routes/feedbackRoutes'));
 app.use('/api/coins', require('./src/routes/coinRoutes'));
+app.use('/api/config', configRoutes);
 
 // Manejador de errores global
 app.use((err, req, res, next) => {
