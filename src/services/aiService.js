@@ -27,7 +27,7 @@ const result = await model.generateContent([
     prompt,
     {
         inlineData: {
-            data: base64Image, 
+            data: base64Image,  
             mimeType: "image/jpeg",
         },
     },

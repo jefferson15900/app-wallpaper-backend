@@ -20,7 +20,7 @@ async processNext() {
 
     this.isProcessing = true;
     const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
-
+ 
     try {
         console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`); 
 
