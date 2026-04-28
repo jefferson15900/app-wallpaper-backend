@@ -2,66 +2,60 @@ const TagMap = require('../models/TagMap');
 
 /**
  * 🎯 RESOLVER TÉRMINO ÚNICO
- * Recibe una palabra y busca su traducción oficial en TagMap.
+ * Recibe una palabra y busca su traducción oficial o término canónico en TagMap.
+ * Se usa principalmente en la barra de búsqueda.
+ * 
+ * @param {string} word - La palabra a traducir.
+ * @returns {Promise<string>} - La palabra canónica o la original si no hay mapeo.
  */
 const resolveToCanonical = async (word) => {
-    // CORRECCIÓN: Devolvemos un objeto consistente incluso si no hay palabra
-    if (!word) return { canonical: '', category: null };
+    if (!word) return '';
     const term = word.toLowerCase().trim();
 
     try {
-        // Buscamos en ambas columnas
-        const mapping = await TagMap.findOne({
-            $or: [
-                { original: term },
-                { canonical: term }
-            ]
-        }).lean();
-
-        return {
-            canonical: mapping?.canonical ?? term,
-            category: mapping?.category ?? null
-        };
+        const mapping = await TagMap.findOne({ original: term }).lean();
+        return mapping?.canonical ?? term;
     } catch (error) {
-        return { canonical: term, category: null };
+        console.error("❌ Error en resolveToCanonical:", error);
+        return term;
     }
 };
 
 /**
  * 🎯 RESOLVER ARRAY DE ETIQUETAS
- * Una sola query a la DB para todos los tags.
+ * Traduce un grupo entero de etiquetas de un golpe.
+ * Se usa principalmente al subir un wallpaper nuevo o al re-etiquetar por IA.
+ * 
+ * @param {string[]} tagsArray - Array de etiquetas a traducir.
+ * @returns {Promise<string[]>} - Array de etiquetas normalizadas y sin duplicados.
  */
 const resolveTagsArray = async (tagsArray) => {
     if (!Array.isArray(tagsArray) || tagsArray.length === 0) return [];
 
+    // Limpiamos los strings de entrada
     const terms = tagsArray
         .filter(t => t && typeof t === 'string')
         .map(t => t.toLowerCase().trim());
 
     try {
-        // 🚀 MEJORA: Búsqueda masiva inteligente en ambas columnas
-        const mappings = await TagMap.find({
-            $or: [
-                { original: { $in: terms } },
-                { canonical: { $in: terms } }
-            ]
-        }).select('original canonical').lean();
+        // 🚀 OPTIMIZACIÓN: Una sola consulta a la DB para todos los tags a la vez
+        const mappings = await TagMap.find({ original: { $in: terms } })
+            .select('original canonical')
+            .lean();
 
-        // 🧠 DICCIONARIO INTELIGENTE:
-        // Mapeamos tanto el original como el canonical hacia el canonical.
-        // Esto cubre: "ciudad" -> "city" Y "city" -> "city".
-        const dict = {};
-        mappings.forEach(m => {
-            dict[m.original] = m.canonical;
-            dict[m.canonical] = m.canonical;
-        });
+        // Construimos un diccionario en memoria { original -> canonical }
+        const dict = Object.fromEntries(
+            mappings.map(m => [m.original, m.canonical])
+        );
 
+        // Resolvemos cada tag usando el diccionario. Si no existe, dejamos el original.
         const resolved = terms.map(t => dict[t] ?? t);
 
+        // Eliminamos duplicados que surjan tras la traducción con un Set
         return [...new Set(resolved)];
     } catch (error) {
         console.error("❌ Error en resolveTagsArray:", error);
-        return [...new Set(terms)]; 
+        return [...new Set(tagsArray)]; // Fallback seguro en caso de error
     }
 };
 
