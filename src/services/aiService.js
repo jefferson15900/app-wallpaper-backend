@@ -1,23 +1,54 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
-const prompt = `You are a tagging assistant for a wallpaper app. Analyze this image and return exactly 5 tags.
-Rules:
-Single words only, no phrases
-ONLY tags that someone would actually type in a search bar
-NEVER use: illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
-Prioritize in this order:
-Character/franchise  → batman, spiderman, naruto, goku, ironman, joker, deadpool
-Setting              → space, forest, city, ocean, desert, mountain
-Dominant colors      → red, blue, neon, golden, purple, black, white
-Key elements         → dragon, wolf, fire, flowers, robot, car, sword, cat
-Mood (only if very obvious) → dark, cozy, romantic
-Return ONLY a JSON array, no explanations, no markdown:
+const prompt = `You are a tagging assistant for a wallpaper app. Analyze the image and return EXACTLY 5 tags.
+
+OUTPUT FORMAT:
+
+Return ONLY a valid JSON array
+No explanations, no markdown, no extra text
+Each item must follow this structure:
+{ "en": "<tag>", "es": "<tag_in_spanish>" }
+
+GENERAL RULES:
+
+Use SINGLE WORDS only (no phrases, no hyphens, no compound terms)
+Use lowercase only
+No duplicates
+Tags must be common search keywords
+Avoid vague or overly generic words unless clearly dominant in the image
+
+FORBIDDEN WORDS:
+illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
+
+TAG PRIORITY (strict order):
+
+Character or franchise (only if clearly recognizable)
+Setting or environment
+Dominant colors (only if visually prominent)
+Key objects or elements
+Mood (ONLY if strongly evident)
+
+SELECTION LOGIC:
+
+Always return exactly 5 tags
+Follow priority order strictly
+Skip any category that does not apply
+Do NOT guess or infer unclear characters
+Prefer specific terms over generic ones
+Colors must occupy a significant portion of the image
+
+LANGUAGE RULES:
+
+Spanish must be natural and commonly used
+Do NOT translate proper names (e.g., "batman" stays "batman")
+ 
+OUTPUT EXAMPLE:
 [
 { "en": "batman", "es": "batman" },
-{ "en": "city",   "es": "ciudad" },
-{ "en": "rain",   "es": "lluvia" },
-{ "en": "red",    "es": "rojo"   },
-{ "en": "dark",   "es": "oscuro" }
+{ "en": "city", "es": "ciudad" },
+{ "en": "rain", "es": "lluvia" },
+{ "en": "red", "es": "rojo" },
+{ "en": "dark", "es": "oscuro" }
 ]`; 
 const analyzeWithModel = async (modelName, base64Image) => {
 
