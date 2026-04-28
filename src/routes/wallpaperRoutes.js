@@ -571,82 +571,73 @@ router.get('/user/:id', async (req, res) => {
 
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
-        // 1. Validar que se haya recibido un archivo
+        // 1. Validar archivo
         if (!req.file) {
             return res.status(400).json({ msg: 'No se recibió ningún archivo de imagen o video' });
         }
 
         const isVideo = req.file.mimetype.startsWith('video');
 
-        // 2. Validación de permisos (Solo admins suben videos)
+        // 2. Validar permisos
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
         const isAdmin = user.role === 'admin';
 
         if (isVideo && !isAdmin) {
-            // Si no es admin y subió un video, lo borramos de Cloudinary inmediatamente
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
                 .catch(e => console.error('❌ Error limpiando video no autorizado:', e));
-            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers (videos)' });
+            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers' });
         }
 
-        // 3. Preparar y normalizar etiquetas (Tags)
-        const { title, tags, category, price } = req.body;
+        // 3. Preparar etiquetas (sin título ni categoría)
+        const { tags, price } = req.body;
 
-        // Mezclamos título, tags manuales y categoría para procesarlos
-        const rawTags = [ 
-            title,
-            ...(tags ? tags.split(',') : []),
-            category
-        ].filter(Boolean); // Limpia valores nulos o vacíos
+        const rawTags = tags
+            ? tags.split(',').map(t => t.trim()).filter(Boolean)
+            : [];
 
-        // Limpieza con NLP y resolución de sinónimos/canónicos
         const cleaned = cleanTags(rawTags);
         const finalTags = await resolveTagsArray(cleaned);
 
-        // 4. Crear el registro en la Base de Datos
+        // 4. Crear registro en DB
         const newWallpaper = new Wallpaper({
-            title: title?.trim() || finalTags[0] || 'Vexel Art',
             tags: finalTags,
-            imageUrl: req.file.path,     // URL que nos da Cloudinary
-            public_id: req.file.filename, // ID para borrarlo después
-            category: category || 'Otros',
+            imageUrl: req.file.path,
+            public_id: req.file.filename,
             artist: req.user.id,
             type: isVideo ? 'video' : 'image',
-            // Los videos se aprueban auto si los sube el admin, imágenes quedan en 'pending'
             status: isVideo ? 'approved' : 'pending',
             price: isAdmin ? Math.max(0, Number(price) || 0) : 0
         });
 
         await newWallpaper.save();
 
-        // 5. Incrementar el contador de obras del artista
+        // 5. Incrementar contador del artista
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
-        // 6. Responder al cliente (para que el frontend no espere a la IA)
+        // 6. Responder al cliente antes de que termine la IA
         res.json(newWallpaper);
 
-        // 7. PROCESO EN SEGUNDO PLANO: Encolar para etiquetado por IA (solo si es imagen)
+        // 7. Encolar etiquetado IA en segundo plano (solo imágenes)
         if (!isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl: req.file.path,
                 baseTags: finalTags
             });
-        } 
+        }
 
     } catch (err) {
         console.error('❌ ERROR CRÍTICO EN UPLOAD:', err);
 
-        // LIMPIEZA DE EMERGENCIA: Si la DB falló pero el archivo se subió a Cloudinary, lo borramos
-        if (req.file && req.file.filename) {
+        if (req.file?.filename) {
             const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
                 .catch(e => console.error('❌ Error en limpieza tras fallo de DB:', e));
         }
 
-        res.status(500).json({ msg: 'Error interno en la subida del servidor' });
+        res.status(500).json({ msg: 'Error interno en la subida' });
     }
 });
 
