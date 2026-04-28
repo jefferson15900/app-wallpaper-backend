@@ -571,76 +571,62 @@ router.get('/user/:id', async (req, res) => {
 
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
-        // 1. Validar archivo
-        if (!req.file) {
-            return res.status(400).json({ msg: 'No se recibió ningún archivo de imagen o video' });
-        }
+        if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
         const isVideo = req.file.mimetype.startsWith('video');
 
-        // 2. Validar permisos
+        // Validar permisos para video
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-        const isAdmin = user.role === 'admin';
-
-        if (isVideo && !isAdmin) {
+        if (isVideo && user.role !== 'admin') {
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
-                .catch(e => console.error('❌ Error limpiando video no autorizado:', e));
-            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers' });
+                .catch(e => console.error('❌ Error limpiando video:', e));
+            return res.status(403).json({ msg: 'Solo el administrador puede subir videos' });
         }
 
-        // 3. Preparar etiquetas (sin título ni categoría)
+        // Tags opcionales — si no vienen, la IA los pone
         const { tags, price } = req.body;
-
-        const rawTags = tags
-            ? tags.split(',').map(t => t.trim()).filter(Boolean)
-            : [];
-
+        const rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         const cleaned = cleanTags(rawTags);
         const finalTags = await resolveTagsArray(cleaned);
 
-        // 4. Crear registro en DB
         const newWallpaper = new Wallpaper({
-            tags: finalTags,
-            imageUrl: req.file.path,
+            tags:      finalTags,
+            imageUrl:  req.file.path,
             public_id: req.file.filename,
-            artist: req.user.id,
-            type: isVideo ? 'video' : 'image',
-            status: isVideo ? 'approved' : 'pending',
-            price: isAdmin ? Math.max(0, Number(price) || 0) : 0
+            artist:    req.user.id,
+            type:      isVideo ? 'video' : 'image',
+            status:    'pending',
+            price:     user.role === 'admin' ? Math.max(0, Number(price) || 0) : 0
         });
 
         await newWallpaper.save();
-
-        // 5. Incrementar contador del artista
         await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
 
-        // 6. Responder al cliente antes de que termine la IA
         res.json(newWallpaper);
 
-        // 7. Encolar etiquetado IA en segundo plano (solo imágenes)
+        // 🚀 IA en segundo plano — si no hay tags, los genera desde cero
         if (!isVideo) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
-                imageUrl: req.file.path,
-                baseTags: finalTags
+                imageUrl:    req.file.path,
+                baseTags:    finalTags
             });
         }
 
     } catch (err) {
-        console.error('❌ ERROR CRÍTICO EN UPLOAD:', err);
+        console.error('❌ ERROR EN UPLOAD:', err);
 
         if (req.file?.filename) {
             const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
-                .catch(e => console.error('❌ Error en limpieza tras fallo de DB:', e));
+                .catch(e => console.error('❌ Error en limpieza:', e));
         }
 
         res.status(500).json({ msg: 'Error interno en la subida' });
     }
 });
-
 
 // Dar o quitar Like
 router.put('/like/:id', auth, async (req, res) => {
