@@ -569,13 +569,14 @@ router.get('/user/:id', async (req, res) => {
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
 
+
 router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
         const isVideo = req.file.mimetype.startsWith('video');
 
-        // Validar permisos para video
+        // 1. Validar permisos para video
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
@@ -585,12 +586,53 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             return res.status(403).json({ msg: 'Solo el administrador puede subir videos' });
         }
 
-        // Tags opcionales — si no vienen, la IA los pone
-        const { tags, price } = req.body;
-        const rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+        // 2. Extraer datos del body
+        const { tags, price, manualAIResult } = req.body;
+        let rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+        let isAITagged = false;
+
+        // 🚀 LÓGICA DE BYPASS: PROCESAR JSON MANUAL SI EXISTE
+        if (manualAIResult && manualAIResult.trim() !== "") {
+            try {
+                const parsed = JSON.parse(manualAIResult); // Espera: [{"en":"dog","es":"perro"}, ...]
+                
+                if (Array.isArray(parsed)) {
+                    // A. Extraer palabras para las etiquetas del wallpaper
+                    const manualEn = parsed.map(t => t.en.toLowerCase().trim());
+                    const manualEs = parsed.map(t => t.es.toLowerCase().trim());
+                    
+                    // Combinamos etiquetas del usuario con las del JSON
+                    rawTags = [...new Set([...rawTags, ...manualEn, ...manualEs])];
+
+                    // B. Alimentar el TagMap (Diccionario Global) inmediatamente
+                    const tagMapOps = parsed
+                        .filter(t => t.en && t.es && t.en !== t.es)
+                        .map(({ en, es }) => ({
+                            updateOne: {
+                                filter: { original: es.toLowerCase().trim() },
+                                update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
+                                upsert: true
+                            }
+                        }));
+
+                    if (tagMapOps.length > 0) {
+                        await TagMap.bulkWrite(tagMapOps, { ordered: false });
+                        console.log("📚 TagMap actualizado manualmente desde Upload");
+                    }
+
+                    isAITagged = true; // Marcamos como procesado para no llamar a la IA de Google
+                }
+            } catch (jsonErr) {
+                console.error('❌ Error parseando manualAIResult:', jsonErr.message);
+           
+            }
+        }
+
+        // 3. Limpieza y normalización de etiquetas finales
         const cleaned = cleanTags(rawTags);
         const finalTags = await resolveTagsArray(cleaned);
 
+        // 4. Crear registro en DB
         const newWallpaper = new Wallpaper({
             tags:      finalTags,
             imageUrl:  req.file.path,
@@ -598,6 +640,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
             artist:    req.user.id,
             type:      isVideo ? 'video' : 'image',
             status:    'pending',
+            isAITagged: isAITagged, 
             price:     user.role === 'admin' ? Math.max(0, Number(price) || 0) : 0
         });
 
@@ -606,13 +649,14 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
 
         res.json(newWallpaper);
 
-        // 🚀 IA en segundo plano — si no hay tags, los genera desde cero
-        if (!isVideo) {
+        if (!isVideo && !isAITagged) {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl:    req.file.path,
                 baseTags:    finalTags
             });
+        } else {
+            console.log(`✅ [UPLOAD] ${isAITagged ? 'Bypass IA activado (JSON Manual)' : 'Video detectado (Sin IA)'}`);
         }
 
     } catch (err) {
@@ -621,7 +665,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], async (req, res) => 
         if (req.file?.filename) {
             const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
-                .catch(e => console.error('❌ Error en limpieza:', e));
+                .catch(e => console.error('❌ Error en limpieza post-error:', e));
         }
 
         res.status(500).json({ msg: 'Error interno en la subida' });

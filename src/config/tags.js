@@ -505,7 +505,7 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 3, maxLength = 40 } = 
     // 2. Normalización básica
     .map(t =>
       t.toLowerCase()
-       .trim()
+       .trim() 
        .replace(/[^a-z0-9áéíóúüñ \-]/gi, '')
        .replace(/\s+/g, ' ')
        .trim()
