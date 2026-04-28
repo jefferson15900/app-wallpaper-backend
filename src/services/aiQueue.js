@@ -36,12 +36,11 @@ async processNext() {
         const enTags = aiTags.map(t => t.en.toLowerCase().trim());
         const esTags = aiTags
             .map(t => t.es.toLowerCase().trim())
-            .filter(es => !enTags.includes(es)); // evitar duplicar "batman" = "batman"
+            .filter(es => !enTags.includes(es));
 
-        // ── Limpiar y combinar ────────────────────────────────────────
-        const cleanedEn = cleanTags([...baseTags, ...enTags]);
-        const cleanedEs = cleanTags(esTags);
-        const finalTags = [...new Set([...cleanedEn, ...cleanedEs])];
+        // ── Limpiar y combinar ──────────────────────────────────────── 
+          const cleanedEn = cleanTags([...baseTags, ...enTags]);
+          const finalTags = [...new Set(cleanedEn)]; // ← solo EN
 
         // ── Alimentar TagMap ──────────────────────────────────────────
         const tagMapOps = aiTags

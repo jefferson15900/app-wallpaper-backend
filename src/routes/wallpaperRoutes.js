@@ -282,30 +282,23 @@ router.get('/', async (req, res) => {
 if (search && search.trim() !== '') {
     const rawSearch = search.trim().toLowerCase();
 
-    // 1. Singularizar el término de búsqueda usando NLP (Compromise)
-    // Esto asegura que si buscas "carros", el motor busque "carro"
+    // 1. Singularizar
     const singularSearch = (() => {
         const singular = nlp(rawSearch).nouns().toSingular().text().trim();
-        // Solo aceptamos la singularización si no deforma demasiado la palabra original
         return singular && Math.abs(singular.length - rawSearch.length) < 10
             ? singular
             : rawSearch;
     })();
 
-    // 2. Resolver el término canónico (Traducción/Unificación)
-    // Ej: si buscas "coche", el resolver devuelve "car" basándose en tu TagMap
+    // 2. Resolver canónico (ES → EN)
     const canonical = await resolveToCanonical(singularSearch);
 
-    // 3. Expandir términos: Buscar todos los sinónimos registrados en la DB
+    // 3. Expandir sinónimos desde TagMap
     const allSynonyms = await TagMap.find({ canonical }).lean();
-    
-    // Creamos un Set para tener términos únicos de búsqueda
+
     const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
-    
-    // Añadimos los originales de los sinónimos encontrados
     allSynonyms.forEach(t => {
         expandedTerms.add(t.original);
-        // También singularizamos los sinónimos por si acaso
         const s = nlp(t.original).nouns().toSingular().text().trim();
         if (s) expandedTerms.add(s);
     });
@@ -314,11 +307,11 @@ if (search && search.trim() !== '') {
         .filter(t => t && t.length >= 2)
         .join(' ');
 
-    // console.log(`🔍 Buscando: "${rawSearch}" → [${queryString}]`);
+   // console.log(`🔍 [SEARCH] "${rawSearch}" → canonical: "${canonical}" → query: [${queryString}]`);
 
     const useFuzzy = singularSearch.length > 6;
 
-    // 5. Manejar exclusión de IDs (para no repetir en scroll infinito)
+    // 4. Exclusión de IDs
     let excludeIds = [];
     if (exclude) {
         excludeIds = exclude.split(',')
@@ -327,50 +320,46 @@ if (search && search.trim() !== '') {
     }
 
     const finalMatch = { ...matchQuery };
-    if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds }; 
+    if (excludeIds.length > 0) finalMatch._id = { $nin: excludeIds };
 
-    // 6. PIPELINE DE AGREGACIÓN (MongoDB Atlas Search)
+    // 5. Pipeline
     const pipeline = [
         {
             $search: {
-                index: "default", // Debe coincidir con el nombre en Atlas
+                index: "default",
                 text: {
                     query: queryString,
-                    path: ["title", "tags"], // Busca en estos dos campos
+                    path: ["tags"], // ← quitamos "title" como acordamos
                     ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {})
                 }
             }
         },
-        { $addFields: { score: { $meta: "searchScore" } } }, // Puntuación de relevancia
-        { $match: finalMatch }, // Filtros adicionales (categoría, estado, etc.)
-        
-        // Si el cliente pide 'random', barajamos los resultados
+        { $addFields: { score: { $meta: "searchScore" } } },
+        { $match: finalMatch },
+
         ...(random === 'true'
             ? [{ $sample: { size: parsedLimit } }]
             : [{ $sort: { score: -1 } }, { $skip: skip }, { $limit: parsedLimit }]
         ),
-        
-        // Traer datos del artista (Join)
+
         { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
         { $unwind: { path: '$artist', preserveNullAndEmptyArrays: true } },
-        
-        // Seguridad: Quitar datos sensibles del artista antes de enviar
-        { $project: { 
-            score: 0, 
-            'artist.password': 0, 
-            'artist.email': 0, 
-            'artist.pushToken': 0 
+
+        { $project: {
+            score: 0,
+            'artist.password': 0,
+            'artist.email': 0,
+            'artist.pushToken': 0
         }}
     ];
 
     const searchResults = await Wallpaper.aggregate(pipeline);
-    
-    // Aseguramos que el campo 'price' siempre exista como número
-    return res.json(searchResults.map(item => ({ 
-        ...item, 
-        price: item.price ?? 0 
+
+    return res.json(searchResults.map(item => ({
+        ...item,
+        price: item.price ?? 0
     })));
-} 
+}
 
 
 
