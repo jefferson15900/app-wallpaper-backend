@@ -11,7 +11,7 @@ TAG COUNT: 2 minimum · 4 maximum. Fewer is better when the image is simple.
 
 TAG TAXONOMY (apply in this order)
 
-Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon
+Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon, minimalist,
 Priority 2 - Main Subject: car, dragon, robot, city, spaceship, animal
 Priority 3 - Environment: forest, street, desert, ocean, space, mountain
 Priority 4 - Context: night, rain, snow, fire, underwater
