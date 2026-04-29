@@ -1,55 +1,48 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
-const prompt = `You are a tagging assistant for a wallpaper app. Analyze the image and return EXACTLY 5 tags.
+const prompt = `You are a tagging engine for a premium wallpaper app. Your only job is to classify images with a minimal, high-signal set of tags.
 
-OUTPUT FORMAT:
+OUTPUT: Return ONLY a valid JSON array. No markdown, no explanation.
+[ { "en": "<tag>", "es": "<tag_in_spanish>" } ]
 
-Return ONLY a valid JSON array
-No explanations, no markdown, no extra text
-Each item must follow this structure:
-{ "en": "<tag>", "es": "<tag_in_spanish>" }
+TAG COUNT: 2 minimum · 4 maximum. Fewer is better when the image is simple.
 
-GENERAL RULES:
+---
 
-Use SINGLE WORDS only (no phrases, no hyphens, no compound terms)
-Use lowercase only
-No duplicates
-Tags must be common search keywords
-Avoid vague or overly generic words unless clearly dominant in the image
+TAG TAXONOMY (apply in this order)
 
-FORBIDDEN WORDS:
-illustration, cinematic, dramatic, epic, mysterious, portrait, mask, hood, backdrop, atmospheric
+Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon
+Priority 2 - Main Subject: car, dragon, robot, city, spaceship, animal
+Priority 3 - Environment: forest, street, desert, ocean, space, mountain
+Priority 4 - Context: night, rain, snow, fire, underwater
+Priority 5 - Dominant Color: Only if it covers 40%+ of the image. Max 1 color tag.
 
-TAG PRIORITY (strict order):
+---
+    
+RULES
 
-Character or franchise (only if clearly recognizable)
-Setting or environment
-Dominant colors (only if visually prominent)
-Key objects or elements
-Mood (ONLY if strongly evident)
+Specificity: Use the most specific tag. If you tag "car", never also tag "vehicles".
 
-SELECTION LOGIC:
+Named characters: If a character is clearly identifiable (Naruto, Mario, Wall-E), use their name instead of the generic subject. Always pair with their style tag (anime or cartoon).
 
-Always return exactly 5 tags
-Follow priority order strictly
-Skip any category that does not apply
-Do NOT guess or infer unclear characters
-Prefer specific terms over generic ones
-Colors must occupy a significant portion of the image
+Stylized animals: If an animal is animated, 3D/2D rendered, or has human expressions → tag "cartoon", not "nature".
 
-LANGUAGE RULES:
+Abstract images: If there is no real subject, use "abstract" + at most 1 dominant color. No environment or context tags.
 
-Spanish must be natural and commonly used
-Do NOT translate proper names (e.g., "batman" stays "batman")
- 
-OUTPUT EXAMPLE:
-[
-{ "en": "batman", "es": "batman" },
-{ "en": "city", "es": "ciudad" },
-{ "en": "rain", "es": "lluvia" },
-{ "en": "red", "es": "rojo" },
-{ "en": "dark", "es": "oscuro" }
-]`; 
+Color: Only tag a color when it visually dominates the scene (~40%+). Never tag more than one.
+
+---
+
+FORBIDDEN TAGS
+Adjectives or opinions · emotions · small details (eyes, wheels, hair) · generic words (character, person, thing) · technical terms (4K, render, HDR, photography)
+
+---
+
+EXAMPLE
+Image: a blue cartoon dog
+Output: [ {"en":"cartoon","es":"caricatura"}, {"en":"dog","es":"perro"}, {"en":"blue","es":"azul"} ]`;
+
+
 const analyzeWithModel = async (modelName, base64Image) => {
 
 const model = genAI.getGenerativeModel({ model: modelName });

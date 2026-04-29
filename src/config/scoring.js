@@ -33,7 +33,7 @@ const IGNORED_TAGS = [
 
   // ── ILUMINACIÓN GENÉRICA ──────────────────────────────────
   'soft lighting', 'soft light', 'soft lights',
-  'dramatic lighting', 'dramatic light',
+  'dramatic lighting', 'dramatic light', 
   'cinematic lighting', 'cinematic light',
   'natural lighting', 'natural light','dark',
   'studio lighting', 'studio light',
