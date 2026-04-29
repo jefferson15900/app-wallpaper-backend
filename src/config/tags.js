@@ -67,7 +67,7 @@ const BLACKLIST_TAGS = new Set([
   'cinematic', 'cinematográfico',
   'artistic', 'artístico',
   'abstract art', 'arte abstracto',
-  'minimalist', 'minimalista', 'minimalistic',
+  'minimalistic',
   'surreal', 'surrealista', 'surrealism', 'surrealismo',
   'impressionist', 'impressionism',
   'watercolor', 'watercolour', 'acuarela',
