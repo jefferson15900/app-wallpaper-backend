@@ -62,6 +62,22 @@ const IGNORED_TAGS = [
   'zoom', 'telephoto', 'macro', 'macro shot', 'macro photography',
   'long exposure', 'motion blur',
 
+    // --- COLORES ---
+  'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink',
+  'black', 'white', 'gray', 'grey', 'brown', 'beige', 'cyan',
+  'magenta', 'gold', 'silver', 'teal', 'navy', 'maroon', 'coral',
+  'turquoise', 'violet', 'indigo', 'lime', 'olive', 'aqua',
+  'dark', 'light', 'bright', 'neon', 'pastel', 'colorful',
+
+  // --- EMOCIONES ---
+  'happy', 'sad', 'angry', 'calm', 'excited', 'relaxing',
+  'melancholic', 'energetic', 'peaceful', 'dramatic', 'mysterious',
+  'romantic', 'nostalgic', 'dark mood', 'cozy', 'epic',
+
+  // --- VALORACIONES SUBJETIVAS ---
+  'beautiful', 'pretty', 'cute', 'stunning', 'gorgeous', 'lovely',
+  'amazing', 'cool', 'aesthetic', 'nice', 'perfect', 'elegant', 
+
 ];
 
 const SCORING_RULES = {
