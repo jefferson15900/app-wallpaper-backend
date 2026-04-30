@@ -169,7 +169,6 @@ exports.reportAction = async (req, res) => {
 
 
 // REINTENTAR ETIQUETADO POR IA (SOLO ADMIN) - VERSIÓN INTELIGENTE
-// REINTENTAR ETIQUETADO POR IA (SOLO ADMIN)
 exports.retryAITagging = async (req, res) => {
     try {
         // 1. Buscar el wallpaper en la base de datos
@@ -239,13 +238,26 @@ exports.retryAITagging = async (req, res) => {
 
 
 
+// ============================================================
+// HELPERS
+// ============================================================
+ 
+/**
+ * Devuelve Date relativa a ahora.
+ * @param {number} days - Días hacia atrás (puede ser fracción).
+ */
+const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+// ============================================================
+// GET /api/admin/stats  →  getDashboardStats
+// ============================================================
 exports.getDashboardStats = async (req, res) => {
     try {
-        const now = new Date();
-        const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-        const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-        const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
-        const fourDaysAgo = new Date(now.getTime() - (4 * 24 * 60 * 60 * 1000));
+        const now       = new Date();
+        const ago1day   = daysAgo(1);
+        const ago3days  = daysAgo(3);
+        const ago4days  = daysAgo(4);
+        const ago7days  = daysAgo(7);
 
         const [
             totalUsers,
@@ -255,62 +267,148 @@ exports.getDashboardStats = async (req, res) => {
             newVisitorsWeek,
             totalWallpapers,
             pendingWallpapers,
-            totalDownloads,
-            totalLikes,
-            statsByTag,     
-            topSearches,    
-            cohort
+            totalDownloadsAgg,
+            totalLikesAgg, 
+            statsByTag, 
+            topSearches,
+            cohort,
         ] = await Promise.all([
+            // ── Usuarios ──────────────────────────────────────────
             User.countDocuments(),
-            User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-            Visitor.countDocuments({ lastActiveAt: { $gte: oneDayAgo } }),
+            User.countDocuments({ createdAt: { $gte: ago7days } }),
+
+            // ── Visitantes ────────────────────────────────────────
+            Visitor.countDocuments({ lastActiveAt: { $gte: ago1day } }),
             Visitor.countDocuments(),
-            Visitor.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+            Visitor.countDocuments({ createdAt: { $gte: ago7days } }),
+
+            // ── Wallpapers ────────────────────────────────────────
             Wallpaper.countDocuments({ status: 'approved' }),
             Wallpaper.countDocuments({ status: 'pending' }),
-            Wallpaper.aggregate([{ $group: { _id: null, total: { $sum: "$downloads" } } }]),
-            Wallpaper.aggregate([{ $project: { count: { $size: "$likes" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]),
-            
-            // 🚀 NUEVA LÓGICA: Distribución de Etiquetas en la Galería
+
+            // ── Descargas totales ─────────────────────────────────
             Wallpaper.aggregate([
-                { $match: { status: 'approved' } },
-                { $unwind: "$tags" }, // Desglosa el array de etiquetas
-                { $group: { _id: "$tags", count: { $sum: 1 } } },
-                { $sort: { count: -1 } },
-                { $limit: 15 } // Vemos las 15 etiquetas más usadas
+                { $group: { _id: null, total: { $sum: '$downloads' } } },
             ]),
 
-            // 🚀 NUEVA LÓGICA: Top 10 Búsquedas de Usuarios
-            SearchLog.find().sort({ count: -1 }).limit(10).select('term count -_id'),
+            // ── Likes totales ─────────────────────────────────────
+            Wallpaper.aggregate([
+                { $project: { count: { $size: '$likes' } } },
+                { $group: { _id: null, total: { $sum: '$count' } } },
+            ]),
 
-            Visitor.find({ lastDownloadAt: { $gte: fourDaysAgo, $lte: threeDaysAgo } })
+            // ── Top 15 etiquetas en galería ───────────────────────
+            Wallpaper.aggregate([
+                { $match: { status: 'approved' } },
+                { $unwind: '$tags' },
+                { $group: { _id: '$tags', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 15 },
+            ]),
+
+            // ── Top 10 búsquedas (solo las que superen umbral) ────
+            SearchLog.find({ count: { $gte: 2 } })   // ← umbral mínimo
+                .sort({ count: -1 })
+                .limit(10)
+                .select('term count -_id')
+                .lean(),
+
+            // ── Cohorte de retención (descargaron hace 3-4 días) ──
+            Visitor.find({
+                lastDownloadAt: { $gte: ago4days, $lte: ago3days },
+            }).select('lastActiveAt').lean(),
         ]);
 
-        // Cálculo de Retención
-        const cohortSize = cohort.length;
-        const retained = cohort.filter(v => v.lastActiveAt >= oneDayAgo).length;
-        const retentionRate = cohortSize > 0 ? ((retained / cohortSize) * 100).toFixed(1) : 0;
+        // ── Tasa de retención ──────────────────────────────────────
+        const cohortSize    = cohort.length;
+        const retained      = cohort.filter(v => v.lastActiveAt >= ago1day).length;
+        const retentionRate = cohortSize > 0
+            ? +((retained / cohortSize) * 100).toFixed(1)
+            : 0;
 
-        res.json({
+        return res.json({
             users: {
-                total: totalUsers,
-                newWeek: newUsersWeek,
-                dau: dau, 
-                totalVisitors: totalVisitors,
-                newVisitorsWeek: newVisitorsWeek
+                total:           totalUsers,
+                newWeek:         newUsersWeek,
+                dau,
+                totalVisitors,
+                newVisitorsWeek,
             },
             content: {
-                total: totalWallpapers,
-                pending: pendingWallpapers,
-                downloads: totalDownloads[0]?.total || 0,
-                likes: totalLikes[0]?.total || 0,
-                retention: retentionRate
+                total:     totalWallpapers,
+                pending:   pendingWallpapers,
+                downloads: totalDownloadsAgg[0]?.total ?? 0,
+                likes:     totalLikesAgg[0]?.total     ?? 0,
+                retention: retentionRate,
             },
-            tags: statsByTag,      // Etiquetas que TÚ tienes en la app
-            searches: topSearches  // Etiquetas que la GENTE busca
+            tags:    statsByTag,
+            searches: topSearches,
         });
+
     } catch (err) {
-        console.error("Error Stats:", err);
-        res.status(500).json({ msg: 'Error al generar estadísticas' });
+        console.error('[getDashboardStats]', err);
+        return res.status(500).json({ msg: 'Error al generar estadísticas' });
+    }
+};
+
+// ============================================================
+// DELETE /api/admin/searches/cleanup  →  cleanupSearchLogs
+// Elimina búsquedas con count <= minCount (default: 1)
+// Query param: ?minCount=2  o  ?olderThanDays=30
+// ============================================================
+exports.cleanupSearchLogs = async (req, res) => {
+    try {
+        const minCount      = parseInt(req.query.minCount, 10)      || 1;
+        const olderThanDays = parseInt(req.query.olderThanDays, 10) || null;
+
+        // Construimos el filtro dinámicamente
+        const filter = { count: { $lte: minCount } };
+
+        if (olderThanDays) {
+            filter.updatedAt = { $lte: daysAgo(olderThanDays) };
+        }
+
+        const { deletedCount } = await SearchLog.deleteMany(filter);
+
+        return res.json({
+            msg:     `Se eliminaron ${deletedCount} búsqueda(s) con count ≤ ${minCount}`,
+            deleted: deletedCount,
+        });
+
+    } catch (err) {
+        console.error('[cleanupSearchLogs]', err);
+        return res.status(500).json({ msg: 'Error al limpiar búsquedas' });
+    }
+};
+
+// ============================================================
+// GET /api/admin/searches  →  getTopSearches
+// Soporta: ?limit=20 &minCount=3 &page=1
+// ============================================================
+exports.getTopSearches = async (req, res) => {
+    try {
+        const limit    = Math.min(parseInt(req.query.limit, 10)    || 10, 100);
+        const minCount = parseInt(req.query.minCount, 10) || 1;
+        const page     = Math.max(parseInt(req.query.page, 10)     || 1, 1);
+        const skip     = (page - 1) * limit;
+
+        const [searches, total] = await Promise.all([
+            SearchLog.find({ count: { $gte: minCount } })
+                .sort({ count: -1 })
+                .skip(skip)
+                .limit(limit)
+                .select('term count updatedAt -_id')
+                .lean(),
+            SearchLog.countDocuments({ count: { $gte: minCount } }),
+        ]);
+
+        return res.json({
+            searches,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
+
+    } catch (err) {
+        console.error('[getTopSearches]', err);
+        return res.status(500).json({ msg: 'Error al obtener búsquedas' });
     }
 };

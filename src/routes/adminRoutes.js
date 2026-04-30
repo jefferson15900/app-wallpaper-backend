@@ -28,5 +28,7 @@ router.get('/reports', [auth, isAdmin], adminController.getReports);
 router.post('/report-action', [auth, isAdmin], adminController.reportAction);
 router.put('/retry-ai/:id', [auth, isAdmin], adminController.retryAITagging);
 router.get('/stats', [auth, isAdmin], adminController.getDashboardStats);
+router.get('/searches', [auth, isAdmin], adminController.getTopSearches);
+router.delete('/searches/cleanup', [auth, isAdmin], adminController.cleanupSearchLogs);
 
-module.exports = router;
+module.exports = router; 
