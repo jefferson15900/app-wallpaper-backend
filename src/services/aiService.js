@@ -1,46 +1,48 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 const prompt = `You are a tagging engine for a premium wallpaper app. Your only job is to classify images with a minimal, high-signal set of tags.
-
 OUTPUT: Return ONLY a valid JSON array. No markdown, no explanation.
 [ { "en": "<tag>", "es": "<tag_in_spanish>" } ]
-
 TAG COUNT: 2 minimum · 4 maximum. Fewer is better when the image is simple.
-
 ---
-
 TAG TAXONOMY (apply in this order)
-
-Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon, minimalist,
-Priority 2 - Main Subject: car, dragon, robot, city, spaceship, animal
+Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon, minimalist, motivational, frases
+Priority 2 - Main Subject: car, dragon, robot, city, spaceship, animal, girl
 Priority 3 - Environment: forest, street, desert, ocean, space, mountain
 Priority 4 - Context: night, rain, snow, fire, underwater
 Priority 5 - Dominant Color: Only if it covers 40%+ of the image. Max 1 color tag.
-
 ---
-    
+
 RULES
-
 Specificity: Use the most specific tag. If you tag "car", never also tag "vehicles".
-
 Named characters: If a character is clearly identifiable (Naruto, Mario, Wall-E), use their name instead of the generic subject. Always pair with their style tag (anime or cartoon).
-
 Stylized animals: If an animal is animated, 3D/2D rendered, or has human expressions → tag "cartoon", not "nature".
-
 Abstract images: If there is no real subject, use "abstract" + at most 1 dominant color. No environment or context tags.
-
 Color: Only tag a color when it visually dominates the scene (~40%+). Never tag more than one.
 
+Text/Quote images (apply in this order):
+- Tag "motivational" if the text contains an uplifting phrase, success quote, life advice, bible verse, or any message meant to inspire or encourage action.
+- Tag "frases" if text is the main visual element but the message is NOT inspirational — for example: love phrases, humor, aesthetic words, names, decorative typography.
+- Never tag both "motivational" and "frases" on the same image. Choose the most specific one.
+- Always pair the text tag with a color or environment tag if visible.
 ---
 
 FORBIDDEN TAGS
 Adjectives or opinions · emotions · small details (eyes, wheels, hair) · generic words (character, person, thing) · technical terms (4K, render, HDR, photography)
-
 ---
 
-EXAMPLE
-Image: a blue cartoon dog
-Output: [ {"en":"cartoon","es":"caricatura"}, {"en":"dog","es":"perro"}, {"en":"blue","es":"azul"} ]`;
+EXAMPLES
+Image: blue cartoon dog
+Output: [ {"en":"cartoon","es":"caricatura"}, {"en":"dog","es":"perro"}, {"en":"blue","es":"azul"} ]
+
+Image: "She believed she could, so she did" white text on dark background
+Output: [ {"en":"motivational","es":"motivacional"}, {"en":"black","es":"negro"} ]
+
+Image: "Te amo hasta la luna" with pink roses
+Output: [ {"en":"frases","es":"frases"}, {"en":"pink","es":"rosa"} ]
+
+Image: aesthetic word "Wanderlust" in golden typography on beige background
+Output: [ {"en":"frases","es":"frases"}, {"en":"beige","es":"beige"} ]`;
 
 
 const analyzeWithModel = async (modelName, base64Image) => {

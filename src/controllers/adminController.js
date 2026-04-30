@@ -6,6 +6,7 @@ const { Expo } = require('expo-server-sdk');
 const { cloudinary } = require('../config/cloudinary');
 const { getAITags } = require('../services/aiService');
 const TagMap = require('../models/TagMap');
+const SearchLog = require('../models/SearchLog'); 
 
 let expo = new Expo();
 
@@ -236,7 +237,8 @@ exports.retryAITagging = async (req, res) => {
     }
 };
 
-// OBTENER ESTADÍSTICAS GLOBALES (SOLO ADMIN)
+
+
 exports.getDashboardStats = async (req, res) => {
     try {
         const now = new Date();
@@ -255,7 +257,8 @@ exports.getDashboardStats = async (req, res) => {
             pendingWallpapers,
             totalDownloads,
             totalLikes,
-            statsByCategory,
+            statsByTag,     
+            topSearches,    
             cohort
         ] = await Promise.all([
             User.countDocuments(),
@@ -267,11 +270,23 @@ exports.getDashboardStats = async (req, res) => {
             Wallpaper.countDocuments({ status: 'pending' }),
             Wallpaper.aggregate([{ $group: { _id: null, total: { $sum: "$downloads" } } }]),
             Wallpaper.aggregate([{ $project: { count: { $size: "$likes" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]),
-            Wallpaper.aggregate([{ $group: { _id: "$category", count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
+            
+            // 🚀 NUEVA LÓGICA: Distribución de Etiquetas en la Galería
+            Wallpaper.aggregate([
+                { $match: { status: 'approved' } },
+                { $unwind: "$tags" }, // Desglosa el array de etiquetas
+                { $group: { _id: "$tags", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 15 } // Vemos las 15 etiquetas más usadas
+            ]),
+
+            // 🚀 NUEVA LÓGICA: Top 10 Búsquedas de Usuarios
+            SearchLog.find().sort({ count: -1 }).limit(10).select('term count -_id'),
+
             Visitor.find({ lastDownloadAt: { $gte: fourDaysAgo, $lte: threeDaysAgo } })
         ]);
 
-        // Cálculo de Retención (Usuarios que descargaron hace 3-4 días y volvieron hoy)
+        // Cálculo de Retención
         const cohortSize = cohort.length;
         const retained = cohort.filter(v => v.lastActiveAt >= oneDayAgo).length;
         const retentionRate = cohortSize > 0 ? ((retained / cohortSize) * 100).toFixed(1) : 0;
@@ -291,7 +306,8 @@ exports.getDashboardStats = async (req, res) => {
                 likes: totalLikes[0]?.total || 0,
                 retention: retentionRate
             },
-            categories: statsByCategory
+            tags: statsByTag,      // Etiquetas que TÚ tienes en la app
+            searches: topSearches  // Etiquetas que la GENTE busca
         });
     } catch (err) {
         console.error("Error Stats:", err);
