@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { IGNORED_TAGS, SCORING_RULES } = require('../config/scoring');
 const nlp = require('compromise');
+const SearchLog = require('../models/SearchLog');
 
 // @route   GET /api/config/scoring
 // @desc    Entrega la configuración oficial del algoritmo de ADN
