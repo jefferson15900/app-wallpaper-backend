@@ -154,88 +154,38 @@ router.post('/google-login', async (req, res) => {
 // 2. RUTA: REGISTRO CON GOOGLE (Solo usuarios nuevos)
 router.post('/google-register', async (req, res) => {
     const { idToken } = req.body;
-    
-    console.log("🔵 [GOOGLE-REG] Petición de registro recibida");
-
-    if (!idToken) {
-        console.error("❌ [GOOGLE-REG] No se recibió idToken en el body");
-        return res.status(400).json({ msg: 'Falta el token de Google' });
-    }
-
     try {
-        console.log("🔍 [GOOGLE-REG] Verificando token con Google...");
-        
         const ticket = await client.verifyIdToken({
             idToken,
             audience: "1097525571797-38k9poarb7gbtgks5ekieddkss876cm3.apps.googleusercontent.com", 
         });
+        const { email, name, picture, sub: googleId } = ticket.getPayload();
 
-        const payload = ticket.getPayload();
-        const { email, name, picture, sub: googleId } = payload;
-
-        console.log(`✅ [GOOGLE-REG] Token verificado con éxito: ${email}`);
-
-        // 1. Verificamos si ya existe el usuario
         let user = await User.findOne({ email });
         if (user) {
-            console.warn(`⚠️ [GOOGLE-REG] El usuario ya existe en la DB: ${email}`);
             return res.status(400).json({ msg: 'Esta cuenta ya está registrada. Por favor, inicia sesión.' });
         }
 
-        console.log("🔨 [GOOGLE-REG] Creando nuevo usuario...");
-
-        // 2. Preparamos el nuevo usuario
+        // CREAMOS EL NUEVO USUARIO
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(googleId, salt);
 
-        // Generamos un username limpio basado en el nombre de Google
-        const generatedUsername = name.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 100);
-
         user = new User({
-            username: generatedUsername,
+            username: name.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 100),
             email,
             password: hashedPassword,
             profilePic: picture,
             role: 'artist'
         });
-
         await user.save();
-        console.log(`🚀 [GOOGLE-REG] Usuario guardado con éxito: ${user.username}`);
 
-        // 3. Generamos el JWT
         const jwtPayload = { user: { id: user.id } };
-        
-        jwt.sign(
-            jwtPayload, 
-            process.env.JWT_SECRET, 
-            { expiresIn: '30d' }, 
-            (err, token) => {
-                if (err) {
-                    console.error("🔥 [GOOGLE-REG] Error al firmar JWT:", err.message);
-                    throw err;
-                }
-                console.log("✨ [GOOGLE-REG] Registro completado y Token enviado");
-                res.json({ 
-                    token, 
-                    user: { 
-                        id: user.id, 
-                        username: user.username, 
-                        profilePic: user.profilePic 
-                    } 
-                });
-            }
-        );
-
+        jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic } });
+        });
     } catch (error) {
-        console.error("🔥 [GOOGLE-REG] ERROR CRÍTICO EN EL PROCESO:");
-        console.error("Mensaje:", error.message);
-        
-        // Si el error viene de la librería de Google
-        if (error.message.includes("audience")) {
-            console.error("❌ ERROR DE AUDIENCE: El Client ID de tu Frontend no coincide con el del Backend.");
-        }
-
-        res.status(400).json({ msg: 'Error al registrar con Google', detail: error.message });
+        res.status(400).json({ msg: 'Error al registrar con Google' });
     }
 });
 
