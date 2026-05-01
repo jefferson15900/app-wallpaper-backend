@@ -9,20 +9,59 @@ const aiQueue = require('../services/aiQueue');
 const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
 
+
+// 🔀 Utilidad: Mezclar array (Algoritmo Fisher-Yates)
+const shuffleArray = (array) => {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+};
+
+// 💾 Utilidad: Guardar Cache en segundo plano
+const saveFeedCacheAsync = async (userId, results) => {
+    try {
+        const wallpaperIds = results.map(r => r._id);
+        await FeedCache.findOneAndUpdate(
+            { userId },
+            { wallpapers: wallpaperIds, createdAt: new Date() },
+            { upsert: true }
+        );
+        await User.findByIdAndUpdate(userId, { isFeedDirty: false });
+        console.log(`💾 [CACHE] Guardado con éxito para usuario: ${userId}`);
+    } catch (err) {
+        console.error("❌ Error guardando cache:", err.message);
+    }
+};
+
+
+
 // ==========================================
 // 🚀 FUNCIÓN 1: FEED "PARA TI" (DISCOVERY)
 // ==========================================
 exports.getDiscoveryFeed = async (req, res) => {
     try {
-        const { tags, limit = 16 } = req.query;
+        const { tags, limit = 16, page = 1, exclude, category, type, artistId, premium } = req.query;
         const parsedLimit = parseInt(limit);
-        const userId = req.user?.id; // req.user vendrá del middleware de auth (opcional)
+        const skip = (parseInt(page) - 1) * parsedLimit;
 
-        // 1. 🛡️ INTENTAR ENTREGAR DESDE CACHE
-        if (userId) {
+        // 1. IDENTIFICAR AL USUARIO (Para el Cache)
+        let userId = null;
+        const token = req.header('x-auth-token');
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                userId = decoded.user.id;
+            } catch (e) { /* Token inválido, procedemos como invitado */ }
+        }
+
+        // 🚀 A. INTENTAR SERVIR DESDE CACHE (Solo en Página 1)
+        if (page == 1 && userId) {
             const user = await User.findById(userId).select('isFeedDirty');
-            
-            // Si el feed NO está sucio, buscamos en la tabla de cache
+
             if (user && !user.isFeedDirty) {
                 const cache = await FeedCache.findOne({ userId }).populate({
                     path: 'wallpapers',
@@ -30,80 +69,109 @@ exports.getDiscoveryFeed = async (req, res) => {
                 });
 
                 if (cache && cache.wallpapers.length > 0) {
-                    // Filtramos por si algún wallpaper fue borrado o el artista desactivado
-                    const validWalls = cache.wallpapers.filter(w => w && w.artist && w.artist.isActive !== false);
-                    
-                    console.log("⚡ [CACHE] Entregando feed guardado");
-                    return res.json(validWalls.sort(() => 0.5 - Math.random()).slice(0, parsedLimit));
+                    const validWalls = cache.wallpapers.filter(
+                        w => w && w.artist && w.artist.isActive !== false
+                    );
+
+                    if (validWalls.length > 0) {
+                        console.log('⚡ [FEED] Entregando desde CACHE');
+                        return res.json(
+                            shuffleArray(validWalls)
+                                .slice(0, parsedLimit)
+                                .map(item => ({ ...item, price: item.price ?? 0 }))
+                        );
+                    }
                 }
             }
         }
 
-        // 2. 🧠 SI NO HAY CACHE O ESTÁ SUCIO -> EJECUTAR LOGICA PESADA (ADN)
-        const userTags = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
-        
-        let pipeline = [];
+        // 🧠 B. QUERY PESADA (Si no hay cache, está sucio o es Pagina 2+)
         let baseMatch = { status: 'approved' };
-
-        // --- (Tu lógica de Pipeline de ADN que ya tienes) ---
-        pipeline.push({ $match: baseMatch });
-
-        if (userTags.length > 0) {
-            pipeline.push({
-                $addFields: {
-                    affinityScore: {
-                        $size: { $ifNull: [{ $filter: { input: { $ifNull: ['$tags', []] }, as: 'tag', cond: { $in: ['$$tag', userTags] } } }, []] }
-                    }
-                }
-            });
-            pipeline.push({
-                $addFields: {
-                    affinityGroup: {
-                        $switch: {
-                            branches: [
-                                { case: { $gte: ['$affinityScore', 3] }, then: 0 },
-                                { case: { $gte: ['$affinityScore', 1] }, then: 1 },
-                            ],
-                            default: 2
-                        }
-                    }
-                }
-            });
-            pipeline.push({ $sort: { affinityGroup: 1, affinityScore: -1 } });
-            pipeline.push({ $limit: parsedLimit * 3 }); 
-            pipeline.push({ $sample: { size: parsedLimit } });
-        } else {
-            pipeline.push({ $sample: { size: parsedLimit } });
+        if (category && category !== 'Todos') baseMatch.category = category;
+        if (type && type !== 'all') baseMatch.type = type;
+        if (premium === 'true') baseMatch.price = { $gt: 0 };
+        
+        if (artistId && mongoose.Types.ObjectId.isValid(artistId)) {
+            baseMatch.artist = new mongoose.Types.ObjectId(artistId);
         }
 
-        // Join con artista
-        pipeline.push({ $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } });
-        pipeline.push({ $unwind: '$artist' });
-        pipeline.push({ $match: { 'artist.isActive': { $ne: false } } });
-        pipeline.push({ $project: { 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0, 'artist.interests': 0 } });
+        // Excluir IDs ya vistos en el scroll infinito
+        if (exclude) {
+            const excludeIds = exclude.split(',')
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
+            if (excludeIds.length > 0) baseMatch._id = { $nin: excludeIds };
+        }
+
+        const userTags = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+        let pipeline = [];
+
+        if (userTags.length > 0) {
+            // Ranking por afinidad ADN
+            pipeline.push(
+                { $match: baseMatch },
+                {
+                    $addFields: {
+                        affinityScore: {
+                            $size: { $ifNull: [{ $filter: { input: { $ifNull: ['$tags', []] }, as: 'tag', cond: { $in: ['$$tag', userTags] } } }, []] }
+                        }
+                    }
+                },
+                {
+                    $addFields: {
+                        affinityGroup: {
+                            $switch: {
+                                branches: [
+                                    { case: { $gte: ['$affinityScore', 3] }, then: 0 },
+                                    { case: { $gte: ['$affinityScore', 1] }, then: 1 },
+                                ],
+                                default: 2
+                            }
+                        }
+                    }
+                },
+                { $sort: { affinityGroup: 1, affinityScore: -1 } },
+                { $limit: parsedLimit * 3 },
+                { $sample: { size: parsedLimit } }
+            );
+        } else {
+            // Usuario sin ADN -> Fresh Random
+            pipeline.push(
+                { $match: baseMatch },
+                { $sample: { size: parsedLimit } }
+            );
+        }
+
+        // Join con artista y filtro de actividad
+        pipeline.push(
+            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+            { $unwind: '$artist' },
+            { $match: { 'artist.isActive': { $ne: false } } }
+        );
+
+        // Limpieza de seguridad
+        pipeline.push({
+            $project: {
+                'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0, 
+                'artist.interests': 0, 'artist.lastActiveAt': 0,
+                'affinityScore': 0, 'affinityGroup': 0
+            }
+        });
 
         const results = await Wallpaper.aggregate(pipeline);
 
-        // 3. 💾 GUARDAR EN CACHE PARA LA PRÓXIMA VEZ
-        if (userId && results.length > 0) {
-            const wallpaperIds = results.map(r => r._id);
-            await FeedCache.findOneAndUpdate(
-                { userId },
-                { wallpapers: wallpaperIds, createdAt: new Date() },
-                { upsert: true }
-            );
-            await User.findByIdAndUpdate(userId, { isFeedDirty: false });
-            console.log("🧠 [AGGREGATION] Nuevo feed generado y guardado en cache");
+        // 💾 C. GUARDAR EN CACHE (Solo si es la Pagina 1 y el usuario está logueado)
+        if (page == 1 && userId && results.length > 0) {
+            saveFeedCacheAsync(userId, results);
         }
 
-        res.json(results);
+        res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
 
     } catch (err) {
-        console.error("Error en Discovery:", err);
-        res.status(500).json({ msg: 'Error al obtener feed' });
+        console.error("❌ Error en Discovery:", err);
+        res.status(500).json({ msg: 'Error interno al generar el feed' });
     }
 };
-
 
 // ==========================================
 // 🔍 FUNCIÓN 2: BÚSQUEDA PURA (TEXTO)
