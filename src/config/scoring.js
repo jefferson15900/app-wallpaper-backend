@@ -18,7 +18,7 @@ const IGNORED_TAGS = [
     'high quality', 'best quality', 'ultra quality', 'top quality', 'premium quality',
   'high resolution', 'ultra high resolution', 'ultra hd', 'uhd', 'fhd', 'full hd',
   '4k', '8k', '16k', 'hd', 'highres', 'hi res', 'hi-res',
-  'masterpiece', 'best masterpiece', 'top masterpiece','girl',
+  'masterpiece', 'best masterpiece', 'top masterpiece',
   'sharp', 'sharp focus', 'sharp image', 'in focus','glass',
   'intricate', 'intricate details', 'intricate design', 
   'highly detailed', 'detailed', 'very detailed', 'ultra detailed', 'super detailed',
