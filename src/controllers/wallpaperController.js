@@ -447,36 +447,39 @@ exports.uploadWallpaper = async (req, res) => {
 };
 
 // ==========================================
-// 🔍 FUNCIÓN 6: OBTENER RELACIONADOS (CON CACHE)
+// 🔍 FUNCIÓN 6: OBTENER RELACIONADOS (INFINITOS)
 // ==========================================
 exports.getRelatedWallpapers = async (req, res) => {
     try {
         const { id } = req.params;
+        const { page = 1, limit = 12 } = req.query; // 👈 Recibimos la página
+        const parsedLimit = parseInt(limit);
+        const skip = (parseInt(page) - 1) * parsedLimit;
 
-        // 1. Intentar servir desde el CACHE DE RELACIONADOS
-        const cache = await RelatedCache.findOne({ wallpaperId: id }).populate({
-            path: 'relatedIds',
-            populate: { path: 'artist', select: 'username profilePic isVerified isActive' }
-        });
+        // 🚀 1. SI ES PÁGINA 1: Intentar servir desde el CACHE (Velocidad)
+        if (page == 1) {
+            const cache = await RelatedCache.findOne({ wallpaperId: id }).populate({
+                path: 'relatedIds',
+                populate: { path: 'artist', select: 'username profilePic isVerified isActive' }
+            });
 
-        if (cache && cache.relatedIds.length > 0) {
-            console.log("⚡ [RELATED] Entregando desde CACHE");
-            // Filtramos por si alguno fue borrado
-            const validRelated = cache.relatedIds.filter(w => w && w.artist && w.artist.isActive !== false);
-            return res.json(validRelated);
+            if (cache && cache.relatedIds.length > 0) {
+                const validRelated = cache.relatedIds.filter(w => w && w.artist && w.artist.isActive !== false);
+                console.log("⚡ [RELATED] Página 1 desde Cache");
+                return res.json(validRelated);
+            }
         }
 
-        // 2. Si no hay cache, buscamos el wallpaper original para ver sus tags
+        // 🕒 2. SI ES PÁGINA 2+ O NO HAY CACHE: Búsqueda real en DB
         const original = await Wallpaper.findById(id);
         if (!original) return res.json([]);
 
-        // 3. Buscamos wallpapers que compartan tags (Query pesada)
         const results = await Wallpaper.aggregate([
             { 
                 $match: { 
                     status: 'approved', 
-                    _id: { $ne: original._id }, // No incluirse a sí mismo
-                    tags: { $in: original.tags } // Que compartan al menos un tag
+                    _id: { $ne: original._id }, 
+                    tags: { $in: original.tags } 
                 } 
             },
             {
@@ -484,16 +487,17 @@ exports.getRelatedWallpapers = async (req, res) => {
                     commonTags: { $size: { $setIntersection: ["$tags", original.tags] } }
                 }
             },
-            { $sort: { commonTags: -1 } }, // Los que más se parecen primero
-            { $limit: 12 },
+            { $sort: { commonTags: -1, createdAt: -1 } }, 
+            { $skip: skip },
+            { $limit: parsedLimit },
             { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
             { $unwind: '$artist' },
             { $match: { 'artist.isActive': { $ne: false } } },
             { $project: { 'artist.password': 0, 'artist.email': 0 } }
         ]);
 
-        // 4. GUARDAR EN CACHE PARA EL PRÓXIMO USUARIO
-        if (results.length > 0) {
+        // 💾 3. SI FUE PÁGINA 1 Y NO HABÍA CACHE: Lo guardamos ahora
+        if (page == 1 && results.length > 0) {
             await RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
                 { relatedIds: results.map(r => r._id) },
@@ -503,9 +507,10 @@ exports.getRelatedWallpapers = async (req, res) => {
 
         res.json(results);
     } catch (err) {
-        res.status(500).json({ msg: 'Error al obtener relacionados' });
+        res.status(500).json({ msg: 'Error' });
     }
 };
+
 
 // ==========================================
 // 🆔 OBTENER UNO POR ID
