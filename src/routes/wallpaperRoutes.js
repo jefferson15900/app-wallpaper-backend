@@ -8,17 +8,27 @@ const wallpaperController = require('../controllers/wallpaperController');
 let trendingTagsCache = [];
 let lastTagsUpdate = null;
 
+// 1. RUTAS DE BÚSQUEDA Y FEED (Públicas y específicas)
+// Deben ir arriba para que no se confundan con un ID
 router.get('/search', wallpaperController.searchWallpapers);
+router.get('/tags/search', wallpaperController.searchTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
 router.get('/latest', wallpaperController.getLatestWallpapers);
-router.post('/upload', [auth, uploadCloud.single('image')], wallpaperController.uploadWallpaper);
+
+// 2. RUTAS DE PERFIL Y BIBLIOTECA
 router.get('/artist/:artistId', wallpaperController.getArtistWallpapers);
 router.get('/my/library', auth, wallpaperController.getUserLibrary);
+
+// 3. RUTAS DE ACCIÓN (POST y PUT)
 router.post('/upload', [auth, uploadCloud.single('image')], wallpaperController.uploadWallpaper);
-router.get('/:id', wallpaperController.getWallpaperById);
 router.put('/download/:id', wallpaperController.registerDownload);
-router.put('/like/:id', auth, wallpaperController.toggleLike); 
-router.delete('/:id', auth, wallpaperController.deleteWallpaper); 
+router.put('/like/:id', auth, wallpaperController.toggleLike);
+router.put('/save/:id', auth, wallpaperController.toggleSave);
+
+// 4. RUTAS DINÁMICAS POR ID (SIEMPRE AL FINAL)
+// Si pones estas arriba, bloquearán a /search y /discovery
+router.get('/:id', wallpaperController.getWallpaperById);
+router.delete('/:id', auth, wallpaperController.deleteWallpaper);
 
 
 // --- RUTA: FEED DE SEGUIDOS (Solo para usuarios logueados) ---
@@ -318,34 +328,6 @@ router.get('/tags/trending', async (req, res) => {
         res.json(tagsOnly);
     } catch (err) {
         res.status(500).send('Error');
-    }
-});
-
-// --- RUTA: GUARDAR O QUITAR DE FAVORITOS (COLECCIÓN PRIVADA) ---
-router.put('/save/:id', auth, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        const wallpaperId = req.params.id;
-        const isSaved = user.savedWallpapers.some(id => id.toString() === wallpaperId);
-        if (isSaved) {
-            // Si ya existe, lo quitamos
-            user.savedWallpapers = user.savedWallpapers.filter(
-                (id) => id.toString() !== wallpaperId
-            );
-        } else {
-            // Si no existe, lo agregamos
-            user.savedWallpapers.push(wallpaperId);
-        }
-
-        await user.save();
-        
-        res.json({ 
-            msg: isSaved ? 'Quitado' : 'Guardado', 
-            isSaved: !isSaved 
-        });
-    } catch (err) {
-        console.error("🔥 Error en /save:", err);
-        res.status(500).json({ msg: 'Error de servidor' });
     }
 });
 

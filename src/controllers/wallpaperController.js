@@ -8,13 +8,16 @@ const { cloudinary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
+const User = require('../models/User');    
+const Visitor = require('../models/Visitor');
+
 
 
 // 🔀 Utilidad: Mezclar array (Algoritmo Fisher-Yates)
 const shuffleArray = (array) => {
     let currentIndex = array.length, randomIndex;
     while (currentIndex !== 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
+        randomIndex = Math.floor(Math.random() * currentIndex); 
         currentIndex--;
         [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
     }
@@ -540,6 +543,36 @@ exports.toggleLike = async (req, res) => {
     } catch (err) {
         console.error("❌ Error en Like:", err);
         res.status(500).json({ msg: 'Error interno del servidor' });
+    }
+};
+
+// ==========================================
+// ⭐️ GUARDAR/QUITAR DE FAVORITOS
+// ==========================================
+exports.toggleSave = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const wallpaperId = req.params.id;
+        const isSaved = user.savedWallpapers.some(id => id.toString() === wallpaperId);
+        if (isSaved) {
+            // Si ya existe, lo quitamos
+            user.savedWallpapers = user.savedWallpapers.filter(
+                (id) => id.toString() !== wallpaperId
+            );  
+        } else {
+            // Si no existe, lo agregamos
+            user.savedWallpapers.push(wallpaperId);
+        }
+
+        await user.save();
+        
+        res.json({ 
+            msg: isSaved ? 'Quitado' : 'Guardado', 
+            isSaved: !isSaved 
+        });
+    } catch (err) {
+        console.error("🔥 Error en /save:", err);
+        res.status(500).json({ msg: 'Error de servidor' });
     }
 };
 
