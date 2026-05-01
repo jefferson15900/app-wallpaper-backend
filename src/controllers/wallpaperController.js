@@ -374,3 +374,57 @@ exports.uploadWallpaper = async (req, res) => {
         res.status(500).json({ msg: 'Error interno en la subida' });
     }
 };
+
+
+// ==========================================
+// 🆔 OBTENER UNO POR ID
+// ==========================================
+exports.getWallpaperById = async (req, res) => {
+    try {
+        const wallpaper = await Wallpaper.findById(req.params.id)
+            .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook');
+        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
+        res.json(wallpaper);
+    } catch (err) {
+        res.status(500).json({ msg: 'Error al obtener el wallpaper' });
+    }
+};
+
+// ==========================================
+// 📚 OBTENER MI BIBLIOTECA (Favoritos)
+// ==========================================
+exports.getUserLibrary = async (req, res) => {
+    try {
+        const userPopulated = await User.findById(req.user.id).populate({
+            path: 'savedWallpapers',
+            select: 'imageUrl title type tags category artist price',
+            populate: { path: 'artist', select: 'username profilePic isVerified' }
+        });
+        const cleanLibrary = (userPopulated.savedWallpapers || []).filter(item => item !== null);
+        res.json(cleanLibrary);
+    } catch (err) {
+        res.status(500).json({ msg: 'Error al obtener biblioteca' });
+    }
+};
+
+// ==========================================
+// 🔍 BUSCADOR DE TAGS DINÁMICO (Sugerencias)
+// ==========================================
+exports.searchTags = async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+        const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const results = await Wallpaper.aggregate([
+            { $match: { status: 'approved' } },
+            { $unwind: '$tags' },
+            { $match: { tags: { $regex: `^${escaped}`, $options: 'i' } } },
+            { $group: { _id: '$tags', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 15 }
+        ]);
+        res.json(results.map(r => r._id));
+    } catch (err) {
+        res.status(500).json({ msg: 'Error buscando tags' });
+    }
+};
