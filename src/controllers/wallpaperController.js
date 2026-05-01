@@ -8,7 +8,6 @@ const { cloudinary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
-const User = require('../models/User');    
 const Visitor = require('../models/Visitor');
 
 
