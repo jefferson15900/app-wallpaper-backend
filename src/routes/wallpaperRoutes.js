@@ -49,18 +49,6 @@ router.get('/feed', auth, async (req, res) => {
     }
 });
 
-// Obtener UN SOLO wallpaper por ID
-router.get('/:id', async (req, res) => {
-    try {
-        const wallpaper = await Wallpaper.findById(req.params.id)
-            .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook');
-        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
-        res.json(wallpaper);
-    } catch (err) {
-        res.status(500).send('Error');
-    }
-});
-
 // ======================================================
 // RUTAS DE CONTENIDO DESTACADO (PREMIUM)
 // ======================================================
@@ -468,55 +456,5 @@ router.put('/save/:id', auth, async (req, res) => {
         res.status(500).json({ msg: 'Error de servidor' });
     }
 });
-
-// --- RUTA: OBTENER TODOS MIS GUARDADOS (Para la pestaña de Biblioteca) ---
-// En tu archivo de rutas del backend:
-router.get('/my/library', auth, async (req, res) => {
-    try {
-
-        const user = await User.findById(req.user.id);
-        const userPopulated = await User.findById(req.user.id).populate({
-            path: 'savedWallpapers',
-            select: 'imageUrl title type tags category artist price',
-            populate: { path: 'artist', select: 'username profilePic isVerified' }
-        });
-
-        const cleanLibrary = (userPopulated.savedWallpapers || []).filter(item => item !== null);
-        console.log(`🔎 [DEBUG GET] Total tras populate y limpieza: ${cleanLibrary.length}`);
-        res.json(cleanLibrary);
-
-    } catch (err) {
-        console.error("🔥 Error en GET library:", err);
-        res.status(500).json({ msg: 'Error de servidor' });
-    }
-});
-
-// BUSCADOR DE TAGS DINÁMICO
-router.get('/tags/search', async (req, res) => {
-    try {
-        const { q } = req.query;
-        if (!q || typeof q !== 'string') return res.json([]);
-
-        const trimmed = q.trim();
-        if (trimmed.length < 1) return res.json([]);
-        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const results = await Wallpaper.aggregate([
-            { $match: { status: 'approved' } },
-            { $unwind: '$tags' },
-            { $match: { tags: { $regex: `^${escaped}`, $options: 'i' } } },
-            { $group: { _id: '$tags', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 15 },
-            { $project: { _id: 0, tag: '$_id', count: 1 } }
-        ]);
-
-        res.json(results.map(r => r.tag));
-
-    } catch (err) {
-        console.error('Tag search error:', err);
-        res.status(500).json({ error: 'Error buscando tags' });
-    }
-});
-
 
 module.exports = router;  

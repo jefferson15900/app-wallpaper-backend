@@ -413,18 +413,25 @@ exports.getUserLibrary = async (req, res) => {
 exports.searchTags = async (req, res) => {
     try {
         const { q } = req.query;
-        if (!q) return res.json([]);
-        const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!q || typeof q !== 'string') return res.json([]);
+
+        const trimmed = q.trim();
+        if (trimmed.length < 1) return res.json([]);
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const results = await Wallpaper.aggregate([
             { $match: { status: 'approved' } },
             { $unwind: '$tags' },
             { $match: { tags: { $regex: `^${escaped}`, $options: 'i' } } },
             { $group: { _id: '$tags', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
-            { $limit: 15 }
+            { $limit: 15 },
+            { $project: { _id: 0, tag: '$_id', count: 1 } }
         ]);
-        res.json(results.map(r => r._id));
+
+        res.json(results.map(r => r.tag));
+
     } catch (err) {
-        res.status(500).json({ msg: 'Error buscando tags' });
+        console.error('Tag search error:', err);
+        res.status(500).json({ error: 'Error buscando tags' });
     }
 };
