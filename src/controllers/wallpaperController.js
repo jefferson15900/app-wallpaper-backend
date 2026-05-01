@@ -9,6 +9,7 @@ const aiQueue = require('../services/aiQueue');
 const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
 const Visitor = require('../models/Visitor');
+const RelatedCache = require('../models/RelatedCache');
 
 
 
@@ -445,6 +446,66 @@ exports.uploadWallpaper = async (req, res) => {
     }
 };
 
+// ==========================================
+// 🔍 FUNCIÓN 6: OBTENER RELACIONADOS (CON CACHE)
+// ==========================================
+exports.getRelatedWallpapers = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Intentar servir desde el CACHE DE RELACIONADOS
+        const cache = await RelatedCache.findOne({ wallpaperId: id }).populate({
+            path: 'relatedIds',
+            populate: { path: 'artist', select: 'username profilePic isVerified isActive' }
+        });
+
+        if (cache && cache.relatedIds.length > 0) {
+            console.log("⚡ [RELATED] Entregando desde CACHE");
+            // Filtramos por si alguno fue borrado
+            const validRelated = cache.relatedIds.filter(w => w && w.artist && w.artist.isActive !== false);
+            return res.json(validRelated);
+        }
+
+        // 2. Si no hay cache, buscamos el wallpaper original para ver sus tags
+        const original = await Wallpaper.findById(id);
+        if (!original) return res.json([]);
+
+        // 3. Buscamos wallpapers que compartan tags (Query pesada)
+        const results = await Wallpaper.aggregate([
+            { 
+                $match: { 
+                    status: 'approved', 
+                    _id: { $ne: original._id }, // No incluirse a sí mismo
+                    tags: { $in: original.tags } // Que compartan al menos un tag
+                } 
+            },
+            {
+                $addFields: {
+                    commonTags: { $size: { $setIntersection: ["$tags", original.tags] } }
+                }
+            },
+            { $sort: { commonTags: -1 } }, // Los que más se parecen primero
+            { $limit: 12 },
+            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+            { $unwind: '$artist' },
+            { $match: { 'artist.isActive': { $ne: false } } },
+            { $project: { 'artist.password': 0, 'artist.email': 0 } }
+        ]);
+
+        // 4. GUARDAR EN CACHE PARA EL PRÓXIMO USUARIO
+        if (results.length > 0) {
+            await RelatedCache.findOneAndUpdate(
+                { wallpaperId: id },
+                { relatedIds: results.map(r => r._id) },
+                { upsert: true }
+            );
+        }
+
+        res.json(results);
+    } catch (err) {
+        res.status(500).json({ msg: 'Error al obtener relacionados' });
+    }
+};
 
 // ==========================================
 // 🆔 OBTENER UNO POR ID

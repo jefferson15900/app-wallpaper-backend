@@ -25,6 +25,8 @@ router.put('/download/:id', wallpaperController.registerDownload);
 router.put('/like/:id', auth, wallpaperController.toggleLike);
 router.put('/save/:id', auth, wallpaperController.toggleSave);
 
+router.get('/related/:id', wallpaperController.getRelatedWallpapers);
+
 // 4. RUTAS DINÁMICAS POR ID (SIEMPRE AL FINAL)
 // Si pones estas arriba, bloquearán a /search y /discovery
 router.get('/:id', wallpaperController.getWallpaperById);
@@ -264,11 +266,6 @@ router.get('/user/:id', async (req, res) => {
         res.status(500).send('Error al obtener datos del usuario');
     }
 });
-
-// ======================================================
-// 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
-// ======================================================
-
 
 
 // ======================================================
