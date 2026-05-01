@@ -19,7 +19,7 @@ const UserSchema = new mongoose.Schema({
     wallpaperCount: { type: Number, default: 0 }, 
     instagram: { type: String, default: "" },
     facebook: { type: String, default: "" },
-    twitter: { type: String, default: "" },
+    twitter: { type: String, default: "" }, 
     tiktok: { type: String, default: "" }, 
     threads: { type: String, default: "" },  
     web: { type: String, default: "" },
@@ -36,6 +36,7 @@ const UserSchema = new mongoose.Schema({
     country: { type: String, default: "" },
     isActive: { type: Boolean, default: true  },
     deactivatedAt: { type: Date, default: null },
+    isFeedDirty: { type: Boolean, default: true},
     
 });
 module.exports = mongoose.model('User', UserSchema);

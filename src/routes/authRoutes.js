@@ -474,8 +474,14 @@ router.put('/save-token', auth, async (req, res) => {
 router.put('/sync-interests', auth, async (req, res) => {
     try {
         const { interests } = req.body;
-        // Guardamos el ADN que viene del teléfono directamente en el perfil 
-        await User.findByIdAndUpdate(req.user.id, { $set: { interests } });
+        
+        await User.findByIdAndUpdate(req.user.id, { 
+            $set: { 
+                interests: interests,
+                isFeedDirty: true
+            } 
+        });
+
         res.json({ msg: 'ADN Sincronizado ✨' });
     } catch (err) {
         res.status(500).send('Error de sincronización');

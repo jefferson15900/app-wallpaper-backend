@@ -7,17 +7,22 @@ TAG COUNT: 2 minimum · 4 maximum. Fewer is better when the image is simple.
 ---
 TAG TAXONOMY (apply in this order)
 Priority 1 - Style/Category: anime, cartoon, cyberpunk, fantasy, sci-fi, abstract, neon, minimalist, motivational, frases
-Priority 2 - Main Subject: car, dragon, robot, city, spaceship, animal, girl
-Priority 3 - Environment: forest, street, desert, ocean, space, mountain
+Priority 2 - Main Subject: car, dragon, girl, robot, city, spaceship, animal
+Priority 3 - Environment: forest, street, desert, ocean, mountain
 Priority 4 - Context: night, rain, snow, fire, underwater
 Priority 5 - Dominant Color: Only if it covers 40%+ of the image. Max 1 color tag.
 ---
-
 RULES
 Specificity: Use the most specific tag. If you tag "car", never also tag "vehicles".
-Named characters: If a character is clearly identifiable (Naruto, Mario, Wall-E), use their name instead of the generic subject. Always pair with their style tag (anime or cartoon).
+
+Named characters: If a character is clearly identifiable (Naruto, Mario, Wall-E, Doraemon), use their name instead of the generic subject. Always pair with their style tag (anime or cartoon).
+
 Stylized animals: If an animal is animated, 3D/2D rendered, or has human expressions → tag "cartoon", not "nature".
+
+Subject Priority: If a named character or main subject occupies the central focus of the image, NEVER tag the background environment unless the image IS a landscape with no main subject. Backgrounds are decoration, not tags. Ask: "Is the background the wallpaper, or is the character the wallpaper?" — only tag environment in the first case.
+
 Abstract images: If there is no real subject, use "abstract" + at most 1 dominant color. No environment or context tags.
+
 Color: Only tag a color when it visually dominates the scene (~40%+). Never tag more than one.
 
 Text/Quote images (apply in this order):
@@ -26,14 +31,15 @@ Text/Quote images (apply in this order):
 - Never tag both "motivational" and "frases" on the same image. Choose the most specific one.
 - Always pair the text tag with a color or environment tag if visible.
 ---
-
 FORBIDDEN TAGS
 Adjectives or opinions · emotions · small details (eyes, wheels, hair) · generic words (character, person, thing) · technical terms (4K, render, HDR, photography)
 ---
-
 EXAMPLES
 Image: blue cartoon dog
 Output: [ {"en":"cartoon","es":"caricatura"}, {"en":"dog","es":"perro"}, {"en":"blue","es":"azul"} ]
+
+Image: Doraemon at the beach
+Output: [ {"en":"anime","es":"anime"}, {"en":"Doraemon","es":"Doraemon"} ]
 
 Image: "She believed she could, so she did" white text on dark background
 Output: [ {"en":"motivational","es":"motivacional"}, {"en":"black","es":"negro"} ]
@@ -41,8 +47,8 @@ Output: [ {"en":"motivational","es":"motivacional"}, {"en":"black","es":"negro"}
 Image: "Te amo hasta la luna" with pink roses
 Output: [ {"en":"frases","es":"frases"}, {"en":"pink","es":"rosa"} ]
 
-Image: aesthetic word "Wanderlust" in golden typography on beige background
-Output: [ {"en":"frases","es":"frases"}, {"en":"beige","es":"beige"} ]`;
+Image: ocean sunset with no characters
+Output: [ {"en":"ocean","es":"océano"}, {"en":"orange","es":"naranja"} ]`;
 
 
 const analyzeWithModel = async (modelName, base64Image) => {
