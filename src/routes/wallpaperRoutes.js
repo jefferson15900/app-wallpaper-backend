@@ -16,6 +16,10 @@ router.get('/artist/:artistId', wallpaperController.getArtistWallpapers);
 router.get('/my/library', auth, wallpaperController.getUserLibrary);
 router.post('/upload', [auth, uploadCloud.single('image')], wallpaperController.uploadWallpaper);
 router.get('/:id', wallpaperController.getWallpaperById);
+router.put('/download/:id', wallpaperController.registerDownload);
+router.put('/like/:id', auth, wallpaperController.toggleLike); 
+router.delete('/:id', auth, wallpaperController.deleteWallpaper); 
+
 
 // --- RUTA: FEED DE SEGUIDOS (Solo para usuarios logueados) ---
 router.get('/feed', auth, async (req, res) => {
@@ -255,118 +259,6 @@ router.get('/user/:id', async (req, res) => {
 // 3. ACCIONES DE USUARIO (SUBIR, LIKE, DOWNLOAD, DELETE)
 // ======================================================
 
-// Dar o quitar Like
-router.put('/like/:id', auth, async (req, res) => {
-    try {
-        const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-
-        const userId = req.user.id;
-        const wallpaperId = req.params.id;
-
-        // Verificar si ya tiene like
-        const alreadyLiked = wallpaper.likes.includes(userId);
-
-        if (alreadyLiked) {
-            // Quitar Like de ambos modelos
-            wallpaper.likes = wallpaper.likes.filter(id => id.toString() !== userId);
-            await User.findByIdAndUpdate(userId, { $pull: { likedWallpapers: wallpaperId } });
-        } else {
-            // Poner Like en ambos modelos
-            wallpaper.likes.push(userId);
-            await User.findByIdAndUpdate(userId, { $addToSet: { likedWallpapers: wallpaperId } });
-        }
-
-        await wallpaper.save();
-
-        // ✅ RESPUESTA SIEMPRE EN JSON
-        res.json({ 
-            likesCount: wallpaper.likes.length, 
-            isLiked: !alreadyLiked 
-        });
-
-    } catch (err) {
-        console.error("❌ Error en Like:", err);
-        res.status(500).json({ msg: 'Error interno del servidor' });
-    }
-});
-
-// RUTA: REGISTRAR DESCARGA Y RASTREAR RETENCIÓN
-router.put('/download/:id', async (req, res) => {
-    try {
-        // 1. Incrementar el contador de descargas del wallpaper de forma atómica
-        const wallpaper = await Wallpaper.findByIdAndUpdate(
-            req.params.id,
-            { $inc: { downloads: 1 } },
-            { new: true }
-        );
-
-        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-
-        // 2. LÓGICA DE RASTREO PARA ANALYTICS (RETENCIÓN)
-        const token = req.header('x-auth-token');
-        const deviceId = req.header('x-device-id'); // ID único del hardware enviado desde el frontend
-
-        // CASO A: Si el usuario está logueado, actualizamos su perfil
-        if (token) {
-            try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                await User.findByIdAndUpdate(decoded.user.id, { 
-                    $set: { lastDownloadAt: new Date(), lastActiveAt: new Date() } 
-                });
-            } catch (e) {
-                // Token expirado o inválido: ignoramos el error para no bloquear la descarga
-            }
-        }
-
-        // CASO B: Rastrear por dispositivo (Para medir usuarios invitados y registrados por igual)
-        if (deviceId) {
-            await Visitor.findOneAndUpdate(
-                { deviceId },
-                { 
-                    $set: { lastDownloadAt: new Date(), lastActiveAt: new Date() },
-                    $setOnInsert: { createdAt: new Date() } 
-                },
-                { upsert: true } // Si no existe el dispositivo en la DB, lo crea
-            );
-        }
-
-        res.json({ downloads: wallpaper.downloads });
-
-    } catch (err) {
-        console.error("❌ Error en ruta de descarga:", err);
-        res.status(500).send('Error interno del servidor');
-    }
-});
-
-// Eliminar Wallpaper (Solo el dueño)
-// Eliminar Wallpaper (Dueño) con limpieza total de Cloudinary
-router.delete('/:id', auth, async (req, res) => {
-    try {
-        const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
-
-        if (wallpaper.artist.toString() !== req.user.id) {
-            return res.status(401).json({ msg: 'No autorizado' });
-        }
-
-        // 1. Borrar de Cloudinary especificando el tipo de recurso
-        if (wallpaper.public_id) {
-            await cloudinary.uploader.destroy(wallpaper.public_id, {
-                resource_type: wallpaper.type === 'video' ? 'video' : 'image'
-            });
-        }
-
-        // 2. Actualizar contador del artista y borrar de DB
-        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: -1 } });
-        await Wallpaper.findByIdAndDelete(req.params.id);
-
-        res.json({ msg: 'Eliminado correctamente' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Error al eliminar');
-    }
-});
 
 
 // ======================================================
