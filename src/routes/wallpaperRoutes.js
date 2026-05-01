@@ -49,12 +49,16 @@ router.get('/feed', auth, async (req, res) => {
 // Obtener UN SOLO wallpaper por ID
 router.get('/:id', async (req, res) => {
     try {
+        const Wallpaper = require('../models/Wallpaper');
         const wallpaper = await Wallpaper.findById(req.params.id)
             .populate('artist', 'username profilePic isVerified instagram twitter tiktok facebook');
+        
         if (!wallpaper) return res.status(404).json({ msg: 'No encontrado' });
-        res.json(wallpaper);
-    } catch (err) {
-        res.status(500).send('Error');
+        
+        res.json(wallpaper); // ✅ Siempre res.json
+    } catch (err) { 
+        // ❌ Antes tenías .send('Error') -> Eso causa el fallo en el frontend
+        res.status(500).json({ msg: 'Error interno del servidor' }); // ✅ Cambia a .json
     }
 });
 

@@ -12,7 +12,7 @@ router.get('/scoring', (req, res) => {
             ignoredTags: IGNORED_TAGS, 
             rules: SCORING_RULES
         });
-    } catch (err) {
+    } catch (err) { 
         console.error("Error al cargar config de scoring:", err);
         res.status(500).send('Error del servidor');
     }
