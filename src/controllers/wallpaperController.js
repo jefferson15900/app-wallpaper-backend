@@ -816,5 +816,62 @@ exports.deleteWallpaper = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error al eliminar');
+    } 
+};
+
+
+// ==========================================
+// 🛠️ ADMIN: QUITAR ETIQUETA ESPECÍFICA
+// ==========================================
+// ==========================================
+// 🛠️ ADMIN: QUITAR ETIQUETA ESPECÍFICA
+// ==========================================
+exports.adminRemoveTag = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tagToRemove } = req.body;
+
+        // Validar que venga un tag
+        if (!tagToRemove || typeof tagToRemove !== 'string') {
+            return res.status(400).json({ msg: 'Tag inválido' });
+        }
+
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ msg: 'ID inválido' });
+        }
+
+        const result = await Wallpaper.findByIdAndUpdate(
+            id,
+            { $pull: { tags: tagToRemove.trim().toLowerCase() } },
+            { new: true }
+        );
+
+        if (!result) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+
+        // Actualizar el contador en TagSuggestion sin re-sync completo
+        const stillExists = await Wallpaper.exists({
+            status: 'approved',
+            tags  : tagToRemove,
+        });
+
+        if (stillExists) {
+            await TagSuggestion.updateOne(
+                { tag: tagToRemove },
+                { $inc: { count: -1 } }
+            );
+        } else {
+            // Ningún wallpaper aprobado usa este tag — eliminarlo
+            await TagSuggestion.deleteOne({ tag: tagToRemove });
+        }
+
+        return res.json({ msg: 'Etiqueta eliminada', tags: result.tags });
+
+    } catch (err) {
+        console.error('❌ Error en adminRemoveTag:', err);
+        return res.status(500).json({ msg: 'Error al actualizar etiquetas' });
     }
 };

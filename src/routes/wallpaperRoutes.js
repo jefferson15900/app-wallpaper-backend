@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { uploadCloud } = require('../config/cloudinary');
 const wallpaperController = require('../controllers/wallpaperController');
-
+const isAdmin = require('../middleware/adminMiddleware');
 // VARIABLES PARA CACHÉ #HASHTAGS
 let trendingTagsCache = [];
 let lastTagsUpdate = null;
@@ -24,6 +24,7 @@ router.post('/upload', [auth, uploadCloud.single('image')], wallpaperController.
 router.put('/download/:id', wallpaperController.registerDownload);
 router.put('/like/:id', auth, wallpaperController.toggleLike);
 router.put('/save/:id', auth, wallpaperController.toggleSave);
+router.put('/admin/remove-tag/:id', [auth, isAdmin], wallpaperController.adminRemoveTag);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
 
