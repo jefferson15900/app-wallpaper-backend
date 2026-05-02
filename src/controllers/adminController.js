@@ -412,3 +412,137 @@ exports.getTopSearches = async (req, res) => {
         return res.status(500).json({ msg: 'Error al obtener búsquedas' });
     }
 };
+
+
+// ==========================================
+// 🆔 PENDIENTES DE APROBACION 
+// ==========================================
+exports.getPendingWallpapers = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (user.role !== 'admin') return res.status(403).json({ msg: 'Acceso denegado. No eres admin.' });
+
+        const pending = await Wallpaper.find({ status: 'pending' })
+            .populate('artist', 'username email');
+        res.json(pending);
+    } catch (err) {
+        res.status(500).send('Error en el servidor al buscar pendientes');
+    }
+};
+
+
+// APROBAR O RECHAZAR WALLPAPER 
+exports.approveOrReject = async (req, res) => {
+    const { action } = req.body;
+    
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user || user.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+
+        // --- CASO A: RECHAZADO ---
+        if (action === 'rejected') {
+            if (wallpaper.public_id) {
+                await cloudinary.uploader.destroy(wallpaper.public_id, {
+                    resource_type: wallpaper.type === 'video' ? 'video' : 'image' // 👈 Soporte para videos
+                });
+            }
+            
+            // Restamos 1 al contador del artista
+            await User.findByIdAndUpdate(wallpaper.artist, { $inc: { wallpaperCount: -1 } });
+            
+            await Wallpaper.findByIdAndDelete(req.params.id);
+            return res.json({ msg: 'Wallpaper eliminado de la nube y DB' });
+        }
+
+        // --- CASO B: APROBADO ---
+        wallpaper.status = 'approved';
+        await wallpaper.save();
+
+        // 🚀 DISPARAR SINCRONIZACIÓN DE SUGERENCIAS (Opcional, si implementaste el Punto 10)
+        // const { syncTagSuggestions } = require('../services/tagService');
+        // syncTagSuggestions(); 
+
+        const artist = await User.findById(wallpaper.artist).populate('followers', 'pushToken');
+        let messages = [];
+
+        // 1. Notificación para el Artista
+        if (artist.pushToken && Expo.isExpoPushToken(artist.pushToken)) {
+            messages.push({
+                to: artist.pushToken,
+                sound: 'default',
+                title: '¡Obra Publicada! 🎨',
+                body: `Tu arte ya está disponible para toda la comunidad.`, // 👈 Sin .title
+                data: { screen: 'Profile' },
+            });
+        }
+
+        // 2. Notificación para Seguidores (Cooldown 10 min)
+        const DIEZ_MINUTOS = 10 * 60 * 1000;
+        const ahora = new Date();
+        const ultimaVez = artist.lastNotificationSentAt ? new Date(artist.lastNotificationSentAt) : null;
+
+        if (!ultimaVez || (ahora - ultimaVez) > DIEZ_MINUTOS) {
+            for (let follower of artist.followers) {
+                if (follower.pushToken && Expo.isExpoPushToken(follower.pushToken)) {
+                    messages.push({
+                        to: follower.pushToken,
+                        sound: 'default',
+                        title: '¡Nuevo arte disponible! ✨',
+                        body: `${artist.username} acaba de subir un nuevo wallpaper.`,
+                        data: { artistId: artist._id },
+                    });
+                }
+            }
+            artist.lastNotificationSentAt = ahora;
+            await artist.save();
+        }
+
+        if (messages.length > 0) {
+            let chunks = expo.chunkPushNotifications(messages);
+            (async () => {
+                for (let chunk of chunks) {
+                    try { await expo.sendPushNotificationsAsync(chunk); } 
+                    catch (error) { console.error("Error envío push:", error); }
+                }
+            })();
+        }
+
+        res.json({ msg: 'Wallpaper aprobado con éxito' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error interno en la decisión');
+    }
+};
+
+// --- MARCAR PREMIUM ---
+exports.togglePremium = async (req, res) => {
+    try {
+        // Verificación de seguridad
+        const user = await User.findById(req.user.id);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        const wallpaper = await Wallpaper.findById(req.params.id);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        // Alternar estado: si es true pasa a false, si es false pasa a true
+        wallpaper.isPremium = !wallpaper.isPremium;
+        await wallpaper.save();
+
+        res.json({ 
+            msg: `Estado Premium actualizado`, 
+            isPremium: wallpaper.isPremium,
+            title: wallpaper.title 
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error al actualizar estado premium');
+    }
+};

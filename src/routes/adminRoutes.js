@@ -30,5 +30,9 @@ router.put('/retry-ai/:id', [auth, isAdmin], adminController.retryAITagging);
 router.get('/stats', [auth, isAdmin], adminController.getDashboardStats);
 router.get('/searches', [auth, isAdmin], adminController.getTopSearches);
 router.delete('/searches/cleanup', [auth, isAdmin], adminController.cleanupSearchLogs);
+router.get('/pending', [auth, isAdmin], adminController.getPendingWallpapers);
+router.put('/decide/:id', [auth, isAdmin], adminController.approveOrReject);
+router.put('/set-premium/:id', [auth, isAdmin], adminController.togglePremium);
+
 
 module.exports = router; 
