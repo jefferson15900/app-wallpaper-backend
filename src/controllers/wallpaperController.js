@@ -10,36 +10,52 @@ const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
+const TagSuggestion = require('../models/TagSuggestion');
 
 
 
 // 🔀 Utilidad: Mezclar array (Algoritmo Fisher-Yates)
 const shuffleArray = (array) => {
-    let currentIndex = array.length, randomIndex;
+    const shuffled = [...array]; // copia defensiva
+    let currentIndex = shuffled.length;
+
     while (currentIndex !== 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex); 
+        const randomIndex = Math.floor(Math.random() * currentIndex);
         currentIndex--;
-        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+        [shuffled[currentIndex], shuffled[randomIndex]] = 
+            [shuffled[randomIndex], shuffled[currentIndex]];
     }
-    return array;
+
+    return shuffled;
 };
 
 // 💾 Utilidad: Guardar Cache en segundo plano
 const saveFeedCacheAsync = async (userId, results) => {
+    // Evitar guardar un cache vacío que parecería válido
+    if (!results?.length) {
+        console.warn(`⚠️ [CACHE] Ignorado: sin resultados para usuario ${userId}`);
+        return;
+    }
+
     try {
         const wallpaperIds = results.map(r => r._id);
-        await FeedCache.findOneAndUpdate(
-            { userId },
-            { wallpapers: wallpaperIds, createdAt: new Date() },
-            { upsert: true }
-        );
-        await User.findByIdAndUpdate(userId, { isFeedDirty: false });
+
+        // Ambas escrituras son independientes → se ejecutan en paralelo
+        await Promise.all([
+            FeedCache.findOneAndUpdate(
+                { userId },
+                { wallpapers: wallpaperIds, updatedAt: new Date() },
+                { upsert: true }
+            ),
+            User.findByIdAndUpdate(userId, { isFeedDirty: false }),
+        ]);
+
         console.log(`💾 [CACHE] Guardado con éxito para usuario: ${userId}`);
     } catch (err) {
-        console.error("❌ Error guardando cache:", err.message);
+        // Loguear el error completo, no solo el mensaje
+        console.error(`❌ [CACHE] Error guardando cache para usuario ${userId}:`, err);
     }
 };
-
 
 
 // ==========================================
@@ -47,78 +63,99 @@ const saveFeedCacheAsync = async (userId, results) => {
 // ==========================================
 exports.getDiscoveryFeed = async (req, res) => {
     try {
-        const { tags, limit = 16, page = 1, exclude, category, type, artistId, premium } = req.query;
-        const parsedLimit = parseInt(limit);
-        const skip = (parseInt(page) - 1) * parsedLimit;
+        const { tags, exclude, category, type, artistId, premium } = req.query;
 
-        // 1. IDENTIFICAR AL USUARIO (Para el Cache)
-        let userId = null;
-        const token = req.header('x-auth-token');
+        // ── Validación de parámetros ──────────────────────────────────────────
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+        const skip  = (page - 1) * limit;
+
+        // ── Identificar usuario (optional) ───────────────────────────────────
+        let userId   = null;
+        let userDoc  = null;
+        const token  = req.header('x-auth-token');
+
         if (token) {
             try {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
                 userId = decoded.user.id;
-            } catch (e) { /* Token inválido, procedemos como invitado */ }
+            } catch { /* token inválido → invitado */ }
         }
 
-        // 🚀 A. INTENTAR SERVIR DESDE CACHE (Solo en Página 1)
-        if (page == 1 && userId) {
-            const user = await User.findById(userId).select('isFeedDirty');
+        // ── A. CACHE (solo página 1, usuario logueado) ────────────────────────
+        const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-            if (user && !user.isFeedDirty) {
-                const cache = await FeedCache.findOne({ userId }).populate({
-                    path: 'wallpapers',
-                    populate: { path: 'artist', select: 'username profilePic isVerified isActive' }
-                });
+        if (page === 1 && userId) {
+            // Una sola query: traemos isFeedDirty y el cache juntos
+            [userDoc] = await Promise.all([
+                User.findById(userId).select('isFeedDirty').lean(),
+            ]);
 
-                if (cache && cache.wallpapers.length > 0) {
-                    const validWalls = cache.wallpapers.filter(
-                        w => w && w.artist && w.artist.isActive !== false
+            if (userDoc && !userDoc.isFeedDirty) {
+                const cache = await FeedCache.findOne({ userId }).lean();
+
+                const isFresh =
+                    cache?.snapshot?.length > 0 &&
+                    Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS;
+
+                if (isFresh) {
+                    console.log('⚡ [FEED] Entregando desde CACHE');
+                    // snapshot ya tiene el formato final — sin necesidad de filtrar aquí
+                    return res.json(
+                        shuffleArray(cache.snapshot)
+                            .slice(0, limit)
+                            .map(item => ({ ...item, price: item.price ?? 0 }))
                     );
-
-                    if (validWalls.length > 0) {
-                        console.log('⚡ [FEED] Entregando desde CACHE');
-                        return res.json(
-                            shuffleArray(validWalls)
-                                .slice(0, parsedLimit)
-                                .map(item => ({ ...item, price: item.price ?? 0 }))
-                        );
-                    }
                 }
             }
         }
 
-        // 🧠 B. QUERY PESADA (Si no hay cache, está sucio o es Pagina 2+)
-        let baseMatch = { status: 'approved' };
+        // ── B. QUERY PESADA ───────────────────────────────────────────────────
+        const baseMatch = { status: 'approved' };
         if (category && category !== 'Todos') baseMatch.category = category;
-        if (type && type !== 'all') baseMatch.type = type;
-        if (premium === 'true') baseMatch.price = { $gt: 0 };
-        
+        if (type && type !== 'all')           baseMatch.type = type;
+        if (premium === 'true')               baseMatch.price = { $gt: 0 };
+
         if (artistId && mongoose.Types.ObjectId.isValid(artistId)) {
             baseMatch.artist = new mongoose.Types.ObjectId(artistId);
         }
 
-        // Excluir IDs ya vistos en el scroll infinito
+        // Tope en exclusiones para no destruir índices con $nin masivo
         if (exclude) {
-            const excludeIds = exclude.split(',')
+            const excludeIds = exclude
+                .split(',')
+                .slice(0, 100)
                 .filter(id => mongoose.Types.ObjectId.isValid(id))
                 .map(id => new mongoose.Types.ObjectId(id));
+
             if (excludeIds.length > 0) baseMatch._id = { $nin: excludeIds };
         }
 
-        const userTags = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
-        let pipeline = [];
+        const userTags = tags
+            ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+            : [];
+
+        // ── Pipeline ──────────────────────────────────────────────────────────
+        // Orden correcto: filtrar → acotar → join → paginar
+        const pipeline = [];
 
         if (userTags.length > 0) {
-            // Ranking por afinidad ADN
             pipeline.push(
                 { $match: baseMatch },
                 {
                     $addFields: {
                         affinityScore: {
-                            $size: { $ifNull: [{ $filter: { input: { $ifNull: ['$tags', []] }, as: 'tag', cond: { $in: ['$$tag', userTags] } } }, []] }
-                        }
-                    }
+                            $size: {
+                                $ifNull: [{
+                                    $filter: {
+                                        input: { $ifNull: ['$tags', []] },
+                                        as  : 'tag',
+                                        cond: { $in: ['$$tag', userTags] },
+                                    },
+                                }, []],
+                            },
+                        },
+                    },
                 },
                 {
                     $addFields: {
@@ -128,138 +165,172 @@ exports.getDiscoveryFeed = async (req, res) => {
                                     { case: { $gte: ['$affinityScore', 3] }, then: 0 },
                                     { case: { $gte: ['$affinityScore', 1] }, then: 1 },
                                 ],
-                                default: 2
-                            }
-                        }
-                    }
+                                default: 2,
+                            },
+                        },
+                    },
                 },
-                { $sort: { affinityGroup: 1, affinityScore: -1 } },
-                { $limit: parsedLimit * 3 },
-                { $sample: { size: parsedLimit } }
+                { $sort  : { affinityGroup: 1, affinityScore: -1 } },
+                // Acotamos el pool ANTES del join para no hacer lookup de miles de docs
+                { $limit : limit * 4 },
+                { $sample: { size: limit * 2 } }
             );
         } else {
-            // Usuario sin ADN -> Fresh Random
             pipeline.push(
-                { $match: baseMatch },
-                { $sample: { size: parsedLimit } }
+                { $match : baseMatch },
+                { $sample: { size: limit * 2 } } // pool generoso para absorber artistas inactivos
             );
         }
 
-        // Join con artista y filtro de actividad
+        // Join y filtro de artistas DESPUÉS de acotar el pool
         pipeline.push(
             { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
             { $unwind: '$artist' },
-            { $match: { 'artist.isActive': { $ne: false } } }
-        );
-
-        // Limpieza de seguridad
-        pipeline.push({
-            $project: {
-                'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0, 
-                'artist.interests': 0, 'artist.lastActiveAt': 0,
-                'affinityScore': 0, 'affinityGroup': 0
+            { $match : { 'artist.isActive': { $ne: false } } },
+            { $limit : limit }, // límite final tras filtrar inactivos
+            {
+                $project: {
+                    'artist.password'    : 0,
+                    'artist.email'       : 0,
+                    'artist.pushToken'   : 0,
+                    'artist.interests'   : 0,
+                    'artist.lastActiveAt': 0,
+                    affinityScore        : 0,
+                    affinityGroup        : 0,
+                },
             }
-        });
+        );
 
         const results = await Wallpaper.aggregate(pipeline);
 
-        // 💾 C. GUARDAR EN CACHE (Solo si es la Pagina 1 y el usuario está logueado)
-        if (page == 1 && userId && results.length > 0) {
-            saveFeedCacheAsync(userId, results);
+        // ── C. GUARDAR CACHE (fire-and-forget, solo pág. 1) ──────────────────
+        if (page === 1 && userId && results.length > 0) {
+            saveFeedCacheAsync(userId, results); // guarda snapshot completo, no solo IDs
         }
 
-        res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
+        return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
 
     } catch (err) {
-        console.error("❌ Error en Discovery:", err);
-        res.status(500).json({ msg: 'Error interno al generar el feed' });
+        console.error('❌ Error en Discovery:', err);
+        return res.status(500).json({ msg: 'Error interno al generar el feed' });
     }
 };
+
+
 
 // ==========================================
 // 🔍 FUNCIÓN 2: BÚSQUEDA PURA (TEXTO)
 // ==========================================
 exports.searchWallpapers = async (req, res) => {
     try {
-        const { q, limit = 16, page = 1, exclude, type, premium } = req.query;
-        const parsedLimit = parseInt(limit);
-        const skip = (parseInt(page) - 1) * parsedLimit;
+        const { q, exclude, type, premium } = req.query;
 
-        if (!q || q.trim() === '') return res.json([]);
+        // ── Validación y sanitización de parámetros ──────────────────────────
+        const page        = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit       = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+        const skip        = (page - 1) * limit;
 
+        if (!q?.trim()) return res.json([]);
         const rawSearch = q.trim().toLowerCase();
 
-        // 1. INTELIGENCIA NLP: Singularizar (Ej: "Motos" -> "Moto")
+        // ── NLP + traducción en paralelo ──────────────────────────────────────
         const singularSearch = (() => {
-            const singular = nlp(rawSearch).nouns().toSingular().text().trim();
-            return singular && Math.abs(singular.length - rawSearch.length) < 10 ? singular : rawSearch;
+            const s = nlp(rawSearch).nouns().toSingular().text().trim();
+            return s && Math.abs(s.length - rawSearch.length) < 10 ? s : rawSearch;
         })();
 
-        // 2. TRADUCCIÓN: Resolver término canónico (ES -> EN)
-        const canonical = await resolveToCanonical(singularSearch);
+        // resolveToCanonical y TagMap.find no dependen entre sí en este punto
+        const [canonical, allSynonyms] = await Promise.all([
+            resolveToCanonical(singularSearch),
+            TagMap.find({ 
+                original: { $in: [rawSearch, singularSearch] } 
+            }).lean(),
+        ]);
 
-        // 3. EXPANSIÓN: Buscar sinónimos en el TagMap
-        const allSynonyms = await TagMap.find({ canonical }).lean();
-        const expandedTerms = new Set([rawSearch, singularSearch, canonical]);
-        allSynonyms.forEach(t => {
+        // Si tenemos el canonical, buscar sus sinónimos también
+        const canonicalSynonyms = canonical 
+            ? await TagMap.find({ canonical }).lean()
+            : [];
+
+        const expandedTerms = new Set([rawSearch, singularSearch, canonical].filter(Boolean));
+        [...allSynonyms, ...canonicalSynonyms].forEach(t => {
             expandedTerms.add(t.original);
             const s = nlp(t.original).nouns().toSingular().text().trim();
             if (s) expandedTerms.add(s);
         });
 
-        const queryString = [...expandedTerms].filter(t => t && t.length >= 2).join(' ');
+        const queryString = [...expandedTerms]
+            .filter(t => t?.length >= 2)
+            .join(' ');
 
-        // 4. FILTROS ADICIONALES
-        let matchQuery = { status: 'approved' };
+        // ── Filtros base ──────────────────────────────────────────────────────
+        const matchQuery = { status: 'approved' };
         if (type && type !== 'all') matchQuery.type = type;
-        if (premium === 'true') matchQuery.price = { $gt: 0 };
+        if (premium === 'true')     matchQuery.price = { $gt: 0 };
 
-        // Manejo de exclusión (para no repetir resultados en scroll)
+        // Tope en exclusiones para no romper el índice con $nin gigante
         if (exclude) {
-            const excludeIds = exclude.split(',').filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+            const excludeIds = exclude
+                .split(',')
+                .slice(0, 100) // máximo 100 exclusiones
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
+
             if (excludeIds.length > 0) matchQuery._id = { $nin: excludeIds };
         }
 
-        // 5. PIPELINE DE ATLAS SEARCH
+        // ── Pipeline corregido ────────────────────────────────────────────────
         const useFuzzy = singularSearch.length > 6;
         const pipeline = [
             {
                 $search: {
-                    index: "default",
+                    index: 'default',
                     text: {
                         query: queryString,
-                        path: ["tags"], // Buscamos solo en etiquetas (ya no hay títulos)
-                        ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {})
-                    }
-                }
+                        path : ['tags'],
+                        ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {}),
+                    },
+                },
             },
-            { $addFields: { score: { $meta: "searchScore" } } },
+            { $addFields: { score: { $meta: 'searchScore' } } },
             { $match: matchQuery },
-            { $sort: { score: -1 } },
-            { $skip: skip },
-            { $limit: parsedLimit },
-            { 
-                $lookup: { 
-                    from: 'users', 
-                    localField: 'artist', 
-                    foreignField: '_id', 
-                    as: 'artist' 
-                } 
+
+            // Lookup ANTES del skip para filtrar artistas inactivos primero
+            {
+                $lookup: {
+                    from        : 'users',
+                    localField  : 'artist',
+                    foreignField: '_id',
+                    as          : 'artist',
+                },
             },
             { $unwind: '$artist' },
-            // Filtro de seguridad (Solo artistas activos)
             { $match: { 'artist.isActive': { $ne: false } } },
-            { $project: { score: 0, 'artist.password': 0, 'artist.email': 0, 'artist.pushToken': 0 } }
+
+            // Paginar sobre el set ya filtrado
+            { $sort : { score: -1 } },
+            { $skip : skip },
+            { $limit: limit },
+
+            {
+                $project: {
+                    score            : 0,
+                    'artist.password': 0,
+                    'artist.email'   : 0,
+                    'artist.pushToken': 0,
+                },
+            },
         ];
 
         const results = await Wallpaper.aggregate(pipeline);
-        res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
+        return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
 
     } catch (err) {
-        console.error("❌ Error en Búsqueda:", err);
-        res.status(500).json({ msg: 'Error interno en el buscador' });
+        console.error('❌ Error en búsqueda:', err);
+        return res.status(500).json({ msg: 'Error interno en el buscador' });
     }
 };
+
 
 
 // ==========================================
@@ -267,43 +338,44 @@ exports.searchWallpapers = async (req, res) => {
 // ==========================================
 exports.getLatestWallpapers = async (req, res) => {
     try {
-        const { limit = 16, page = 1, type } = req.query;
-        const parsedLimit = parseInt(limit);
-        const skip = (parseInt(page) - 1) * parsedLimit;
+        const { type } = req.query;
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+        const skip  = (page - 1) * limit;
 
-        let matchQuery = { status: 'approved' };
+        const matchQuery = { status: 'approved' };
         if (type && type !== 'all') matchQuery.type = type;
 
         const walls = await Wallpaper.aggregate([
             { $match: matchQuery },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'artist',
-                    foreignField: '_id',
-                    as: 'artist'
-                }
-            },
-            { $unwind: '$artist' },
-            // 🚀 Solo artistas que no hayan desactivado su cuenta
-            { $match: { 'artist.isActive': { $ne: false } } },
+
+            // Índice recomendado: { status: 1, createdAt: -1 }
             { $sort: { createdAt: -1 } },
-            { $skip: skip },
-            { $limit: parsedLimit },
+
+            // Lookup ANTES del skip — igual que en searchWallpapers
+            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+            { $unwind: '$artist' },
+            { $match: { 'artist.isActive': { $ne: false } } },
+
+            // Paginar sobre el set ya filtrado
+            { $skip : skip },
+            { $limit: limit },
+
             {
                 $project: {
-                    'artist.password': 0,
-                    'artist.email': 0,
+                    'artist.password' : 0,
+                    'artist.email'    : 0,
                     'artist.pushToken': 0,
-                    'artist.interests': 0
-                }
-            }
+                    'artist.interests': 0,
+                },
+            },
         ]);
 
-        res.json(walls.map(item => ({ ...item, price: item.price ?? 0 })));
+        return res.json(walls.map(item => ({ ...item, price: item.price ?? 0 })));
+
     } catch (err) {
-        console.error("Error en Latest:", err);
-        res.status(500).send('Error al obtener novedades');
+        console.error('❌ Error en Latest:', err);
+        return res.status(500).json({ msg: 'Error al obtener novedades' });
     }
 };
 
@@ -446,68 +518,95 @@ exports.uploadWallpaper = async (req, res) => {
     }
 };
 
+
 // ==========================================
 // 🔍 FUNCIÓN 6: OBTENER RELACIONADOS (INFINITOS)
 // ==========================================
 exports.getRelatedWallpapers = async (req, res) => {
     try {
         const { id } = req.params;
-        const { page = 1, limit = 12 } = req.query; // 👈 Recibimos la página
-        const parsedLimit = parseInt(limit);
-        const skip = (parseInt(page) - 1) * parsedLimit;
+        const page     = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit    = Math.min(50, parseInt(req.query.limit) || 12); // tope de seguridad
+        const skip     = (page - 1) * limit;
 
-        // 🚀 1. SI ES PÁGINA 1: Intentar servir desde el CACHE (Velocidad)
-        if (page == 1) {
-            const cache = await RelatedCache.findOne({ wallpaperId: id }).populate({
-                path: 'relatedIds',
-                populate: { path: 'artist', select: 'username profilePic isVerified isActive' }
-            });
+        // ── 1. CACHE solo para página 1 ──────────────────────────────────────
+        if (page === 1) {
+            const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-            if (cache && cache.relatedIds.length > 0) {
-                const validRelated = cache.relatedIds.filter(w => w && w.artist && w.artist.isActive !== false);
+            const cache = await RelatedCache.findOne({ wallpaperId: id });
+
+            const isFresh =
+                cache &&
+                cache.snapshot?.length > 0 &&
+                Date.now() - cache.updatedAt < CACHE_TTL_MS;
+
+            if (isFresh) {
                 console.log("⚡ [RELATED] Página 1 desde Cache");
-                return res.json(validRelated);
+                return res.json(cache.snapshot); // snapshot ya tiene el formato final
             }
         }
 
-        // 🕒 2. SI ES PÁGINA 2+ O NO HAY CACHE: Búsqueda real en DB
-        const original = await Wallpaper.findById(id);
-        if (!original) return res.json([]);
+        // ── 2. VALIDAR que el wallpaper original existe ──────────────────────
+        const original = await Wallpaper.findById(id).lean();
+        if (!original || !original.tags?.length) return res.json([]);
 
+        // ── 3. AGGREGATE unificado (mismo formato siempre) ───────────────────
+        //    Índice recomendado: { status:1, tags:1, createdAt:-1 }
         const results = await Wallpaper.aggregate([
-            { 
-                $match: { 
-                    status: 'approved', 
-                    _id: { $ne: original._id }, 
-                    tags: { $in: original.tags } 
-                } 
+            {
+                $match: {
+                    status : 'approved',
+                    _id    : { $ne: original._id },
+                    tags   : { $in: original.tags },
+                },
             },
             {
                 $addFields: {
-                    commonTags: { $size: { $setIntersection: ["$tags", original.tags] } }
-                }
+                    commonTags: {
+                        $size: { $setIntersection: ['$tags', original.tags] },
+                    },
+                },
             },
-            { $sort: { commonTags: -1, createdAt: -1 } }, 
+            { $sort: { commonTags: -1, createdAt: -1 } },
             { $skip: skip },
-            { $limit: parsedLimit },
-            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+            { $limit: limit },
+            {
+                $lookup: {
+                    from         : 'users',
+                    localField   : 'artist',
+                    foreignField : '_id',
+                    as           : 'artist',
+                },
+            },
             { $unwind: '$artist' },
-            { $match: { 'artist.isActive': { $ne: false } } },
-            { $project: { 'artist.password': 0, 'artist.email': 0 } }
+            {
+                $match: { 'artist.isActive': { $ne: false } },
+            },
+            {
+                $project: {
+                    'artist.password' : 0,
+                    'artist.email'    : 0,
+                    commonTags        : 0, // campo auxiliar, no necesario en respuesta
+                },
+            },
         ]);
 
-        // 💾 3. SI FUE PÁGINA 1 Y NO HABÍA CACHE: Lo guardamos ahora
-        if (page == 1 && results.length > 0) {
-            await RelatedCache.findOneAndUpdate(
+        // ── 4. GUARDAR cache solo en página 1 ────────────────────────────────
+        if (page === 1 && results.length > 0) {
+            // Guardamos el snapshot completo (no solo IDs) → respuesta idéntica
+            RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
-                { relatedIds: results.map(r => r._id) },
+                { snapshot: results, updatedAt: new Date() },
                 { upsert: true }
-            );
+            ).catch(err => console.error('[RELATED] Error guardando cache:', err));
+            // fire-and-forget: no bloqueamos la respuesta al usuario
         }
 
-        res.json(results);
+        return res.json(results);
+
     } catch (err) {
-        res.status(500).json({ msg: 'Error' });
+        console.error('[RELATED] Error:', err);
+        return res.status(500).json({ msg: 'Error al obtener wallpapers relacionados' });
     }
 };
 
@@ -553,25 +652,24 @@ exports.searchTags = async (req, res) => {
 
         const trimmed = q.trim();
         if (trimmed.length < 1) return res.json([]);
-        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const results = await Wallpaper.aggregate([
-            { $match: { status: 'approved' } },
-            { $unwind: '$tags' },
-            { $match: { tags: { $regex: `^${escaped}`, $options: 'i' } } },
-            { $group: { _id: '$tags', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 15 },
-            { $project: { _id: 0, tag: '$_id', count: 1 } }
-        ]);
 
-        res.json(results.map(r => r.tag));
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        const results = await TagSuggestion.find(
+            { tag: { $regex: `^${escaped}`, $options: 'i' } },
+            { tag: 1, _id: 0 }
+        )
+        .sort({ count: -1 })
+        .limit(15)
+        .lean();
+
+        return res.json(results.map(r => r.tag));
 
     } catch (err) {
-        console.error('Tag search error:', err);
-        res.status(500).json({ error: 'Error buscando tags' });
+        console.error('❌ Error buscando tags:', err);
+        return res.status(500).json({ msg: 'Error buscando tags' });
     }
 };
-
 
 // ==========================================
 // ❤️ DAR/QUITAR LIKE
