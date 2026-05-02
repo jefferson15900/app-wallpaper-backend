@@ -830,14 +830,16 @@ exports.adminRemoveTag = async (req, res) => {
     try {
         const { id } = req.params;
         const { tagToRemove } = req.body;
+         const adminUser = await User.findById(req.user.id);
 
         // Validar que venga un tag
         if (!tagToRemove || typeof tagToRemove !== 'string') {
             return res.status(400).json({ msg: 'Tag inválido' });
         }
 
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ msg: 'No autorizado' });
+        if (!adminUser || adminUser.role !== 'admin') {
+            console.log(`🚫 Intento de borrado no autorizado por: ${adminUser?.username}`);
+            return res.status(403).json({ msg: 'No autorizado: Se requiere rol de Admin' });
         }
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
