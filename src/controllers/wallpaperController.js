@@ -420,18 +420,30 @@ exports.uploadWallpaper = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
+        // 1. Buscar al usuario y validar existencia
         const isVideo = req.file.mimetype.startsWith('video');
-
-        // 1. Validar permisos para video
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
+        // 🛡️ REGLA A: BLOQUEO TOTAL PARA USUARIOS NO VERIFICADOS
+        if (user.role !== 'admin' && !user.isVerified) {
+            const resourceType = isVideo ? 'video' : 'image';
+            await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
+                .catch(e => console.error('❌ Error limpiando archivo no autorizado:', e));
+
+            return res.status(403).json({ 
+                msg: 'Acceso restringido: Solo los Artistas Verificados pueden publicar en Vexel.' 
+            });
+        }
+
+        // 🛡️ REGLA B: RESTRICCIÓN DE VIDEO (Solo para Admins)
         if (isVideo && user.role !== 'admin') {
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: 'video' })
                 .catch(e => console.error('❌ Error limpiando video:', e));
-            return res.status(403).json({ msg: 'Solo el administrador puede subir videos' });
+            return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers.' });
         }
 
+        
         // 2. Extraer datos del body
         const { tags, price, manualAIResult } = req.body;
         let rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
