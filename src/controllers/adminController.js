@@ -7,6 +7,7 @@ const { cloudinary } = require('../config/cloudinary');
 const { getAITags } = require('../services/aiService');
 const TagMap = require('../models/TagMap');
 const SearchLog = require('../models/SearchLog'); 
+const VerificationRequest = require('../models/VerificationRequest');
 
 let expo = new Expo();
 
@@ -544,5 +545,135 @@ exports.togglePremium = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error al actualizar estado premium');
+    }
+};
+
+
+// ==========================================
+// SOLICITUD DE ARTISTA 
+// ==========================================
+exports.submitVerification = async (req, res) => {
+    try {
+        // 1. Desestructuramos todo desde req.body de una vez
+        const { instagram, portfolio, artTypes } = req.body;
+
+        // 2. Validación de archivos movida aquí (o mejor aún, en middleware aparte)
+        if (!req.files || req.files.length < 4) {
+            return res.status(400).json({ 
+                msg: 'Debes subir 4 imágenes de muestra.' 
+            });
+        }
+
+        // 3. Parseamos artTypes de forma segura
+        let parsedArtTypes = [];
+        if (artTypes) {
+            try {
+                parsedArtTypes = JSON.parse(artTypes);
+            } catch {
+                return res.status(400).json({ msg: 'artTypes tiene un formato inválido.' });
+            }
+        }
+
+        const sampleImages = req.files.map(file => ({
+            url: file.path,
+            public_id: file.filename
+        }));
+
+        // 4. Sin claves duplicadas
+        const newRequest = new VerificationRequest({
+            userId: req.user.id,
+            instagram,
+            portfolio,
+            artTypes: parsedArtTypes,
+            samples: sampleImages,
+        });
+
+        await newRequest.save();
+
+        // 5. Actualizamos el usuario solo después de guardar exitosamente
+        await User.findByIdAndUpdate(
+            req.user.id, 
+            { isVerificationPending: true },
+            { new: true }
+        );
+
+        res.json({ msg: 'Solicitud enviada. Revisaremos tu talento pronto.' });
+
+    } catch (err) {
+        // 6. Logging real del error (usa tu logger en prod, no console.error)
+        console.error('[submitVerification]', err);
+        res.status(500).json({ msg: 'Error al procesar solicitud' });
+    }
+};
+
+// ==========================================
+// APROBAR/RECHAZAR ARTISTA
+// ==========================================
+const VALID_ACTIONS = ['approved', 'rejected'];
+
+exports.resolveVerification = async (req, res) => {
+    try {
+        const { requestId, action } = req.body;
+
+        // 1. Validar action antes de tocar la BD
+        if (!VALID_ACTIONS.includes(action)) {
+            return res.status(400).json({ msg: 'Acción inválida. Usa: approved | rejected' });
+        }
+
+        const request = await VerificationRequest.findById(requestId);
+        if (!request) {
+            return res.status(404).json({ msg: 'Solicitud no encontrada' });
+        }
+
+        // 2. Actualizar usuario
+        await User.findByIdAndUpdate(request.userId, {
+            isVerified: action === 'approved',
+            isVerificationPending: false,
+            verificationStatus: action,
+        });
+
+        // 3. Borrar imágenes en paralelo — no en serie
+        //    allSettled para que un fallo en Cloudinary no aborte todo
+        const deleteResults = await Promise.allSettled(
+            request.samples.map(img => cloudinary.uploader.destroy(img.public_id))
+        );
+
+        // Loguear los que fallaron sin romper el flujo
+        deleteResults.forEach((result, i) => {
+            if (result.status === 'rejected') {
+                console.error(
+                    `[resolveVerification] No se pudo borrar imagen ${request.samples[i].public_id}:`,
+                    result.reason
+                );
+            }
+        });
+
+        // 4. Borrar el registro
+        await VerificationRequest.findByIdAndDelete(requestId);
+
+        res.json({ msg: `Verificación ${action} procesada correctamente.` });
+
+    } catch (err) {
+        console.error('[resolveVerification]', err);
+        res.status(500).json({ msg: 'Error al procesar la verificación' });
+    }
+};
+
+
+// 🧹 EXTRA: Limpiar el estado de alerta del usuario (Se llama desde el Home tras ver la alerta)
+exports.clearVerificationNotification = async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.user.id, 
+            { $set: { verificationStatus: null } },
+            { new: true }
+        );
+
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
+
+        res.sendStatus(200);
+    } catch (e) {
+        console.error('[clearVerificationNotification]', e);
+        res.sendStatus(500);
     }
 };

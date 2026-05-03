@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 const adminController = require('../controllers/adminController');
+const { uploadCloud } = require('../config/cloudinary');
 
 router.post('/ping', async (req, res) => {
     const { deviceId } = req.body;
@@ -33,6 +34,9 @@ router.delete('/searches/cleanup', [auth, isAdmin], adminController.cleanupSearc
 router.get('/pending', [auth, isAdmin], adminController.getPendingWallpapers);
 router.put('/decide/:id', [auth, isAdmin], adminController.approveOrReject);
 router.put('/set-premium/:id', [auth, isAdmin], adminController.togglePremium);
+router.post('/verify/submit', [auth, uploadCloud.array('image', 4)], adminController.submitVerification);
+router.put('/verify/clear-notification', auth, adminController.clearVerificationNotification);
+router.post('/verify/resolve', [auth, isAdmin], adminController.resolveVerification);
 
 
 module.exports = router; 
