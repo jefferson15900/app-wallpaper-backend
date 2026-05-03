@@ -37,6 +37,7 @@ router.put('/set-premium/:id', [auth, isAdmin], adminController.togglePremium);
 router.post('/verify/submit', [auth, uploadCloud.array('image', 4)], adminController.submitVerification);
 router.put('/verify/clear-notification', auth, adminController.clearVerificationNotification);
 router.post('/verify/resolve', [auth, isAdmin], adminController.resolveVerification);
+router.get('/verify/requests', [auth, isAdmin], adminController.getVerificationRequests);
 
 
 module.exports = router; 

@@ -677,3 +677,19 @@ exports.clearVerificationNotification = async (req, res) => {
         res.sendStatus(500);
     }
 };
+
+
+// 🛠️ OBTENER TODAS LAS SOLICITUDES DE VERIFICACIÓN
+exports.getVerificationRequests = async (req, res) => {
+    try {
+        const requests = await VerificationRequest.find()
+            .populate('userId', 'username profilePic email')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        res.json(requests);
+    } catch (err) {
+        console.error('[getVerificationRequests]', err);
+        res.status(500).json({ msg: 'Error al obtener solicitudes' });
+    }
+};
