@@ -631,14 +631,13 @@ exports.resolveVerification = async (req, res) => {
             isVerified: action === 'approved',
             isVerificationPending: false,
             verificationStatus: action,
-        });
+          }, { new: true });
 
         if (!updatedUser) {
-          console.warn(`[resolveVerification] El usuario ${request.userId} ya no existe.`);
-       }
- 
-        // 3. Borrar imágenes en paralelo — no en serie
-        //    allSettled para que un fallo en Cloudinary no aborte todo
+            console.warn(`[resolveVerification] El usuario ${request.userId} ya no existe.`);
+            await VerificationRequest.findByIdAndDelete(requestId);
+            return res.status(404).json({ msg: 'El usuario ya no existe' });
+        }
         const deleteResults = await Promise.allSettled(
             request.samples.map(img => cloudinary.uploader.destroy(img.public_id))
         );
