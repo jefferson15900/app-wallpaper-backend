@@ -555,7 +555,7 @@ exports.togglePremium = async (req, res) => {
 exports.submitVerification = async (req, res) => {
     try {
         // 1. Desestructuramos todo desde req.body de una vez
-        const { instagram, portfolio, artTypes } = req.body;
+        const { instagram, portfolio, artTypes,description  } = req.body;
 
         // 2. Validación de archivos movida aquí (o mejor aún, en middleware aparte)
         if (!req.files || req.files.length < 4) {
@@ -584,6 +584,7 @@ exports.submitVerification = async (req, res) => {
             userId: req.user.id,
             instagram,
             portfolio,
+            description,
             artTypes: parsedArtTypes,
             samples: sampleImages,
         });
@@ -632,6 +633,10 @@ exports.resolveVerification = async (req, res) => {
             verificationStatus: action,
         });
 
+        if (!updatedUser) {
+          console.warn(`[resolveVerification] El usuario ${request.userId} ya no existe.`);
+       }
+ 
         // 3. Borrar imágenes en paralelo — no en serie
         //    allSettled para que un fallo en Cloudinary no aborte todo
         const deleteResults = await Promise.allSettled(
