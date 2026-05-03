@@ -8,6 +8,7 @@ const { getAITags } = require('../services/aiService');
 const TagMap = require('../models/TagMap');
 const SearchLog = require('../models/SearchLog'); 
 const VerificationRequest = require('../models/VerificationRequest');
+const VALID_ACTIONS = ['approved', 'rejected'];
 
 let expo = new Expo();
 
@@ -610,8 +611,6 @@ exports.submitVerification = async (req, res) => {
 // ==========================================
 // APROBAR/RECHAZAR ARTISTA
 // ==========================================
-const VALID_ACTIONS = ['approved', 'rejected'];
-
 exports.resolveVerification = async (req, res) => {
     try {
         const { requestId, action } = req.body;
@@ -627,17 +626,21 @@ exports.resolveVerification = async (req, res) => {
         }
 
         // 2. Actualizar usuario
-        await User.findByIdAndUpdate(request.userId, {
+        // ✅ FIJATE AQUÍ: Agregamos "const updatedUser =" para capturar el resultado
+        const updatedUser = await User.findByIdAndUpdate(request.userId, {
             isVerified: action === 'approved',
             isVerificationPending: false,
             verificationStatus: action,
-          }, { new: true });
+        }, { new: true });
 
+        // Ahora esta validación ya NO dará error
         if (!updatedUser) {
             console.warn(`[resolveVerification] El usuario ${request.userId} ya no existe.`);
             await VerificationRequest.findByIdAndDelete(requestId);
             return res.status(404).json({ msg: 'El usuario ya no existe' });
         }
+
+        // 3. Borrar imágenes en paralelo
         const deleteResults = await Promise.allSettled(
             request.samples.map(img => cloudinary.uploader.destroy(img.public_id))
         );
@@ -652,7 +655,7 @@ exports.resolveVerification = async (req, res) => {
             }
         });
 
-        // 4. Borrar el registro
+        // 4. Borrar el registro de la solicitud
         await VerificationRequest.findByIdAndDelete(requestId);
 
         res.json({ msg: `Verificación ${action} procesada correctamente.` });
