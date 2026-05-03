@@ -385,26 +385,6 @@ router.get('/followers/:id', async (req, res) => {
     }
 });
 
-// A. OBTENER PROGRESO DE VERIFICACIÓN (Para el propio usuario)
-router.get('/verification-progress', auth, async (req, res) => {
-    try {
-        // Contamos cuántos wallpapers tiene este usuario con estado 'approved'
-        const count = await Wallpaper.countDocuments({ 
-            artist: req.user.id, 
-            status: 'approved' 
-        });
-
-        res.json({
-            approvedCount: count,
-            goal: 50,
-            isEligible: count >= 50,
-            isVerified: (await User.findById(req.user.id)).isVerified
-        });
-    } catch (err) {
-        res.status(500).send('Error al calcular progreso');
-    }
-});
-
 
 // OBTENER TODOS LOS ARTISTAS (Público)
 // RUTA: OBTENER ARTISTAS RECOMENDADOS (Rotación cada 24h)
