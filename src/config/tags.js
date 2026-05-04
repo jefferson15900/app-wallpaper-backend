@@ -17,7 +17,7 @@ const BLACKLIST_TAGS = new Set([
   'professional photo', 'professional photograph', 'professional photography',
   'perfect composition', 'perfect lighting', 'perfect details',
   'high detail', 'fine detail', 'fine details', 'maximum detail',
-  'studio quality', 'film quality', 'movie quality', 'mecánica expuesta','colorful',
+  'studio quality', 'film quality', 'movie quality', 'mecánica expuesta','colorful','casinl','frient',
 
   // ── ILUMINACIÓN GENÉRICA ──────────────────────────────────
   'soft lighting', 'soft light', 'soft lights',
