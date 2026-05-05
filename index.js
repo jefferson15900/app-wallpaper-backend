@@ -4,6 +4,8 @@ const cors = require('cors');
 const connectDB = require('./src/config/db.js');
 const compression = require('compression');
 const configRoutes = require('./src/routes/configRoutes');
+const { syncTagSuggestions } = require('./src/services/tagService');
+
 const app = express();
 app.set('trust proxy', 1);
 
@@ -89,5 +91,7 @@ app.use((err, req, res, next) => {
         error: process.env.NODE_ENV === 'development' ? err.message : {}
     });
 });
+
+syncTagSuggestions();
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
