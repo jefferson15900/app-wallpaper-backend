@@ -36,7 +36,7 @@ const IGNORED_TAGS = [
   'dramatic lighting', 'dramatic light', 
   'cinematic lighting', 'cinematic light',
   'natural lighting', 'natural light','dark',
-  'studio lighting', 'studio light',
+  'studio lighting', 'studio light', 
   'rim lighting', 'rim light',
   'ambient lighting', 'ambient light', 'ambient occlusion',
   'god rays', 'god ray', 'sun rays', 'sun ray', 'sunbeam', 'sunbeams',

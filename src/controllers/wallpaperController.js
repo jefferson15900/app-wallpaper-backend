@@ -223,40 +223,43 @@ exports.getDiscoveryFeed = async (req, res) => {
 // ==========================================
 exports.searchWallpapers = async (req, res) => {
     try {
-        const { q, exclude, type, premium } = req.query;
+        const { q, exclude, type, premium, seed } = req.query;
 
-        // ── Validación y sanitización de parámetros ──────────────────────────
-        const page        = Math.max(1, parseInt(req.query.page)  || 1);
-        const limit       = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
-        const skip        = (page - 1) * limit;
+        // ── Validación de parámetros ──────────────────────────────────────────
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+        const skip  = (page - 1) * limit;
 
         if (!q?.trim()) return res.json([]);
         const rawSearch = q.trim().toLowerCase();
 
-        // ── NLP + traducción en paralelo ──────────────────────────────────────
+        // Seed: debe ser finito y estar en rango [0, 1)
+        const parsedSeed = parseFloat(seed);
+        const randomSeed = Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1
+            ? parsedSeed
+            : Math.random();
+
+        // ── NLP ───────────────────────────────────────────────────────────────
         const singularSearch = (() => {
             const s = nlp(rawSearch).nouns().toSingular().text().trim();
-            return s && Math.abs(s.length - rawSearch.length) < 10 ? s : rawSearch;
+            return s?.length >= 2 ? s : rawSearch;
         })();
 
-        // resolveToCanonical y TagMap.find no dependen entre sí en este punto
+        // ── Traducción + sinónimos en paralelo ────────────────────────────────
         const [canonical, allSynonyms] = await Promise.all([
             resolveToCanonical(singularSearch),
-            TagMap.find({ 
-                original: { $in: [rawSearch, singularSearch] } 
-            }).lean(),
+            TagMap.find({ original: { $in: [rawSearch, singularSearch] } }).lean(),
         ]);
 
-        // Si tenemos el canonical, buscar sus sinónimos también
-        const canonicalSynonyms = canonical 
+        const canonicalSynonyms = canonical
             ? await TagMap.find({ canonical }).lean()
             : [];
 
-        const expandedTerms = new Set([rawSearch, singularSearch, canonical].filter(Boolean));
+        const expandedTerms = new Set(
+            [rawSearch, singularSearch, canonical].filter(Boolean)
+        );
         [...allSynonyms, ...canonicalSynonyms].forEach(t => {
-            expandedTerms.add(t.original);
-            const s = nlp(t.original).nouns().toSingular().text().trim();
-            if (s) expandedTerms.add(s);
+            if (t.original) expandedTerms.add(t.original);
         });
 
         const queryString = [...expandedTerms]
@@ -268,46 +271,49 @@ exports.searchWallpapers = async (req, res) => {
         if (type && type !== 'all') matchQuery.type = type;
         if (premium === 'true')     matchQuery.price = { $gt: 0 };
 
-        // Tope en exclusiones para no romper el índice con $nin gigante
         if (exclude) {
-            const excludeIds = exclude
+            const ids = exclude
                 .split(',')
-                .slice(0, 100) // máximo 100 exclusiones
+                .slice(0, 100)
                 .filter(id => mongoose.Types.ObjectId.isValid(id))
                 .map(id => new mongoose.Types.ObjectId(id));
-
-            if (excludeIds.length > 0) matchQuery._id = { $nin: excludeIds };
+            if (ids.length) matchQuery._id = { $nin: ids };
         }
 
-        // ── Pipeline corregido ────────────────────────────────────────────────
+        // ── Pipeline ──────────────────────────────────────────────────────────
         const useFuzzy = singularSearch.length > 6;
+
         const pipeline = [
             {
                 $search: {
                     index: 'default',
-                    text: {
-                        query: queryString,
-                        path : ['tags'],
-                        ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 4 } } : {}),
+                    compound: {
+                        must: [{
+                            text: {
+                                query: queryString,
+                                path : 'tags',
+                                ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {}),
+                            },
+                        }],
+                        score: {
+                            function: {
+                                multiply: [
+                                    { score: 'relevance' },
+                                    { random: { seed: randomSeed } },
+                                ],
+                            },
+                        },
                     },
                 },
             },
             { $addFields: { score: { $meta: 'searchScore' } } },
             { $match: matchQuery },
 
-            // Lookup ANTES del skip para filtrar artistas inactivos primero
-            {
-                $lookup: {
-                    from        : 'users',
-                    localField  : 'artist',
-                    foreignField: '_id',
-                    as          : 'artist',
-                },
-            },
+            // Lookup ANTES del skip — artistas inactivos descartados primero
+            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
             { $unwind: '$artist' },
-            { $match: { 'artist.isActive': { $ne: false } } },
+            { $match: { 'artist.isActive': { $ne: false } } }, // ← faltaba por completo
 
-            // Paginar sobre el set ya filtrado
             { $sort : { score: -1 } },
             { $skip : skip },
             { $limit: limit },
@@ -330,7 +336,6 @@ exports.searchWallpapers = async (req, res) => {
         return res.status(500).json({ msg: 'Error interno en el buscador' });
     }
 };
-
 
 
 // ==========================================
