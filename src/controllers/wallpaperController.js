@@ -345,6 +345,7 @@ exports.searchWallpapers = async (req, res) => {
 };
 
 
+
 // ==========================================
 // 🕒 FUNCIÓN 3: LO MÁS NUEVO (EXPLORAR)
 // ==========================================
