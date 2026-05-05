@@ -284,48 +284,55 @@ exports.searchWallpapers = async (req, res) => {
         const useFuzzy = singularSearch.length > 6;
 
         const pipeline = [
-            {
-                $search: {
-                    index: 'default',
-                    compound: {
-                        must: [{
-                            text: {
-                                query: queryString,
-                                path : 'tags',
-                                ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {}),
-                            },
-                        }],
-                        score: {
-                            function: {
-                                multiply: [
-                                    { score: 'relevance' },
-                                    { random: { seed: randomSeed } },
-                                ],
-                            },
-                        },
-                    },
-                },
-            },
-            { $addFields: { score: { $meta: 'searchScore' } } },
-            { $match: matchQuery },
+{
+    $search: {
+        index: 'default',
+        text: {
+            query: queryString,
+            path : 'tags',
+            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {}),
+        },
+    },
+},
+{ $addFields: { score: { $meta: 'searchScore' } } },
+{ $match: matchQuery },
+{ $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+{ $unwind: '$artist' },
+{ $match: { 'artist.isActive': { $ne: false } } },
 
-            // Lookup ANTES del skip — artistas inactivos descartados primero
-            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-            { $unwind: '$artist' },
-            { $match: { 'artist.isActive': { $ne: false } } }, // ← faltaba por completo
-
-            { $sort : { score: -1 } },
-            { $skip : skip },
-            { $limit: limit },
-
-            {
-                $project: {
-                    score            : 0,
-                    'artist.password': 0,
-                    'artist.email'   : 0,
-                    'artist.pushToken': 0,
-                },
-            },
+// Azar multiplicado aquí, fuera de Atlas Search
+{
+    $addFields: {
+        randomizedScore: {
+            $multiply: [
+                '$score',
+                // Pseudo-random determinístico por documento usando la seed
+                {
+                    $abs: {
+                        $sin: {
+                            $add: [
+                                { $multiply: ['$score', randomSeed * 1000] },
+                                { $toLong: '$_id' }  // cada doc tiene valor distinto
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    }
+},
+{ $sort : { randomizedScore: -1 } },
+{ $skip : skip },
+{ $limit: limit },
+{
+    $project: {
+        score          : 0,
+        randomizedScore: 0,
+        'artist.password' : 0,
+        'artist.email'    : 0,
+        'artist.pushToken': 0,
+    },
+},
         ];
 
         const results = await Wallpaper.aggregate(pipeline);
