@@ -263,8 +263,9 @@ exports.searchWallpapers = async (req, res) => {
         });
 
         const queryString = [...expandedTerms]
-            .filter(t => t?.length >= 2)
-            .join(' ');
+         .filter(t => t && t.length >= 2)
+         .flatMap(t => [t, t.replace('-', ''), t.replace(' ', '')])
+         .join(' ');
 
         // ── Filtros base ──────────────────────────────────────────────────────
         const matchQuery = { status: 'approved' };
@@ -284,15 +285,20 @@ exports.searchWallpapers = async (req, res) => {
         const useFuzzy = singularSearch.length > 6;
 
         const pipeline = [
-{
-    $search: {
-        index: 'default',
-        text: {
-            query: queryString,
-            path : 'tags',
-            ...(useFuzzy ? { fuzzy: { maxEdits: 1, prefixLength: 3 } } : {}),
-        },
-    },
+    {
+$search: {
+    index: "default",
+    text: {
+        query: queryString,
+        path: ["tags"],
+        // 🚀 MEJORA: Hacemos el fuzzy más sensible
+        fuzzy: {
+            maxEdits: 1,      // Permite 1 letra de diferencia (ej: Spidreman -> Spiderman)
+            prefixLength: 3,  // Las primeras 3 letras deben ser iguales
+            maxExpansions: 50
+        }
+    }
+},
 },
 { $addFields: { score: { $meta: 'searchScore' } } },
 { $match: matchQuery },

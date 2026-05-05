@@ -92,6 +92,6 @@ app.use((err, req, res, next) => {
     });
 });
 
-syncTagSuggestions();
+//syncTagSuggestions();
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
