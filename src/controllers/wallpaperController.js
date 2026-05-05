@@ -286,19 +286,19 @@ exports.searchWallpapers = async (req, res) => {
 
         const pipeline = [
     {
-$search: {
-    index: "default",
-    text: {
-        query: queryString,
-        path: ["tags"],
+    $search: {
+      index: "default",
+       text: {
+         query: queryString,
+         path: ["tags"],
         // 🚀 MEJORA: Hacemos el fuzzy más sensible
         fuzzy: {
             maxEdits: 1,      // Permite 1 letra de diferencia (ej: Spidreman -> Spiderman)
             prefixLength: 3,  // Las primeras 3 letras deben ser iguales
             maxExpansions: 50
         }
-    }
-},
+       }
+   }, 
 },
 { $addFields: { score: { $meta: 'searchScore' } } },
 { $match: matchQuery },

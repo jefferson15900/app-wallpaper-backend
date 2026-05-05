@@ -9,6 +9,7 @@ const TagMap = require('../models/TagMap');
 const SearchLog = require('../models/SearchLog'); 
 const VerificationRequest = require('../models/VerificationRequest');
 const VALID_ACTIONS = ['approved', 'rejected'];
+const { incrementTagCounts } = require('../services/tagService');
 
 let expo = new Expo();
 
@@ -436,87 +437,114 @@ exports.getPendingWallpapers = async (req, res) => {
 // APROBAR O RECHAZAR WALLPAPER 
 exports.approveOrReject = async (req, res) => {
     const { action } = req.body;
-    
+
+    if (!['approved', 'rejected'].includes(action)) {
+        return res.status(400).json({ msg: 'Acción inválida' });
+    }
+
     try {
-        const user = await User.findById(req.user.id);
-        if (!user || user.role !== 'admin') return res.status(403).json({ msg: 'No autorizado' });
+        // Verificación de rol — idealmente en middleware, no aquí
+        const user = await User.findById(req.user.id).lean();
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
 
         const wallpaper = await Wallpaper.findById(req.params.id);
         if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
-        // --- CASO A: RECHAZADO ---
+        // ── CASO A: RECHAZADO ─────────────────────────────────────────────────
         if (action === 'rejected') {
-            if (wallpaper.public_id) {
-                await cloudinary.uploader.destroy(wallpaper.public_id, {
-                    resource_type: wallpaper.type === 'video' ? 'video' : 'image' // 👈 Soporte para videos
-                });
-            }
-            
-            // Restamos 1 al contador del artista
-            await User.findByIdAndUpdate(wallpaper.artist, { $inc: { wallpaperCount: -1 } });
-            
-            await Wallpaper.findByIdAndDelete(req.params.id);
+            const destroyPromise = wallpaper.public_id
+                ? cloudinary.uploader.destroy(wallpaper.public_id, {
+                    resource_type: wallpaper.type === 'video' ? 'video' : 'image',
+                })
+                : Promise.resolve();
+
+            // Las tres operaciones no dependen entre sí → paralelo
+            await Promise.all([
+                destroyPromise,
+                Wallpaper.findByIdAndDelete(req.params.id),
+                User.findByIdAndUpdate(wallpaper.artist, { $inc: { wallpaperCount: -1 } }),
+            ]);
+
             return res.json({ msg: 'Wallpaper eliminado de la nube y DB' });
         }
 
-        // --- CASO B: APROBADO ---
-        wallpaper.status = 'approved';
-        await wallpaper.save();
+        // ── CASO B: APROBADO ──────────────────────────────────────────────────
+        // Un solo update, { new: true } para tener el doc actualizado
+        const approved = await Wallpaper.findByIdAndUpdate(
+            req.params.id,
+            { status: 'approved' },
+            { new: true }
+        );
 
-        // 🚀 DISPARAR SINCRONIZACIÓN DE SUGERENCIAS (Opcional, si implementaste el Punto 10)
-        // const { syncTagSuggestions } = require('../services/tagService');
-        // syncTagSuggestions(); 
+        // Fire-and-forget — no bloqueamos la respuesta por los tags
+        incrementTagCounts(approved.tags).catch(err =>
+            console.error('❌ Error incrementando tags:', err)
+        );
 
-        const artist = await User.findById(wallpaper.artist).populate('followers', 'pushToken');
-        let messages = [];
+        // Notificaciones
+        const artist = await User.findById(wallpaper.artist)
+            .populate('followers', 'pushToken username');
 
-        // 1. Notificación para el Artista
+        if (!artist) return res.json({ msg: 'Wallpaper aprobado (artista no encontrado)' });
+
+        const messages = [];
+
+        // 1. Al artista
         if (artist.pushToken && Expo.isExpoPushToken(artist.pushToken)) {
             messages.push({
-                to: artist.pushToken,
+                to   : artist.pushToken,
                 sound: 'default',
                 title: '¡Obra Publicada! 🎨',
-                body: `Tu arte ya está disponible para toda la comunidad.`, // 👈 Sin .title
-                data: { screen: 'Profile' },
+                body : 'Tu arte ya está disponible para toda la comunidad.',
+                data : { screen: 'Profile' },
             });
         }
 
-        // 2. Notificación para Seguidores (Cooldown 10 min)
+        // 2. A seguidores (cooldown 10 min)
         const DIEZ_MINUTOS = 10 * 60 * 1000;
-        const ahora = new Date();
-        const ultimaVez = artist.lastNotificationSentAt ? new Date(artist.lastNotificationSentAt) : null;
+        const ahora        = new Date();
+        const ultimaVez    = artist.lastNotificationSentAt
+            ? new Date(artist.lastNotificationSentAt)
+            : null;
 
-        if (!ultimaVez || (ahora - ultimaVez) > DIEZ_MINUTOS) {
-            for (let follower of artist.followers) {
+        const pasoCooldown = !ultimaVez || (ahora - ultimaVez) > DIEZ_MINUTOS;
+
+        if (pasoCooldown && artist.followers?.length) {
+            for (const follower of artist.followers) {
                 if (follower.pushToken && Expo.isExpoPushToken(follower.pushToken)) {
                     messages.push({
-                        to: follower.pushToken,
+                        to   : follower.pushToken,
                         sound: 'default',
                         title: '¡Nuevo arte disponible! ✨',
-                        body: `${artist.username} acaba de subir un nuevo wallpaper.`,
-                        data: { artistId: artist._id },
+                        body : `${artist.username} acaba de subir un nuevo wallpaper.`,
+                        data : { artistId: artist._id },
                     });
                 }
             }
+
             artist.lastNotificationSentAt = ahora;
             await artist.save();
         }
 
+        // Envío chunked — awaiteado para saber si falló
         if (messages.length > 0) {
-            let chunks = expo.chunkPushNotifications(messages);
-            (async () => {
-                for (let chunk of chunks) {
-                    try { await expo.sendPushNotificationsAsync(chunk); } 
-                    catch (error) { console.error("Error envío push:", error); }
+            const chunks = expo.chunkPushNotifications(messages);
+            for (const chunk of chunks) {
+                try {
+                    await expo.sendPushNotificationsAsync(chunk);
+                } catch (err) {
+                    console.error(`❌ Error enviando chunk de ${chunk.length} notificaciones:`, err);
                 }
-            })();
+            }
         }
 
-        res.json({ msg: 'Wallpaper aprobado con éxito' });
+        return res.json({ msg: 'Wallpaper aprobado con éxito' });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Error interno en la decisión');
+        console.error('❌ Error en approveOrReject:', err);
+        return res.status(500).json({ msg: 'Error interno en la decisión' });
     }
 };
 

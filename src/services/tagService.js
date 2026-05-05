@@ -40,3 +40,29 @@ exports.syncTagSuggestions = async () => {
         console.error('❌ [TAGS] Error en sync:', err);
     }
 };
+
+
+// 📈 Suman +1 a las etiquetas de un solo wallpaper
+exports.incrementTagCounts = async (tagsArray) => {
+    if (!tagsArray?.length) return;
+
+    try {
+        const ops = tagsArray
+            .filter(tag => typeof tag === 'string' && tag.trim().length > 0)
+            .map(tag => ({
+                updateOne: {
+                    filter: { tag: tag.toLowerCase().trim() },
+                    update: { $inc: { count: 1 } },
+                    upsert: true,
+                },
+            }));
+
+        if (!ops.length) return;
+
+        await TagSuggestion.bulkWrite(ops, { ordered: false }); 
+        console.log(`📈 [TAGS] Incrementados: ${ops.length} tags`);
+
+    } catch (err) {
+        console.error('❌ Error incrementando tags:', err); // err completo, no solo .message
+    }
+};
