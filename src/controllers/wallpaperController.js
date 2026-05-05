@@ -306,13 +306,12 @@ exports.searchWallpapers = async (req, res) => {
         randomizedScore: {
             $multiply: [
                 '$score',
-                // Pseudo-random determinístico por documento usando la seed
                 {
                     $abs: {
                         $sin: {
                             $add: [
                                 { $multiply: ['$score', randomSeed * 1000] },
-                                { $toLong: '$_id' }  // cada doc tiene valor distinto
+                                { $toLong: { $toDate: "$_id" } } 
                             ]
                         }
                     }
