@@ -297,7 +297,7 @@ router.put('/follow/:id', auth, async (req, res) => {
 
 // ACTUALIZAR PERFIL COMPLETO (Username + Socials)
 router.put('/update-profile', auth, async (req, res) => {
-    const { username, bio, instagram, facebook, twitter, tiktok, threads, gender, birthday, country } = req.body;
+    const { username, bio, instagram, facebook, twitter, tiktok, threads, gender, birthday, country,nativeLanguage } = req.body;
 
     try {
         // Verificar si el nuevo username ya existe (y no es el nuestro)
@@ -321,7 +321,8 @@ router.put('/update-profile', auth, async (req, res) => {
                     threads : threads || "",
                     gender,    
                     birthday,  
-                    country    
+                    country,
+                    nativeLanguage    
                 } 
             },
             { new: true }
