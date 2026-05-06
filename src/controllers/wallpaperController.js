@@ -50,7 +50,6 @@ const saveFeedCacheAsync = async (userId, results) => {
             User.findByIdAndUpdate(userId, { isFeedDirty: false }),
         ]);
 
-        console.log(`💾 [CACHE] Guardado con éxito para usuario: ${userId}`);
     } catch (err) {
         // Loguear el error completo, no solo el mensaje
         console.error(`❌ [CACHE] Error guardando cache para usuario ${userId}:`, err);
@@ -99,7 +98,6 @@ exports.getDiscoveryFeed = async (req, res) => {
                     Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS;
 
                 if (isFresh) {
-                    console.log('⚡ [FEED] Entregando desde CACHE');
                     // snapshot ya tiene el formato final — sin necesidad de filtrar aquí
                     return res.json(
                         shuffleArray(cache.snapshot)
@@ -493,7 +491,6 @@ exports.uploadWallpaper = async (req, res) => {
 
                     if (tagMapOps.length > 0) {
                         await TagMap.bulkWrite(tagMapOps, { ordered: false });
-                        console.log("📚 TagMap actualizado manualmente desde Upload");
                     }
 
                     isAITagged = true; // Marcamos como procesado para no llamar a la IA de Google
@@ -571,7 +568,6 @@ exports.getRelatedWallpapers = async (req, res) => {
                 Date.now() - cache.updatedAt < CACHE_TTL_MS;
 
             if (isFresh) {
-                console.log("⚡ [RELATED] Página 1 desde Cache");
                 return res.json(cache.snapshot); // snapshot ya tiene el formato final
             }
         }
@@ -864,7 +860,6 @@ exports.adminRemoveTag = async (req, res) => {
         }
 
         if (!adminUser || adminUser.role !== 'admin') {
-            console.log(`🚫 Intento de borrado no autorizado por: ${adminUser?.username}`);
             return res.status(403).json({ msg: 'No autorizado: Se requiere rol de Admin' });
         }
 

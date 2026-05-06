@@ -40,11 +40,8 @@ router.get('/feed', auth, async (req, res) => {
         const user = await User.findById(req.user.id);
         
         if (!user.following || user.following.length === 0) {
-            console.log("El usuario no sigue a nadie.");
             return res.json([]); 
         }
-
-        console.log("Buscando wallpapers de los artistas:", user.following);
 
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -59,7 +56,6 @@ router.get('/feed', auth, async (req, res) => {
         .skip(skip)
         .limit(limit);
 
-        console.log("Wallpapers encontrados para el feed:", wallpapers.length);
         res.json(wallpapers);
     } catch (err) {
         res.status(500).send('Error');

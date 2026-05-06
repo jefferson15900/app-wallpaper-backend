@@ -72,7 +72,6 @@ router.post('/login', async (req, res) => {
         let user = await User.findOne({ email });
         
         if (!user) {
-            console.log(`❌ [LOGIN FALLIDO] Usuario no encontrado: ${email}`);
             return res.status(400).json({ msg: 'Credenciales inválidas' });
         }
 
@@ -394,12 +393,10 @@ router.get('/all-artists', async (req, res) => {
 
         // 1. Si el caché tiene datos y la fecha es la misma que hoy, devolvemos el caché
         if (dailyArtistsCache.length > 0 && lastUpdateDate === today) {
-            console.log("🚀 Entregando artistas desde el caché diario");
             return res.json(dailyArtistsCache);
         }
 
         // 2. Si es un nuevo día o el servidor se reinició, elegimos 15 nuevos
-        console.log("♻️ Rotando selección diaria de artistas...");
         const newSelection = await User.aggregate([
             { $match: { role: 'artist', isVerified: true } },
             { $sample: { size: 15 } },
@@ -544,7 +541,6 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
                 await User.findByIdAndDelete(userId, { session });
             });
             
-            console.log(`🗑️ Cuenta eliminada con éxito: ${userId}`);
             return res.status(204).send();
 
         } finally {

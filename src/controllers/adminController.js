@@ -180,8 +180,6 @@ exports.retryAITagging = async (req, res) => {
 
         // Aseguramos que la URL use HTTPS para evitar problemas con la API de Google
         const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
-        console.log(`♻️ [ADMIN] Reintento IA para: "${wallpaper.title}"`);
-
         // 2. Llamar al servicio de IA (Gemini)
         // Se espera un formato: [{ en: "city", es: "ciudad" }, ...]
         const aiTags = await getAITags(secureUrl);
@@ -217,7 +215,6 @@ exports.retryAITagging = async (req, res) => {
         if (tagMapOps.length > 0) {
             // Operación masiva para no saturar la DB
             await TagMap.bulkWrite(tagMapOps, { ordered: false });
-            console.log(`📚 [TAGMAP] ${tagMapOps.length} mapeos actualizados desde el panel admin`);
         }
 
         // 6. Guardar cambios en el Wallpaper
@@ -225,7 +222,6 @@ exports.retryAITagging = async (req, res) => {
         wallpaper.isAITagged = true;
         await wallpaper.save();
 
-        console.log(`✅ [ADMIN] ${finalTags.length} etiquetas actualizadas para "${wallpaper.title}"`);
         
         res.json({ 
             msg: 'IA procesada con éxito ✨', 

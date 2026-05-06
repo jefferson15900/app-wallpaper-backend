@@ -10,7 +10,6 @@ this.isProcessing = false;
 code
 Code
 addJob(job) {
-    console.log(`📥 [COLA IA] Wallpaper ${job.wallpaperId} en espera. (Cola: ${this.queue.length + 1})`);
     this.queue.push(job);
     this.processNext();
 }
@@ -22,13 +21,10 @@ async processNext() {
     const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
  
     try {
-        console.log(`🤖 [COLA IA] Analizando: ${wallpaperId}...`); 
-
         // aiTags = [{ en: "city", es: "ciudad" }, ...]
         const aiTags = await getAITags(imageUrl);
 
         if (!aiTags || aiTags.length === 0) {
-            console.warn(`⚠️ [COLA IA] Sin etiquetas para ${wallpaperId}.`);
             return;
         }
 
@@ -61,18 +57,13 @@ async processNext() {
                 original: { $in: aiTags.map(t => t.es) }
             }).lean();
 
-            console.log(`📚 [TAGMAP] Insertados: ${result.upsertedCount} | Actualizados: ${result.modifiedCount}`);
-            console.log(`📚 [TAGMAP] En DB:`, saved.map(m => `${m.original} → ${m.canonical}`));
         } else {
-            console.log(`⚠️ [TAGMAP] Sin mapeos nuevos (todos iguales en ambos idiomas)`);
         }
 
         // ── Guardar en Wallpaper ──────────────────────────────────────
         await Wallpaper.findByIdAndUpdate(wallpaperId, {
             $set: { tags: finalTags, isAITagged: true }
         });
-
-        console.log(`✅ [COLA IA] Wallpaper ${wallpaperId} listo. Tags: [${finalTags.join(', ')}]`);
 
     } catch (error) {
         console.error(`❌ [COLA IA] Error en ${wallpaperId}:`, error.message);

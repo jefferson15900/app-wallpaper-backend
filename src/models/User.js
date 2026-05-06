@@ -38,6 +38,6 @@ const UserSchema = new mongoose.Schema({
     deactivatedAt: { type: Date, default: null },
     isFeedDirty: { type: Boolean, default: true},
     verificationStatus: { type: String, enum: ['approved', 'rejected', null], default: null },
-    
+    nativeLanguage: { type: String, default: "No definido" },
 });
 module.exports = mongoose.model('User', UserSchema);
