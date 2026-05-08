@@ -13,12 +13,12 @@ app.set('trust proxy', 1);
 // --- RUTA PARA PERMITIR EL RASTREO DE GOOGLE (ROBOTS.TXT) ---
 app.get('/robots.txt', (req, res) => {
     res.type('text/plain');
-    res.send("User-agent: *\nAllow: /app-ads.txt\nAllow: /");
+    res.send('User-agent: *\nAllow: /app-ads.txt\nAllow: /');
 });
 
 // Tu ruta de app-ads.txt que ya tenías (asegúrate que esté igual)
 app.get('/app-ads.txt', (req, res) => {
- 
+     res.type('text/plain');
     res.send('google.com, pub-7650198007053979, DIRECT, f08c47fec0942fa0');
 });
 
@@ -85,13 +85,25 @@ app.use('/api/config', configRoutes);
 
 // Manejador de errores global
 app.use((err, req, res, next) => {
-    console.error(err.stack); // Esto te dirá qué falló en la terminal
-    res.status(500).json({
-        msg: 'Hubo un error en el servidor',
-        error: process.env.NODE_ENV === 'development' ? err.message : {}
+    const status = err.statusCode ?? 500;
+    console.error(`[${req.method}] ${req.path} → ${err.message}`);
+    res.status(status).json({
+        msg: status < 500 ? err.message : 'Error interno del servidor',
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
 });
+ 
 
 //syncTagSuggestions();
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
+const server = app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
+ 
+const shutdown = (signal) => {
+    console.log(`${signal} recibido — cerrando servidor limpiamente...`);
+    server.close(() => {
+        console.log('Servidor cerrado.');
+        process.exit(0);
+    });
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
