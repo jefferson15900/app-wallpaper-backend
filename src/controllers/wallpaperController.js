@@ -262,6 +262,7 @@ exports.searchWallpapers = async (req, res) => {
 
         const queryString = [...expandedTerms]
          .filter(t => t && t.length >= 2)
+         .slice(0, 10)
          .flatMap(t => [t, t.replace('-', ''), t.replace(' ', '')])
          .join(' ');
 
@@ -339,8 +340,13 @@ exports.searchWallpapers = async (req, res) => {
         ];
 
         const results = await Wallpaper.aggregate(pipeline);
+        const totalReal = await Wallpaper.countDocuments({ 
+    tags: q.toLowerCase().trim(), 
+    status: 'approved' 
+});
+console.log(`🔎 Búsqueda: "${q}" | Encontrados en DB (Aprobados): ${totalReal} | Devueltos en esta página: ${results.length}`);
         return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
-
+         
     } catch (err) {
         console.error('❌ Error en búsqueda:', err);
         return res.status(500).json({ msg: 'Error interno en el buscador' });
