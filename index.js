@@ -16,15 +16,14 @@ app.use(express.json());
 // 2. RUTAS PÚBLICAS PARA GOOGLE / ADMOB (Súper simplificadas)
 app.get('/robots.txt', (req, res) => {
     res.type('text/plain');
-    // "Disallow:" vacío significa: "Todos los robots pueden entrar a todo"
-    res.send("User-agent: *\nDisallow:"); 
+    res.send("User-agent: *\nDisallow:\nAllow: /app-ads.txt");
 });
 
 app.get('/app-ads.txt', (req, res) => {
     res.type('text/plain');
     res.send('google.com, pub-7650198007053979, DIRECT, f08c47fec0942fa0');
 });
-
+ 
 // 3. RUTA RAÍZ (Para evitar el "Cannot GET /" y parecer un sitio oficial)
 app.get('/', (req, res) => {
     res.send(`
