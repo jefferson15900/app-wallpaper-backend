@@ -97,7 +97,7 @@ const BLACKLIST_TAGS = new Set([
   'dalle', 'dall-e', 'dall e',
   'comfyui', 'automatic1111', 'a1111',
   'novelai', 'novel ai',
-  'leonardo ai', 'adobe firefly', 'firefly',
+  'leonardo ai', 'adobe firefly',
   'controlnet', 'lora', 'dreambooth',
 
   // ── PLATAFORMAS Y FORMATOS ────────────────────────────────

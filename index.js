@@ -33,7 +33,7 @@ app.get('/delete-account', (req, res) => {
 
 // 4. CONEXIÓN A DB Y RUTAS DE API
 connectDB();
-app.use('/api/auth', require('./src/routes/authRoutes'));
+app.use('/api/auth', require('./src/routes/authRoutes')); 
 app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
 app.use('/api/feedback', require('./src/routes/feedbackRoutes'));
