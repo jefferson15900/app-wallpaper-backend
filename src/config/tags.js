@@ -492,7 +492,7 @@ const SYNONYMS = {
  * @param {{ maxTags?: number, minLength?: number, maxLength?: number }} options
  * @returns {string[]}
  */
-const cleanTags = (tagsArray, { maxTags = 20, minLength = 3, maxLength = 40 } = {}) => {
+const cleanTags = (tagsArray, { maxTags = 20, minLength = 2, maxLength = 40 } = {}) => {
   if (!Array.isArray(tagsArray) || tagsArray.length === 0) return [];
 
   const seen = new Set();
