@@ -44,9 +44,9 @@ router.post('/unlock/:id', auth, async (req, res) => {
         user.unlockedWallpapers.push(wallpaper._id);
         
         await user.save();
-        res.json({ msg: 'Desbloqueado con éxito', coins: user.coins });
+        res.json({ msg: 'Desbloqueado con éxito', coins: user.coins }); 
     } catch (err) {
-        res.status(500).send('Error en la compra');
+        res.status(500).send('Error en la compra');  
     }
 });
 
@@ -60,7 +60,7 @@ router.post('/daily-reward', auth, async (req, res) => {
         // Diferencia en milisegundos convertida a horas
         const hoursPassed = (now - lastClaim) / (1000 * 60 * 60);
 
-        if (hoursPassed >= 24) {
+        if (hoursPassed >= 24) { 
             user.coins = (user.coins || 0) + 5;
             user.lastDailyRewardAt = now;
             await user.save();
