@@ -437,7 +437,6 @@ exports.uploadWallpaper = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
 
-        // 1. Buscar al usuario y validar existencia
         const isVideo = req.file.mimetype.startsWith('video');
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
@@ -447,7 +446,6 @@ exports.uploadWallpaper = async (req, res) => {
             const resourceType = isVideo ? 'video' : 'image';
             await cloudinary.uploader.destroy(req.file.filename, { resource_type: resourceType })
                 .catch(e => console.error('❌ Error limpiando archivo no autorizado:', e));
-
             return res.status(403).json({ 
                 msg: 'Acceso restringido: Solo los Artistas Verificados pueden publicar en Vexel.' 
             });
@@ -460,26 +458,21 @@ exports.uploadWallpaper = async (req, res) => {
             return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers.' });
         }
 
-        
         // 2. Extraer datos del body
-        const { tags, price, manualAIResult } = req.body;
+        const { tags, price, manualAIResult, useAI } = req.body; // 👈 useAI agregado
         let rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         let isAITagged = false;
 
         // 🚀 LÓGICA DE BYPASS: PROCESAR JSON MANUAL SI EXISTE
         if (manualAIResult && manualAIResult.trim() !== "") {
             try {
-                const parsed = JSON.parse(manualAIResult); // Espera: [{"en":"dog","es":"perro"}, ...]
+                const parsed = JSON.parse(manualAIResult);
                 
                 if (Array.isArray(parsed)) {
-                    // A. Extraer palabras para las etiquetas del wallpaper
                     const manualEn = parsed.map(t => t.en.toLowerCase().trim());
                     const manualEs = parsed.map(t => t.es.toLowerCase().trim());
-                    
-                    // Combinamos etiquetas del usuario con las del JSON
                     rawTags = [...new Set([...rawTags, ...manualEn, ...manualEs])];
 
-                    // B. Alimentar el TagMap (Diccionario Global) inmediatamente
                     const tagMapOps = parsed
                         .filter(t => t.en && t.es && t.en !== t.es)
                         .map(({ en, es }) => ({
@@ -489,16 +482,15 @@ exports.uploadWallpaper = async (req, res) => {
                                 upsert: true
                             }
                         }));
-
+ 
                     if (tagMapOps.length > 0) {
                         await TagMap.bulkWrite(tagMapOps, { ordered: false });
                     }
 
-                    isAITagged = true; // Marcamos como procesado para no llamar a la IA de Google
+                    isAITagged = true;
                 }
             } catch (jsonErr) {
                 console.error('❌ Error parseando manualAIResult:', jsonErr.message);
-           
             }
         }
 
@@ -511,10 +503,10 @@ exports.uploadWallpaper = async (req, res) => {
             tags:      finalTags,
             imageUrl:  req.file.path,
             public_id: req.file.filename,
-            artist:    req.user.id,
+            artist:    req.user.id, 
             type:      isVideo ? 'video' : 'image',
             status:    'pending',
-            isAITagged: isAITagged, 
+            isAITagged: isAITagged,
             price:     user.role === 'admin' ? Math.max(0, Number(price) || 0) : 0
         });
 
@@ -523,14 +515,19 @@ exports.uploadWallpaper = async (req, res) => {
 
         res.json(newWallpaper);
 
-        if (!isVideo && !isAITagged) {
+        // 🤖 LÓGICA DE DECISIÓN DE IA
+        // Entra a la cola solo si:
+        // 1. No es video
+        // 2. No se mandó JSON manual (bypass)
+        // 3. El usuario NO apagó el botón (useAI !== 'false')
+        if (!isVideo && !isAITagged && useAI !== 'false') {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
                 imageUrl:    req.file.path,
                 baseTags:    finalTags
             });
         } else {
-            console.log(`✅ [UPLOAD] ${isAITagged ? 'Bypass IA activado (JSON Manual)' : 'Video detectado (Sin IA)'}`);
+            console.log(`🚫 IA Omitida: ${useAI === 'false' ? 'Botón apagado por usuario' : isAITagged ? 'Bypass IA activado (JSON Manual)' : 'Video detectado (Sin IA)'}`);
         }
 
     } catch (err) {
