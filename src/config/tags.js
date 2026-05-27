@@ -500,12 +500,12 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2, maxLength = 40 } = 
   return tagsArray
     // 1. Filtro de tipo temprano (evita procesar basura)
     .filter(t => t != null && typeof t === 'string')
-
+ 
     // 2. Normalización básica
     .map(t =>
       t.toLowerCase()
        .trim() 
-       .replace(/[^a-z0-9áéíóúüñ \-]/gi, '')
+       .replace(/[^a-z0-9áéíóúüñ ]/gi, '') 
        .replace(/\s+/g, ' ')
        .trim()
     )

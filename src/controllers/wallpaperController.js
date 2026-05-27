@@ -489,7 +489,7 @@ exports.uploadWallpaper = async (req, res) => {
 
                     isAITagged = true;
                 }
-            } catch (jsonErr) {
+            } catch (jsonErr) { 
                 console.error('❌ Error parseando manualAIResult:', jsonErr.message);
             }
         }
