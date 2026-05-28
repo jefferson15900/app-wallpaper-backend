@@ -312,14 +312,15 @@ exports.searchWallpapers = async (req, res) => {
             $multiply: [
                 '$score',
                 {
-                    $abs: {
-                        $sin: {
+                    $mod: [
+                        {
                             $add: [
-                                { $multiply: ['$score', randomSeed * 1000] },
-                                { $toLong: { $toDate: "$_id" } } 
+                                { $toLong: { $toDate: "$_id" } },
+                                Math.floor(randomSeed * 999983)
                             ]
-                        }
-                    }
+                        },
+                        997
+                    ]
                 }
             ]
         }
