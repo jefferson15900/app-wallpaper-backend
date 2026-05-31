@@ -57,7 +57,7 @@ router.post('/register', async (req, res) => {
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: "" } }); // Enviamos username vacío al frontend
+            res.json({ token, user: { id: user.id, username: "", isGoogleUser: false } }); // Enviamos username vacío al frontend
         });
     } catch (err) {
         res.status(500).send('Error');
@@ -110,7 +110,8 @@ router.post('/login', async (req, res) => {
                     tiktok: user.tiktok,
                     twitter: user.twitter,
                     role: user.role,
-                    isActive: true       
+                    isActive: true,
+                    isGoogleUser: user.isGoogleUser || false
                 } 
             });
         });
@@ -139,11 +140,17 @@ router.post('/google-login', async (req, res) => {
             return res.status(404).json({ msg: 'Esta cuenta de Google no está registrada. Ve a Registro primero.' });
         }
 
+        // Auto-migración si es necesario
+        if (!user.isGoogleUser) {
+            user.isGoogleUser = true;
+            await user.save();
+        }
+
         // SI EXISTE, LOGUEAMOS
         const jwtPayload = { user: { id: user.id } };
         jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic } });
+            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic, isGoogleUser: true } });
         });
     } catch (error) {
         res.status(400).json({ msg: 'Error de autenticación' });
@@ -174,14 +181,15 @@ router.post('/google-register', async (req, res) => {
             email,
             password: hashedPassword,
             profilePic: picture,
-            role: 'artist'
+            role: 'artist',
+            isGoogleUser: true
         });
         await user.save();
 
         const jwtPayload = { user: { id: user.id } };
         jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '30d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic } });
+            res.json({ token, user: { id: user.id, username: user.username, profilePic: user.profilePic, isGoogleUser: true } });
         });
     } catch (error) {
         res.status(400).json({ msg: 'Error al registrar con Google' });
@@ -479,8 +487,12 @@ router.post('/deactivate', auth, rateLimiter, async (req, res) => {
             return res.status(400).json({ msg: 'La cuenta ya está desactivada' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+        // Si no es usuario de Google, se requiere y verifica contraseña
+        if (!user.isGoogleUser) {
+            if (!password) return res.status(400).json({ msg: 'La contraseña es obligatoria' });
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+        }
 
         // 2. Desactivar cuenta
         await User.findByIdAndUpdate(
@@ -507,8 +519,12 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+        // Si no es usuario de Google, se requiere y verifica contraseña
+        if (!user.isGoogleUser) {
+            if (!password) return res.status(400).json({ msg: 'La contraseña es obligatoria' });
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) return res.status(401).json({ msg: 'Contraseña incorrecta' });
+        }
 
         // 2. LIMPIEZA DE CLOUDINARY (Fuera de la transacción)
         // Cloudinary es lento. Si lo metemos en la transacción, MongoDB se cansa de esperar y da error.

@@ -39,5 +39,6 @@ const UserSchema = new mongoose.Schema({
     isFeedDirty: { type: Boolean, default: true},
     verificationStatus: { type: String, enum: ['approved', 'rejected', null], default: null },
     nativeLanguage: { type: String, default: "No definido" },
+    isGoogleUser: { type: Boolean, default: false }
 });
 module.exports = mongoose.model('User', UserSchema);
