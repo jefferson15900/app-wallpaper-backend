@@ -1,9 +1,12 @@
-const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 
 // --- CUENTA A (Imágenes y Perfiles) ---
-const cloudinaryPrimary = new cloudinary.Cloudinary({
+Object.keys(require.cache).forEach(key => {
+    if (key.includes('cloudinary')) delete require.cache[key];
+});
+const cloudinaryPrimary = require('cloudinary').v2;
+cloudinaryPrimary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key   : process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
@@ -11,7 +14,11 @@ const cloudinaryPrimary = new cloudinary.Cloudinary({
 });
 
 // --- CUENTA B (Videos) ---
-const cloudinarySecondary = new cloudinary.Cloudinary({
+Object.keys(require.cache).forEach(key => {
+    if (key.includes('cloudinary')) delete require.cache[key];
+});
+const cloudinarySecondary = require('cloudinary').v2;
+cloudinarySecondary.config({
     cloud_name: process.env.CLOUDINARY_VIDEO_CLOUD_NAME,
     api_key   : process.env.CLOUDINARY_VIDEO_API_KEY,
     api_secret: process.env.CLOUDINARY_VIDEO_API_SECRET,
