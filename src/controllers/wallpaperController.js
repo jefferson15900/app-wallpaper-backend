@@ -3,6 +3,7 @@ const User = require('../models/User');
 const TagMap = require('../models/TagMap');
 const FeedCache = require('../models/FeedCache'); // El que creamos hoy
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
@@ -75,11 +76,15 @@ exports.getDiscoveryFeed = async (req, res) => {
         let userDoc  = null;
         const token  = req.header('x-auth-token');
 
-        if (token) {
+        if (token && token.trim() !== '') {
             try {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
                 userId = decoded.user.id;
-            } catch { /* token inválido → invitado */ }
+            } catch (jwtErr) { 
+                console.error(`[DEBUG-FEED] Token recibido pero INVÁLIDO: ${jwtErr.message}`);
+            }
+        } else {
+            console.log(`[DEBUG-FEED] No se recibió token en los headers (o está vacío)`);
         }
 
         console.log(`[DEBUG-FEED] Nueva petición feed (pág ${page}), userId: ${userId ? userId : 'NO LOGUEADO (invitado)'}`);
