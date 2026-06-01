@@ -3,7 +3,7 @@ const Wallpaper = require('../models/Wallpaper');
 const Visitor = require('../models/Visitor');
 const Feedback = require('../models/Feedback');
 const { Expo } = require('expo-server-sdk');
-const { cloudinary } = require('../config/cloudinary');
+const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const { getAITags } = require('../services/aiService');
 const TagMap = require('../models/TagMap');
 const SearchLog = require('../models/SearchLog'); 
@@ -138,7 +138,8 @@ exports.reportAction = async (req, res) => {
                 // 1. Borramos de Cloudinary con detección de tipo (Imagen o Video)
                 // Sin el resource_type, Cloudinary no borraría los archivos de video.
                 if (wall.public_id) {
-                    await cloudinary.uploader.destroy(wall.public_id, {
+                    const cloudinaryInstance = wall.type === 'video' ? cloudinarySecondary : cloudinaryPrimary;
+                    await cloudinaryInstance.uploader.destroy(wall.public_id, {
                         resource_type: wall.type === 'video' ? 'video' : 'image'
                     });
                 }
@@ -450,8 +451,9 @@ exports.approveOrReject = async (req, res) => {
 
         // ── CASO A: RECHAZADO ─────────────────────────────────────────────────
         if (action === 'rejected') {
+            const cloudinaryInstance = wallpaper.type === 'video' ? cloudinarySecondary : cloudinaryPrimary;
             const destroyPromise = wallpaper.public_id
-                ? cloudinary.uploader.destroy(wallpaper.public_id, {
+                ? cloudinaryInstance.uploader.destroy(wallpaper.public_id, {
                     resource_type: wallpaper.type === 'video' ? 'video' : 'image',
                 })
                 : Promise.resolve();
@@ -666,7 +668,7 @@ exports.resolveVerification = async (req, res) => {
 
         // 3. Borrar imágenes en paralelo
         const deleteResults = await Promise.allSettled(
-            request.samples.map(img => cloudinary.uploader.destroy(img.public_id))
+            request.samples.map(img => cloudinaryPrimary.uploader.destroy(img.public_id))
         );
 
         // Loguear los que fallaron sin romper el flujo

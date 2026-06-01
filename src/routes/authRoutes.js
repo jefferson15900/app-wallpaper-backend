@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Wallpaper = require('../models/Wallpaper');
 const auth = require('../middleware/authMiddleware'); 
-const { uploadCloud , cloudinary } = require('../config/cloudinary');
+const { uploadCloud, cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const { Expo } = require('expo-server-sdk'); 
 const { OAuth2Client } = require('google-auth-library');
 const rateLimit = require('express-rate-limit'); 
@@ -253,7 +253,7 @@ router.put('/update-avatar', [auth, uploadCloud.single('avatar')], async (req, r
 
         // 2. Si el usuario ya tenía una foto (profilePicId), borrarla de Cloudinary
         if (user.profilePicId) {
-            await cloudinary.uploader.destroy(user.profilePicId);
+            await cloudinaryPrimary.uploader.destroy(user.profilePicId);
         }
 
         // 3. Guardar la nueva URL y el nuevo ID
@@ -531,12 +531,13 @@ router.delete('/delete-account', auth, rateLimiter, async (req, res) => {
         const userWallpapers = await Wallpaper.find({ artist: userId }).select('public_id type');
         
         await Promise.allSettled([
-            ...userWallpapers.filter(w => w.public_id).map(w =>
-                cloudinary.uploader.destroy(w.public_id, {
+            ...userWallpapers.filter(w => w.public_id).map(w => {
+                const cloudinaryInstance = w.type === 'video' ? cloudinarySecondary : cloudinaryPrimary;
+                return cloudinaryInstance.uploader.destroy(w.public_id, {
                     resource_type: w.type === 'video' ? 'video' : 'image'
-                })
-            ),
-            user.profilePicId ? cloudinary.uploader.destroy(user.profilePicId) : Promise.resolve()
+                });
+            }),
+            user.profilePicId ? cloudinaryPrimary.uploader.destroy(user.profilePicId) : Promise.resolve()
         ]);
 
         // 3. TRANSACCIÓN DE BASE DE DATOS (Usando withTransaction para auto-reintentos)
