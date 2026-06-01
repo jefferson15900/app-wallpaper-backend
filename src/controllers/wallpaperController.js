@@ -80,7 +80,6 @@ exports.getDiscoveryFeed = async (req, res) => {
                 console.error(`[DEBUG-FEED] Token recibido pero INVÁLIDO: ${jwtErr.message}`);
             }
         } else {
-            console.log(`[DEBUG-FEED] No se recibió token en los headers (o está vacío)`);
         }
 
 
@@ -101,7 +100,6 @@ exports.getDiscoveryFeed = async (req, res) => {
                     Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS;
 
                 if (isFresh) {
-                    console.log(`[DEBUG-FEED] Devolviendo respuesta DESDE CACHÉ ⚡`);
                     // snapshot ya tiene el formato final — sin necesidad de filtrar aquí
                     return res.json(
                         shuffleArray(cache.snapshot)
@@ -131,7 +129,7 @@ exports.getDiscoveryFeed = async (req, res) => {
                 .map(id => new mongoose.Types.ObjectId(id));
 
             if (excludeIds.length > 0) baseMatch._id = { $nin: excludeIds };
-        }
+        } 
 
         const userTags = tags
             ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
