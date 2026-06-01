@@ -78,8 +78,7 @@ const BLACKLIST_TAGS = new Set([
   '2d art', '3d art', '2.5d',
   'pixel art', 'pixelart', 'pixel',
   'low poly', 'low-poly', 'lowpoly',
-  'isometric', 'isometric art',
-  'chibi', 'chibi style',
+  'isometric', 'isometric art','chibi style',
 
   // ── RENDER / SOFTWARE / MOTORES ──────────────────────────
   'render', '3d render', 'rendered', '3d rendered',

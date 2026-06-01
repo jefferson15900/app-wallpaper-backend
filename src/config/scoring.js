@@ -4,7 +4,7 @@ const IGNORED_TAGS = [
   // --- IA / CALIDAD ---
   '4k', '8k', 'high quality', 'masterpiece', 'cinematic', 'detailed', 
   'highres', 'uhd', 'render', 'digital art', 'sharp', 'highly detailed',
-  'photorealistic', 'raw photo', 'unreal engine', 'octane render',
+  'photorealistic', 'raw photo', 'unreal engine', 'octane render', 'live',
   
   // --- CÁMARA / COMPOSICIÓN ---
   'depth of field', 'bokeh', 'centered', 'close up', 'wide shot', 
