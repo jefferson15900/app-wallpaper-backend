@@ -7,11 +7,12 @@ const FeedCacheSchema = new mongoose.Schema({
         required: true, 
         unique: true 
     },
-    // Guardamos solo los IDs de los wallpapers para que sea ligero
-    wallpapers: [{ 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Wallpaper' 
-    }],
+    // Guardamos el snapshot completo para no tener que hacer populate al leer
+    snapshot: [mongoose.Schema.Types.Mixed],
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    },
     createdAt: { 
         type: Date, 
         default: Date.now, 

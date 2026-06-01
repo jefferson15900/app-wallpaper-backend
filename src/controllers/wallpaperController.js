@@ -38,13 +38,11 @@ const saveFeedCacheAsync = async (userId, results) => {
     }
 
     try {
-        const wallpaperIds = results.map(r => r._id);
-
         // Ambas escrituras son independientes → se ejecutan en paralelo
         await Promise.all([
             FeedCache.findOneAndUpdate(
                 { userId },
-                { wallpapers: wallpaperIds, updatedAt: new Date() },
+                { snapshot: results, updatedAt: new Date() },
                 { upsert: true }
             ),
             User.findByIdAndUpdate(userId, { isFeedDirty: false }),
