@@ -31,12 +31,9 @@ const shuffleArray = (array) => {
 };
 
 // 💾 Utilidad: Guardar Cache en segundo plano
-const saveFeedCacheAsync = async (userId, results) => {
-    console.log(`[DEBUG-CACHE] Intentando guardar caché para usuario: ${userId}, items: ${results?.length}`);
-    
+const saveFeedCacheAsync = async (userId, results) => {    
     // Evitar guardar un cache vacío que parecería válido
     if (!results?.length) {
-        console.warn(`⚠️ [CACHE] Ignorado: sin resultados para usuario ${userId}`);
         return;
     }
 
@@ -50,7 +47,6 @@ const saveFeedCacheAsync = async (userId, results) => {
             ),
             User.findByIdAndUpdate(userId, { isFeedDirty: false }),
         ]);
-        console.log(`[DEBUG-CACHE] Caché guardado EXITOSAMENTE en MongoDB para el usuario: ${userId}`);
 
     } catch (err) {
         // Loguear el error completo, no solo el mensaje
@@ -87,7 +83,6 @@ exports.getDiscoveryFeed = async (req, res) => {
             console.log(`[DEBUG-FEED] No se recibió token en los headers (o está vacío)`);
         }
 
-        console.log(`[DEBUG-FEED] Nueva petición feed (pág ${page}), userId: ${userId ? userId : 'NO LOGUEADO (invitado)'}`);
 
         // ── A. CACHE (solo página 1, usuario logueado) ────────────────────────
         const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
@@ -98,16 +93,12 @@ exports.getDiscoveryFeed = async (req, res) => {
                 User.findById(userId).select('isFeedDirty').lean(),
             ]);
 
-            console.log(`[DEBUG-FEED] userDoc isFeedDirty: ${userDoc?.isFeedDirty}`);
-
             if (userDoc && !userDoc.isFeedDirty) {
                 const cache = await FeedCache.findOne({ userId }).lean();
                 
                 const isFresh =
                     cache?.snapshot?.length > 0 &&
                     Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS;
-
-                console.log(`[DEBUG-FEED] Caché encontrado? ${!!cache}, isFresh? ${isFresh}`);
 
                 if (isFresh) {
                     console.log(`[DEBUG-FEED] Devolviendo respuesta DESDE CACHÉ ⚡`);
@@ -542,7 +533,6 @@ exports.uploadWallpaper = async (req, res) => {
                 baseTags:    finalTags
             });
         } else {
-            console.log(`🚫 IA Omitida: ${useAI === 'false' ? 'Botón apagado por usuario' : isAITagged ? 'Bypass IA activado (JSON Manual)' : 'Video detectado (Sin IA)'}`);
         }
 
     } catch (err) {

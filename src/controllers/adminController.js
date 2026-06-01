@@ -41,7 +41,7 @@ exports.broadcast = async (req, res) => {
                     channelId: 'default', 
                 });
             } else {
-                console.log(`Token detectado como inválido: ${token}`);
+                console.log(`Token detectado como inválido: ${token}`); 
             }
         }
 
