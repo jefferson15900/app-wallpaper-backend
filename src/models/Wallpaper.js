@@ -3,6 +3,10 @@ const WallpaperSchema = new mongoose.Schema({
     tags: [{ type: String }],
     imageUrl: { type: String, required: true }, 
     public_id: { type: String, required: true },
+    images: [{
+        imageUrl: { type: String },
+        public_id: { type: String }
+    }],
     artist: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     downloads: { type: Number, default: 0 },

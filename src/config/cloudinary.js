@@ -95,7 +95,7 @@ const uploadCloud = multer({
     storage: dynamicStorage,
     limits: {
         fileSize: 100 * 1024 * 1024, // 100MB máx para soportar videos grandes
-        files: 1
+        files: 10
     },
     fileFilter: (req, file, cb) => {
         const isVideo = file.mimetype.startsWith('video/');

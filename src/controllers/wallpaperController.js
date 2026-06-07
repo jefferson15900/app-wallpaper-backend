@@ -438,18 +438,26 @@ exports.getArtistWallpapers = async (req, res) => {
 // ==========================================
 exports.uploadWallpaper = async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ msg: 'No se recibió media' });
+        const files = req.files || [];
+        if (files.length === 0) return res.status(400).json({ msg: 'No se recibió media' });
 
-        const isVideo = req.file.mimetype.startsWith('video');
+        const isVideo = files[0].mimetype.startsWith('video');
         const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
+        const cleanupFiles = async (uploadedFiles) => {
+            for (const file of uploadedFiles) {
+                const fileIsVideo = file.mimetype.startsWith('video');
+                const resourceType = fileIsVideo ? 'video' : 'image';
+                const cloudinaryInstance = fileIsVideo ? cloudinarySecondary : cloudinaryPrimary;
+                await cloudinaryInstance.uploader.destroy(file.filename, { resource_type: resourceType })
+                    .catch(e => console.error('❌ Error limpiando archivo:', e));
+            }
+        };
+
         // 🛡️ REGLA A: BLOQUEO TOTAL PARA USUARIOS NO VERIFICADOS
         if (user.role !== 'admin' && !user.isVerified) {
-            const resourceType = isVideo ? 'video' : 'image';
-            const cloudinaryInstance = isVideo ? cloudinarySecondary : cloudinaryPrimary;
-            await cloudinaryInstance.uploader.destroy(req.file.filename, { resource_type: resourceType })
-                .catch(e => console.error('❌ Error limpiando archivo no autorizado:', e));
+            await cleanupFiles(files);
             return res.status(403).json({ 
                 msg: 'Acceso restringido: Solo los Artistas Verificados pueden publicar en Vexel.' 
             });
@@ -457,13 +465,12 @@ exports.uploadWallpaper = async (req, res) => {
 
         // 🛡️ REGLA B: RESTRICCIÓN DE VIDEO (Solo para Admins)
         if (isVideo && user.role !== 'admin') {
-            await cloudinarySecondary.uploader.destroy(req.file.filename, { resource_type: 'video' })
-                .catch(e => console.error('❌ Error limpiando video:', e));
+            await cleanupFiles(files);
             return res.status(403).json({ msg: 'Solo el administrador puede subir Live Wallpapers.' });
         }
 
         // 2. Extraer datos del body
-        const { tags, price, manualAIResult, useAI } = req.body; // 👈 useAI agregado
+        const { tags, price, manualAIResult, useAI } = req.body; 
         let rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         let isAITagged = false;
 
@@ -503,10 +510,17 @@ exports.uploadWallpaper = async (req, res) => {
         const finalTags = await resolveTagsArray(cleaned);
 
         // 4. Crear registro en DB
+        const firstFile = files[0];
+        const imagesList = files.map(file => ({
+            imageUrl: file.path,
+            public_id: file.filename
+        }));
+
         const newWallpaper = new Wallpaper({
             tags:      finalTags,
-            imageUrl:  req.file.path,
-            public_id: req.file.filename,
+            imageUrl:  firstFile.path,
+            public_id: firstFile.filename,
+            images:    imagesList,
             artist:    req.user.id, 
             type:      isVideo ? 'video' : 'image',
             status:    'pending',
@@ -520,27 +534,25 @@ exports.uploadWallpaper = async (req, res) => {
         res.json(newWallpaper);
 
         // 🤖 LÓGICA DE DECISIÓN DE IA
-        // Entra a la cola solo si:
-        // 1. No es video
-        // 2. No se mandó JSON manual (bypass)
-        // 3. El usuario NO apagó el botón (useAI !== 'false')
         if (!isVideo && !isAITagged && useAI !== 'false') {
             aiQueue.addJob({
                 wallpaperId: newWallpaper._id,
-                imageUrl:    req.file.path,
+                imageUrl:    firstFile.path,
                 baseTags:    finalTags
             });
-        } else {
         }
 
     } catch (err) {
         console.error('❌ ERROR EN UPLOAD:', err);
 
-        if (req.file?.filename) {
-            const resourceType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
-            const cloudinaryInstance = req.file.mimetype.startsWith('video') ? cloudinarySecondary : cloudinaryPrimary;
-            await cloudinaryInstance.uploader.destroy(req.file.filename, { resource_type: resourceType })
-                .catch(e => console.error('❌ Error en limpieza post-error:', e));
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const fileIsVideo = file.mimetype.startsWith('video');
+                const resourceType = fileIsVideo ? 'video' : 'image';
+                const cloudinaryInstance = fileIsVideo ? cloudinarySecondary : cloudinaryPrimary;
+                await cloudinaryInstance.uploader.destroy(file.filename, { resource_type: resourceType })
+                    .catch(e => console.error('❌ Error en limpieza post-error:', e));
+            }
         }
 
         res.status(500).json({ msg: 'Error interno en la subida' });
@@ -830,11 +842,20 @@ exports.deleteWallpaper = async (req, res) => {
         }
 
         // 1. Borrar de Cloudinary especificando el tipo de recurso
-        if (wallpaper.public_id) {
+        if (wallpaper.images && wallpaper.images.length > 0) {
+            for (const img of wallpaper.images) {
+                if (img.public_id) {
+                    const cloudinaryInstance = wallpaper.type === 'video' ? cloudinarySecondary : cloudinaryPrimary;
+                    await cloudinaryInstance.uploader.destroy(img.public_id, {
+                        resource_type: wallpaper.type === 'video' ? 'video' : 'image'
+                    }).catch(e => console.error('Error deleting image from Cloudinary:', e));
+                }
+            }
+        } else if (wallpaper.public_id) {
             const cloudinaryInstance = wallpaper.type === 'video' ? cloudinarySecondary : cloudinaryPrimary;
             await cloudinaryInstance.uploader.destroy(wallpaper.public_id, {
                 resource_type: wallpaper.type === 'video' ? 'video' : 'image'
-            });
+            }).catch(e => console.error('Error deleting image from Cloudinary:', e));
         }
 
         // 2. Actualizar contador del artista y borrar de DB
