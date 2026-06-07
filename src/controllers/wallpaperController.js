@@ -672,7 +672,7 @@ exports.getUserLibrary = async (req, res) => {
     try {
         const userPopulated = await User.findById(req.user.id).populate({
             path: 'savedWallpapers',
-            select: 'imageUrl title type tags category artist price',
+            select: 'imageUrl title type tags category artist price images',
             populate: { path: 'artist', select: 'username profilePic isVerified' }
         });
         const cleanLibrary = (userPopulated.savedWallpapers || []).filter(item => item !== null);
