@@ -12,6 +12,27 @@ const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver')
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
+const SearchLog = require('../models/SearchLog');
+
+// 💾 Utilidad: Guardar Log de Búsqueda en segundo plano
+const saveSearchLogAsync = async (term, resultsCount) => {
+    if (!term || term.length < 2) return;
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        await SearchLog.findOneAndUpdate(
+            { term: term, date: today },
+            { 
+                $inc: { count: 1 },
+                $set: { resultsCount: resultsCount }
+            },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error("❌ [SearchLog] Error guardando log de búsqueda:", err.message);
+    }
+};
 
 
 
@@ -343,6 +364,12 @@ exports.searchWallpapers = async (req, res) => {
         ];
 
         const results = await Wallpaper.aggregate(pipeline);
+
+        // Registro de búsqueda en segundo plano (fire-and-forget)
+        saveSearchLogAsync(singularSearch || rawSearch, results.length).catch(err => 
+            console.error('Error logging search:', err)
+        );
+
         return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
          
     } catch (err) {
@@ -733,6 +760,22 @@ exports.toggleLike = async (req, res) => {
             // Poner Like en ambos modelos
             wallpaper.likes.push(userId);
             await User.findByIdAndUpdate(userId, { $addToSet: { likedWallpapers: wallpaperId } });
+
+            // Registro de engagement desde búsqueda
+            const { q } = req.query;
+            if (q && q.trim().length >= 2) {
+                const searchTerms = q.trim().toLowerCase();
+                const singular = nlp(searchTerms).nouns().toSingular().text().trim();
+                const term = singular || searchTerms;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                SearchLog.findOneAndUpdate(
+                    { term, date: today },
+                    { $inc: { clicks: 1 } },
+                    { upsert: true }
+                ).catch(err => console.error("❌ [SearchLog] Error guardando click de like:", err.message));
+            }
         }
 
         await wallpaper.save();
@@ -792,6 +835,22 @@ exports.registerDownload = async (req, res) => {
         );
 
         if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+
+        // ── REGISTRO DE DESCARGA DESDE BÚSQUEDA ──
+        const { q } = req.query;
+        if (q && q.trim().length >= 2) {
+            const searchTerms = q.trim().toLowerCase();
+            const singular = nlp(searchTerms).nouns().toSingular().text().trim();
+            const term = singular || searchTerms;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            SearchLog.findOneAndUpdate(
+                { term, date: today },
+                { $inc: { downloads: 1 } },
+                { upsert: true }
+            ).catch(err => console.error("❌ [SearchLog] Error guardando descarga de búsqueda:", err.message));
+        }
 
         // 2. LÓGICA DE RASTREO PARA ANALYTICS (RETENCIÓN)
         const token = req.header('x-auth-token');

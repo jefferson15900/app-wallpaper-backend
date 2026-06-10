@@ -271,6 +271,7 @@ exports.getDashboardStats = async (req, res) => {
             totalLikesAgg, 
             statsByTag, 
             topSearches,
+            contentGaps,
             cohort,
         ] = await Promise.all([
             // ── Usuarios ──────────────────────────────────────────
@@ -306,12 +307,49 @@ exports.getDashboardStats = async (req, res) => {
                 { $limit: 15 },
             ]),
 
-            // ── Top 10 búsquedas (solo las que superen umbral) ────
-            SearchLog.find({ count: { $gte: 2 } })   // ← umbral mínimo
-                .sort({ count: -1 })
-                .limit(10)
-                .select('term count -_id')
-                .lean(),
+            // ── Top 10 búsquedas (últimos 7 días) ──
+            SearchLog.aggregate([
+                { $match: { date: { $gte: ago7days } } },
+                {
+                    $group: {
+                        _id: "$term",
+                        count: { $sum: "$count" },
+                        clicks: { $sum: "$clicks" },
+                        downloads: { $sum: "$downloads" }
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 10 },
+                {
+                    $project: {
+                        term: "$_id",
+                        count: 1,
+                        clicks: 1,
+                        downloads: 1,
+                        _id: 0
+                    }
+                }
+            ]),
+
+            // ── Brechas de contenido (últimos 7 días, resultsCount === 0) ──
+            SearchLog.aggregate([
+                { $match: { date: { $gte: ago7days }, resultsCount: 0 } },
+                {
+                    $group: {
+                        _id: "$term",
+                        count: { $sum: "$count" }
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 10 },
+                {
+                    $project: {
+                        term: "$_id",
+                        count: 1,
+                        _id: 0
+                    }
+                }
+            ]),
 
             // ── Cohorte de retención (descargaron hace 3-4 días) ──
             Visitor.find({
@@ -343,6 +381,7 @@ exports.getDashboardStats = async (req, res) => {
             },
             tags:    statsByTag,
             searches: topSearches,
+            contentGaps: contentGaps,
         });
 
     } catch (err) {
@@ -387,20 +426,51 @@ exports.cleanupSearchLogs = async (req, res) => {
 // ============================================================
 exports.getTopSearches = async (req, res) => {
     try {
-        const limit    = Math.min(parseInt(req.query.limit, 10)    || 10, 100);
-        const minCount = parseInt(req.query.minCount, 10) || 1;
-        const page     = Math.max(parseInt(req.query.page, 10)     || 1, 1);
-        const skip     = (page - 1) * limit;
+        const limit      = Math.min(parseInt(req.query.limit, 10) || 10, 100);
+        const page       = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const skip       = (page - 1) * limit;
+        const filterType = req.query.filter || 'all_time'; // 'all_time' | 'trending' | 'content_gaps'
 
-        const [searches, total] = await Promise.all([
-            SearchLog.find({ count: { $gte: minCount } })
-                .sort({ count: -1 })
-                .skip(skip)
-                .limit(limit)
-                .select('term count updatedAt -_id')
-                .lean(),
-            SearchLog.countDocuments({ count: { $gte: minCount } }),
+        const matchStage = {};
+
+        if (filterType === 'trending') {
+            const ago7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            matchStage.date = { $gte: ago7days };
+        } else if (filterType === 'content_gaps') {
+            matchStage.resultsCount = 0;
+            const ago30days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            matchStage.date = { $gte: ago30days };
+        }
+
+        // Consulta de agregación usando $facet para paginar y contar en una sola llamada
+        const [results] = await SearchLog.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$term",
+                    count: { $sum: "$count" },
+                    clicks: { $sum: "$clicks" },
+                    downloads: { $sum: "$downloads" },
+                    resultsCount: { $last: "$resultsCount" }
+                }
+            },
+            { $sort: { count: -1 } },
+            {
+                $facet: {
+                    metadata: [{ $count: "total" }],
+                    data: [{ $skip: skip }, { $limit: limit }]
+                }
+            }
         ]);
+
+        const total = results?.metadata[0]?.total || 0;
+        const searches = results?.data?.map(item => ({
+            term: item._id,
+            count: item.count,
+            clicks: item.clicks,
+            downloads: item.downloads,
+            resultsCount: item.resultsCount
+        })) || [];
 
         return res.json({
             searches,
