@@ -12,6 +12,7 @@ let lastTagsUpdate = null;
 // Deben ir arriba para que no se confundan con un ID
 router.get('/search', wallpaperController.searchWallpapers);
 router.get('/tags/search', wallpaperController.searchTags);
+router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
 router.get('/latest', wallpaperController.getLatestWallpapers);
 

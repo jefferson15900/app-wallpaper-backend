@@ -739,6 +739,58 @@ exports.searchTags = async (req, res) => {
 };
 
 // ==========================================
+// 🏷️ OBTENER ETIQUETAS POPULARES (Con fallback en servidor)
+// ==========================================
+exports.getPopularTags = async (req, res) => {
+    try {
+        const DEFAULT_POPULAR_TAGS = [
+            'anime',
+            'cyberpunk',
+            'neon',
+            'gaming',
+            'minimalist',
+            'cars',
+            'space'
+        ];
+
+        const excludedTags = ['espacio', 'autos', 'abstracto', 'otros', 'live', 'general', '', ' '];
+
+        const result = await Wallpaper.aggregate([
+            { $match: { status: 'approved' } },
+            { $unwind: "$tags" },
+            { 
+                $project: { 
+                    cleanTag: { $trim: { input: { $toLower: "$tags" } } } 
+                } 
+            },
+            { $match: { cleanTag: { $nin: excludedTags } } },
+            { $group: { _id: "$cleanTag", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 30 }
+        ]);
+
+        let tagsOnly = result.map(tag => tag._id);
+
+        // Si hay menos de 10 tags en la DB, completamos con los defaults
+        if (tagsOnly.length < 10) {
+            const added = new Set(tagsOnly);
+            for (const tag of DEFAULT_POPULAR_TAGS) {
+                if (!added.has(tag)) {
+                    tagsOnly.push(tag);
+                    added.add(tag);
+                }
+                if (tagsOnly.length >= 10) break;
+            }
+        }
+
+        return res.json(tagsOnly);
+    } catch (err) {
+        console.error('❌ Error al obtener etiquetas populares:', err);
+        return res.status(500).json(['anime', 'cyberpunk', 'neon', 'gaming', 'minimalist', 'cars', 'space']);
+    }
+};
+
+// ==========================================
 // ❤️ DAR/QUITAR LIKE
 // ==========================================
 exports.toggleLike = async (req, res) => {
