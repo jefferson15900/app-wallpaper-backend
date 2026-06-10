@@ -70,5 +70,19 @@ router.post('/track-search-click', async (req, res) => {
     }
 });
 
+// @route   GET /api/config/version
+// @desc    Obtener versión más reciente de la app en la tienda
+router.get('/version', (req, res) => {
+    try {
+        res.json({
+            latestVersion: "3.2.0", // Versión superior a 3.1.2 para pruebas
+            playStoreUrl: "market://details?id=com.vexel.wallpapers",
+            fallbackUrl: "https://play.google.com/store/apps/details?id=com.vexel.wallpapers"
+        });
+    } catch (err) {
+        console.error("Error al obtener version config:", err);
+        res.status(500).json({ error: "Server error" });
+    }
+});
 
 module.exports = router;
