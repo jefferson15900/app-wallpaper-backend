@@ -235,7 +235,7 @@ exports.getDiscoveryFeed = async (req, res) => {
         console.error('❌ Error en Discovery:', err);
         return res.status(500).json({ msg: 'Error interno al generar el feed' });
     }
-};
+};  
 
 
 
