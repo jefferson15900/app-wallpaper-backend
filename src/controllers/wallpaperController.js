@@ -283,12 +283,6 @@ exports.searchWallpapers = async (req, res) => {
             if (t.original) expandedTerms.add(t.original);
         });
 
-        const queryString = [...expandedTerms]
-         .filter(t => t && t.length >= 2)
-         .flatMap(t => [t, t.replace('-', ''), t.replace(' ', '')])
-         .slice(0,20)
-         .join(' ');
-
         // ── Filtros base ──────────────────────────────────────────────────────
         const matchQuery = { status: 'approved' };
         if (type && type !== 'all') matchQuery.type = type;
@@ -303,67 +297,119 @@ exports.searchWallpapers = async (req, res) => {
             if (ids.length) matchQuery._id = { $nin: ids };
         }
 
-        // ── Pipeline ──────────────────────────────────────────────────────────
-        const useFuzzy = singularSearch.length > 6;
+        // Helper para construir el pipeline de Atlas Search con lógica AND (nested compound)
+        const buildSearchPipeline = (useFuzzy) => {
+            const shouldClauses = [];
+            const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
-        const pipeline = [
-    {
-    $search: {
-      index: "default",
-       text: {
-         query: queryString,
-         path: ["tags"],
-        // 🚀 MEJORA: Hacemos el fuzzy más sensible
-        fuzzy: {
-            maxEdits: 1,      // Permite 1 letra de diferencia (ej: Spidreman -> Spiderman)
-            prefixLength: 3,  // Las primeras 3 letras deben ser iguales
-            maxExpansions: 50
-        }
-       }
-   }, 
-},
-{ $addFields: { score: { $meta: 'searchScore' } } },
-{ $match: matchQuery },
-{ $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
-{ $unwind: '$artist' },
-{ $match: { 'artist.isActive': { $ne: false } } },
-
-// Azar multiplicado aquí, fuera de Atlas Search
-{
-    $addFields: {
-        randomizedScore: {
-            $multiply: [
-                '$score',
-                {
-                    $mod: [
-                        {
-                            $add: [
-                                { $toLong: { $toDate: "$_id" } },
-                                Math.floor(randomSeed * 999983)
-                            ]
-                        },
-                        997
-                    ]
+            for (const term of termsArray) {
+                const variants = [term];
+                if (term.includes(' ')) {
+                    variants.push(term.replace(' ', ''));
                 }
-            ]
-        }
-    }
-},
-{ $sort : { randomizedScore: -1 } },
-{ $skip : skip },
-{ $limit: limit },
-{
-    $project: {
-        score          : 0,
-        randomizedScore: 0,
-        'artist.password' : 0,
-        'artist.email'    : 0,
-        'artist.pushToken': 0,
-    },
-},
-        ];
+                if (term.includes('-')) {
+                    variants.push(term.replace('-', ''));
+                }
 
-        const results = await Wallpaper.aggregate(pipeline);
+                for (const variant of [...new Set(variants)]) {
+                    // Si el término tiene espacios, dividimos por palabras y forzamos lógica AND (must)
+                    if (variant.includes(' ')) {
+                        const words = variant.split(/\s+/).filter(Boolean);
+                        const mustClauses = words.map(word => {
+                            const textQuery = { query: word, path: "tags" };
+                            if (useFuzzy) {
+                                textQuery.fuzzy = { maxEdits: 1, prefixLength: 1 };
+                            }
+                            return { text: textQuery };
+                        });
+
+                        shouldClauses.push({
+                            compound: {
+                                must: mustClauses
+                            }
+                        });
+                    } else {
+                        // Términos de una sola palabra
+                        const textQuery = { query: variant, path: "tags" };
+                        if (useFuzzy) {
+                            textQuery.fuzzy = { maxEdits: 1, prefixLength: 1 };
+                        }
+                        shouldClauses.push({ text: textQuery });
+                    }
+                }
+            }
+
+            return [
+                {
+                    $search: {
+                        index: "default",
+                        compound: {
+                            should: shouldClauses,
+                            minimumShouldMatch: 1
+                        }
+                    }
+                },
+                { $addFields: { score: { $meta: 'searchScore' } } },
+                { $match: matchQuery },
+                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+                { $unwind: '$artist' },
+                { $match: { 'artist.isActive': { $ne: false } } },
+                {
+                    $addFields: {
+                        randomizedScore: {
+                            $multiply: [
+                                '$score',
+                                {
+                                    $add: [
+                                        1,
+                                        {
+                                            $divide: [
+                                                {
+                                                    $mod: [
+                                                        {
+                                                            $add: [
+                                                                { $toLong: { $toDate: "$_id" } },
+                                                                Math.floor(randomSeed * 999983)
+                                                            ]
+                                                        },
+                                                        1000
+                                                    ]
+                                                },
+                                                6666 // da un multiplicador decimal entre 1.0 y 1.15
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                { $sort : { randomizedScore: -1 } },
+                { $skip : skip },
+                { $limit: limit },
+                {
+                    $project: {
+                        score          : 0,
+                        randomizedScore: 0,
+                        'artist.password' : 0,
+                        'artist.email'    : 0,
+                        'artist.pushToken': 0,
+                    },
+                },
+            ];
+        };
+
+        // ── EJECUCIÓN EN DOS FASES ───────────────────────────────────────────
+        
+        // Fase 1: Intentamos búsqueda exacta (sin fuzzy)
+        let pipeline = buildSearchPipeline(false);
+        let results = await Wallpaper.aggregate(pipeline);
+
+        // Fase 2: Si no hubo resultados en la Fase 1, ejecutamos búsqueda con fallback difuso (con fuzzy)
+        if (results.length === 0) {
+            pipeline = buildSearchPipeline(true);
+            results = await Wallpaper.aggregate(pipeline);
+        }
 
         // Registro de búsqueda en segundo plano (fire-and-forget)
         saveSearchLogAsync(singularSearch || rawSearch, results.length).catch(err => 
