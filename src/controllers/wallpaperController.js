@@ -639,12 +639,13 @@ exports.uploadWallpaper = async (req, res) => {
 exports.getRelatedWallpapers = async (req, res) => {
     try {
         const { id } = req.params;
+        const { primaryTag } = req.query;
         const page     = Math.max(1, parseInt(req.query.page)  || 1);
         const limit    = Math.min(50, parseInt(req.query.limit) || 12); // tope de seguridad
         const skip     = (page - 1) * limit;
 
-        // ── 1. CACHE solo para página 1 ──────────────────────────────────────
-        if (page === 1) {
+        // ── 1. CACHE solo para página 1 y cuando no hay una etiqueta de prioridad ──
+        if (page === 1 && !primaryTag) {
             const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
             const cache = await RelatedCache.findOne({ wallpaperId: id });
@@ -663,6 +664,11 @@ exports.getRelatedWallpapers = async (req, res) => {
         const original = await Wallpaper.findById(id).lean();
         if (!original || !original.tags?.length) return res.json([]);
 
+        // Normalizar y dividir la etiqueta principal en palabras clave (ej: "miles morales" -> ["miles", "morales"])
+        const queryWords = primaryTag
+            ? primaryTag.trim().toLowerCase().split(/\s+/).filter(w => w.length >= 2)
+            : [];
+
         // ── 3. AGGREGATE unificado (mismo formato siempre) ───────────────────
         //    Índice recomendado: { status:1, tags:1, createdAt:-1 }
         const results = await Wallpaper.aggregate([
@@ -675,12 +681,19 @@ exports.getRelatedWallpapers = async (req, res) => {
             },
             {
                 $addFields: {
+                    primaryTagMatches: queryWords.length > 0 ? {
+                        $size: { $setIntersection: ['$tags', queryWords] }
+                    } : 0,
                     commonTags: {
                         $size: { $setIntersection: ['$tags', original.tags] },
                     },
                 },
             },
-            { $sort: { commonTags: -1, createdAt: -1 } },
+            { 
+                $sort: queryWords.length > 0
+                    ? { primaryTagMatches: -1, commonTags: -1, createdAt: -1 }
+                    : { commonTags: -1, createdAt: -1 }
+            },
             { $skip: skip },
             { $limit: limit },
             {
@@ -700,12 +713,13 @@ exports.getRelatedWallpapers = async (req, res) => {
                     'artist.password' : 0,
                     'artist.email'    : 0,
                     commonTags        : 0, // campo auxiliar, no necesario en respuesta
+                    primaryTagMatches : 0  // campo auxiliar, no necesario en respuesta
                 },
             },
         ]);
 
-        // ── 4. GUARDAR cache solo en página 1 ────────────────────────────────
-        if (page === 1 && results.length > 0) {
+        // ── 4. GUARDAR cache solo en página 1 y cuando no hay una etiqueta de prioridad ──
+        if (page === 1 && !primaryTag && results.length > 0) {
             // Guardamos el snapshot completo (no solo IDs) → respuesta idéntica
             RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
