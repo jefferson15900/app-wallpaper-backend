@@ -367,15 +367,15 @@ exports.searchWallpapers = async (req, res) => {
                                                 {
                                                     $mod: [
                                                         {
-                                                            $add: [
-                                                                { $toLong: { $toDate: "$_id" } },
-                                                                Math.floor(randomSeed * 999983)
+                                                            $multiply: [
+                                                                { $divide: [ { $toLong: { $toDate: "$_id" } }, 1000 ] },
+                                                                Math.floor(randomSeed * 999983) || 123457
                                                             ]
                                                         },
-                                                        1000
+                                                        997
                                                     ]
                                                 },
-                                                6666 // da un multiplicador decimal entre 1.0 y 1.15
+                                                6646 // da un multiplicador decimal entre 1.0 y 1.15
                                             ]
                                         }
                                     ]
@@ -682,7 +682,10 @@ exports.getRelatedWallpapers = async (req, res) => {
             {
                 $addFields: {
                     primaryTagMatches: queryWords.length > 0 ? {
-                        $size: { $setIntersection: ['$tags', queryWords] }
+                        $add: [
+                            { $size: { $setIntersection: ['$tags', queryWords] } },
+                            { $cond: [{ $in: [primaryTag.toLowerCase().trim(), '$tags'] }, 2, 0] }
+                        ]
                     } : 0,
                     commonTags: {
                         $size: { $setIntersection: ['$tags', original.tags] },
