@@ -814,25 +814,20 @@ exports.getPopularTags = async (req, res) => {
             'minimalist',
             'cars',
             'space'
-        ];
+          ];
 
         const excludedTags = ['espacio', 'autos', 'abstracto', 'otros', 'live', 'general', '', ' '];
 
-        const result = await Wallpaper.aggregate([
-            { $match: { status: 'approved' } },
-            { $unwind: "$tags" },
-            { 
-                $project: { 
-                    cleanTag: { $trim: { input: { $toLower: "$tags" } } } 
-                } 
-            },
-            { $match: { cleanTag: { $nin: excludedTags } } },
-            { $group: { _id: "$cleanTag", count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 30 }
-        ]);
+        // Consulta optimizada a la colección pre-calculada
+        const result = await TagSuggestion.find(
+            { tag: { $nin: excludedTags } },
+            { tag: 1, _id: 0 }
+        )
+        .sort({ count: -1 })
+        .limit(30)
+        .lean();
 
-        let tagsOnly = result.map(tag => tag._id);
+        let tagsOnly = result.map(t => t.tag);
 
         // Si hay menos de 10 tags en la DB, completamos con los defaults
         if (tagsOnly.length < 10) {

@@ -6,4 +6,5 @@ const TagSuggestionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 TagSuggestionSchema.index({ tag: 1, count: -1 });
+TagSuggestionSchema.index({ count: -1 });
 module.exports = mongoose.model('TagSuggestion', TagSuggestionSchema);
