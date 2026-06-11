@@ -481,7 +481,7 @@ const SYNONYMS = {
   'sasuke uchiha': 'sasuke',
   'ryomen sukuna': 'sukuna',
   'kakashi hatake': 'kakashi',
-  'miles morale': 'spiderman', 'hombre araña': 'spiderman',
+  'miles morale': 'miles morales', 'hombre araña': 'spiderman',
 
 };
 
