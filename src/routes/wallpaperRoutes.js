@@ -26,6 +26,7 @@ router.put('/download/:id', wallpaperController.registerDownload);
 router.put('/like/:id', auth, wallpaperController.toggleLike);
 router.put('/save/:id', auth, wallpaperController.toggleSave);
 router.put('/admin/remove-tag/:id', [auth, isAdmin], wallpaperController.adminRemoveTag);
+router.put('/admin/add-tag/:id', [auth, isAdmin], wallpaperController.adminAddTag);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
 

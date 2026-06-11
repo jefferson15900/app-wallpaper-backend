@@ -1091,3 +1091,68 @@ exports.adminRemoveTag = async (req, res) => {
         return res.status(500).json({ msg: 'Error al actualizar etiquetas' });
     }
 };
+
+// ==========================================
+// 🛠️ ADMIN: AGREGAR ETIQUETA ESPECÍFICA
+// ==========================================
+exports.adminAddTag = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tagToAdd } = req.body;
+        const adminUser = await User.findById(req.user.id);
+
+        if (!tagToAdd || typeof tagToAdd !== 'string') {
+            return res.status(400).json({ msg: 'Etiqueta inválida' });
+        }
+
+        if (!adminUser || adminUser.role !== 'admin') {
+            return res.status(403).json({ msg: 'No autorizado: Se requiere rol de Admin' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ msg: 'ID inválido' });
+        }
+
+        // Limpiar y normalizar el tag usando el flujo de tags
+        const cleaned = cleanTags([tagToAdd]);
+        if (cleaned.length === 0) {
+            return res.status(400).json({ msg: 'La etiqueta no es válida o está en la lista negra (ej. calidad/relleno)' });
+        }
+
+        const resolved = await resolveTagsArray(cleaned);
+        const finalTag = resolved[0];
+
+        if (!finalTag) {
+            return res.status(400).json({ msg: 'No se pudo procesar la etiqueta' });
+        }
+
+        const wallpaper = await Wallpaper.findById(id);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        if (wallpaper.tags.includes(finalTag)) {
+            return res.status(400).json({ msg: 'El wallpaper ya tiene esta etiqueta' });
+        }
+
+        // Agregar tag al array
+        const result = await Wallpaper.findByIdAndUpdate(
+            id,
+            { $addToSet: { tags: finalTag } },
+            { new: true }
+        );
+
+        // Incrementar el contador en TagSuggestion
+        await TagSuggestion.updateOne(
+            { tag: finalTag },
+            { $inc: { count: 1 } },
+            { upsert: true }
+        );
+
+        return res.json({ msg: 'Etiqueta agregada', tags: result.tags });
+
+    } catch (err) {
+        console.error('❌ Error en adminAddTag:', err);
+        return res.status(500).json({ msg: 'Error al agregar etiqueta' });
+    }
+};
