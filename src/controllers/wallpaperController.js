@@ -412,16 +412,16 @@ exports.searchWallpapers = async (req, res) => {
 
                 for (const variant of [...new Set(variants)]) {
                     if (variant.includes(' ')) {
-                        // 1. Coincidencia exacta de la frase (Boost muy alto)
+                        // 1. Coincidencia exacta de la frase (Boost muy alto con score constante)
                         shouldClauses.push({
                             text: {
                                 query: variant,
                                 path: "tags",
-                                score: { boost: { value: 10 } }
+                                score: { constant: { value: 10 } }
                             }
                         });
 
-                        // 2. Coincidencia obligatoria de TODOS los términos del variante (AND con Boost medio)
+                        // 2. Coincidencia obligatoria de TODOS los términos del variante (AND con score constante)
                         const words = variant.split(/\s+/).filter(Boolean);
                         if (words.length > 1) {
                             const mustClauses = words.map(word => {
@@ -432,36 +432,37 @@ exports.searchWallpapers = async (req, res) => {
                             });
                             shouldClauses.push({
                                 compound: {
-                                    must: mustClauses
-                                },
-                                score: { boost: { value: 4 } }
+                                    must: mustClauses,
+                                    score: { constant: { value: 4 } }
+                                }
                             });
                         }
 
                         // 3. Coincidencias sueltas individuales SOLO si la palabra estaba en la consulta original
                         words.forEach(word => {
                             if (word.length >= 2 && originalWords.has(word)) {
-                                const textQuery = { query: word, path: "tags" };
                                 const fuzzyConf = wordFuzzy(word);
-                                if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
-                                shouldClauses.push({ text: textQuery });
+                                shouldClauses.push({
+                                    text: {
+                                        query: word,
+                                        path: "tags",
+                                        ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}),
+                                        score: { constant: { value: 2 } }
+                                    }
+                                });
                             }
                         });
                     } else {
                         // Términos de una sola palabra
-                        const textQuery = { query: variant, path: "tags" };
                         const fuzzyConf = wordFuzzy(variant);
-                        if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
-                        
-                        // Si la palabra estaba en la consulta original, tiene prioridad sobre sinónimos sueltos
-                        if (originalWords.has(variant)) {
-                            shouldClauses.push({
-                                text: textQuery,
-                                score: { boost: { value: 2 } }
-                            });
-                        } else {
-                            shouldClauses.push({ text: textQuery });
-                        }
+                        shouldClauses.push({
+                            text: {
+                                query: variant,
+                                path: "tags",
+                                ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}),
+                                score: { constant: { value: originalWords.has(variant) ? 2 : 1 } }
+                            }
+                        });
                     }
                 }
             }
@@ -697,7 +698,7 @@ exports.uploadWallpaper = async (req, res) => {
                                 upsert: true
                             }
                         }));
- 
+    
                     if (tagMapOps.length > 0) {
                         await TagMap.bulkWrite(tagMapOps, { ordered: false });
                     }
