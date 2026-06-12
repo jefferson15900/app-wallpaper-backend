@@ -240,6 +240,63 @@ exports.getDiscoveryFeed = async (req, res) => {
 
 
 // ==========================================
+// 🔍 UTILERÍAS DE BÚSQUEDA INTELIGENTE
+// ==========================================
+const STOP_WORDS = new Set([
+    'wallpaper', 'wallpapers', 'fondo', 'fondos', 'pantalla', 'pantallas', 
+    'screensaver', 'screen', 'screens', 'background', 'backgrounds', 'de', 'para',
+    'la', 'el', 'en', 'con'
+]);
+
+const LIVE_INTENT_WORDS = new Set([
+    'live', 'video', 'gif', 'animated', 'animado', 'movimiento', 'dinamico', 'dinamicos', 'dinámica', 'dinamica'
+]);
+
+const cleanSearchQuery = (query) => {
+    if (!query) return { text: '', isLive: false };
+    const normalized = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const words = normalized.split(/\s+/).filter(Boolean);
+    
+    const isLive = words.some(w => LIVE_INTENT_WORDS.has(w));
+    const cleanedWords = words.filter(w => !STOP_WORDS.has(w));
+    
+    const text = cleanedWords.length > 0 ? cleanedWords.join(' ') : normalized;
+    return { text, isLive };
+};
+
+const singularizeSpanish = (word) => {
+    if (!word || word.length <= 3) return word;
+    if (word.endsWith('es')) {
+        const stem = word.slice(0, -2);
+        const consonantes = 'bcdfghjklmnpqrstvwxyz';
+        if (consonantes.includes(stem[stem.length - 1])) {
+            return stem;
+        }
+        return word.slice(0, -1);
+    }
+    if (word.endsWith('s') && !word.endsWith('is') && !word.endsWith('us')) {
+        return word.slice(0, -1);
+    }
+    return word;
+};
+
+const expandSpacedTags = async (term) => {
+    if (!term || term.includes(' ') || term.length < 4) return [];
+    try {
+        const regexPattern = term.split('').map(char => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');
+        const matches = await TagSuggestion.find(
+            { tag: { $regex: `^${regexPattern}$`, $options: 'i' } },
+            { tag: 1, _id: 0 }
+        ).limit(5).lean();
+        
+        return matches.map(m => m.tag);
+    } catch (err) {
+        console.error("❌ [Search] Error en expandSpacedTags:", err.message);
+        return [];
+    }
+};
+
+// ==========================================
 // 🔍 FUNCIÓN 2: BÚSQUEDA PURA (TEXTO)
 // ==========================================
 exports.searchWallpapers = async (req, res) => {
@@ -252,7 +309,18 @@ exports.searchWallpapers = async (req, res) => {
         const skip  = (page - 1) * limit;
 
         if (!q?.trim()) return res.json([]);
-        const rawSearch = q.trim().toLowerCase();
+        
+        // 1. Limpieza de stop words e inferencia de formato "live"
+        const { text: cleanQuery, isLive } = cleanSearchQuery(q);
+        if (!cleanQuery) return res.json([]);
+
+        // Si la inferencia detecta live y el tipo no está definido o es 'all', forzamos type = 'video'
+        let finalType = type;
+        if (isLive && (!type || type === 'all')) {
+            finalType = 'video';
+        }
+
+        const rawSearch = cleanQuery;
 
         // Seed: debe ser finito y estar en rango [0, 1)
         const parsedSeed = parseFloat(seed);
@@ -260,32 +328,50 @@ exports.searchWallpapers = async (req, res) => {
             ? parsedSeed
             : Math.random();
 
-        // ── NLP ───────────────────────────────────────────────────────────────
-        const singularSearch = (() => {
+        // 2. Singularización (Inglés + Español)
+        const singularSearchEnglish = (() => {
             const s = nlp(rawSearch).nouns().toSingular().text().trim();
             return s?.length >= 2 ? s : rawSearch;
         })();
+        
+        const singularSearchSpanish = singularizeSpanish(rawSearch);
 
-        // ── Traducción + sinónimos en paralelo ────────────────────────────────
-        const [canonical, allSynonyms] = await Promise.all([
-            resolveToCanonical(singularSearch),
-            TagMap.find({ original: { $in: [rawSearch, singularSearch] } }).lean(),
+        // 3. Resolución de sinónimos y traducción
+        const [canonicalEnglish, canonicalSpanish, allSynonyms] = await Promise.all([
+            resolveToCanonical(singularSearchEnglish),
+            resolveToCanonical(singularSearchSpanish),
+            TagMap.find({ original: { $in: [rawSearch, singularSearchEnglish, singularSearchSpanish] } }).lean(),
         ]);
 
-        const canonicalSynonyms = canonical
-            ? await TagMap.find({ canonical }).lean()
-            : [];
+        const canonicalSynonyms = [];
+        if (canonicalEnglish) {
+            const csEng = await TagMap.find({ canonical: canonicalEnglish }).lean();
+            canonicalSynonyms.push(...csEng);
+        }
+        if (canonicalSpanish && canonicalSpanish !== canonicalEnglish) {
+            const csEsp = await TagMap.find({ canonical: canonicalSpanish }).lean();
+            canonicalSynonyms.push(...csEsp);
+        }
 
         const expandedTerms = new Set(
-            [rawSearch, singularSearch, canonical].filter(Boolean)
+            [rawSearch, singularSearchEnglish, singularSearchSpanish, canonicalEnglish, canonicalSpanish].filter(Boolean)
         );
         [...allSynonyms, ...canonicalSynonyms].forEach(t => {
             if (t.original) expandedTerms.add(t.original);
+            if (t.canonical) expandedTerms.add(t.canonical);
+        });
+
+        // 4. Tolerancia de Espaciado (ej: "ironman" -> "iron man")
+        // Buscamos si hay términos pegados que deban ser separados consultando TagSuggestion
+        const spacedTagPromises = [...expandedTerms].map(term => expandSpacedTags(term));
+        const spacedTagsArrays = await Promise.all(spacedTagPromises);
+        spacedTagsArrays.forEach(tags => {
+            tags.forEach(tag => expandedTerms.add(tag));
         });
 
         // ── Filtros base ──────────────────────────────────────────────────────
         const matchQuery = { status: 'approved' };
-        if (type && type !== 'all') matchQuery.type = type;
+        if (finalType && finalType !== 'all') matchQuery.type = finalType;
         if (premium === 'true')     matchQuery.price = { $gt: 0 };
 
         if (exclude) {
@@ -297,46 +383,59 @@ exports.searchWallpapers = async (req, res) => {
             if (ids.length) matchQuery._id = { $nin: ids };
         }
 
-        // Helper para construir el pipeline de Atlas Search con lógica AND (nested compound)
+        // Helper para construir el pipeline de Atlas Search con lógica flex (OR/should) y boost
         const buildSearchPipeline = (useFuzzy) => {
             const shouldClauses = [];
             const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
+            const wordFuzzy = (word) => {
+                if (!useFuzzy) return null;
+                const maxEdits = word.length >= 5 ? 2 : 1;
+                return { maxEdits, prefixLength: 1 };
+            };
+
             for (const term of termsArray) {
                 const variants = [term];
                 if (term.includes(' ')) {
-                    variants.push(term.replace(' ', ''));
+                    variants.push(term.replace(/\s+/g, ''));
                 }
                 if (term.includes('-')) {
-                    variants.push(term.replace('-', ''));
+                    variants.push(term.replace(/-/g, ''));
                 }
 
                 for (const variant of [...new Set(variants)]) {
-                    // Si el término tiene espacios, dividimos por palabras y forzamos lógica AND (must)
                     if (variant.includes(' ')) {
-                        const words = variant.split(/\s+/).filter(Boolean);
-                        const mustClauses = words.map(word => {
-                            const textQuery = { query: word, path: "tags" };
-                            if (useFuzzy) {
-                                textQuery.fuzzy = { maxEdits: 1, prefixLength: 1 };
+                        // 1. Coincidencia exacta de la frase (Boosted)
+                        shouldClauses.push({
+                            text: {
+                                query: variant,
+                                path: "tags",
+                                score: { boost: { value: 5 } }
                             }
-                            return { text: textQuery };
                         });
 
-                        shouldClauses.push({
-                            compound: {
-                                must: mustClauses
+                        // 2. Coincidencias de palabras individuales
+                        const words = variant.split(/\s+/).filter(Boolean);
+                        words.forEach(word => {
+                            if (word.length >= 2) {
+                                const textQuery = { query: word, path: "tags" };
+                                const fuzzyConf = wordFuzzy(word);
+                                if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
+                                shouldClauses.push({ text: textQuery });
                             }
                         });
                     } else {
                         // Términos de una sola palabra
                         const textQuery = { query: variant, path: "tags" };
-                        if (useFuzzy) {
-                            textQuery.fuzzy = { maxEdits: 1, prefixLength: 1 };
-                        }
+                        const fuzzyConf = wordFuzzy(variant);
+                        if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
                         shouldClauses.push({ text: textQuery });
                     }
                 }
+            }
+
+            if (shouldClauses.length === 0) {
+                shouldClauses.push({ text: { query: rawSearch, path: "tags" } });
             }
 
             return [
@@ -375,7 +474,7 @@ exports.searchWallpapers = async (req, res) => {
                                                         997
                                                     ]
                                                 },
-                                                6646 // da un multiplicador decimal entre 1.0 y 1.15
+                                                6646
                                             ]
                                         }
                                     ]
@@ -412,7 +511,7 @@ exports.searchWallpapers = async (req, res) => {
         }
 
         // Registro de búsqueda en segundo plano (fire-and-forget)
-        saveSearchLogAsync(singularSearch || rawSearch, results.length).catch(err => 
+        saveSearchLogAsync(singularSearchSpanish || rawSearch, results.length).catch(err => 
             console.error('Error logging search:', err)
         );
 
