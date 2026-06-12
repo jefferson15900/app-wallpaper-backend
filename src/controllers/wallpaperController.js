@@ -388,6 +388,13 @@ exports.searchWallpapers = async (req, res) => {
             const shouldClauses = [];
             const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
+            // Palabras originales ingresadas por el usuario (para limitar búsquedas sueltas de sinónimos)
+            const originalWords = new Set(
+                rawSearch.split(/\s+/)
+                    .filter(w => w.length >= 2)
+                    .map(w => w.toLowerCase().trim())
+            );
+
             const wordFuzzy = (word) => {
                 if (!useFuzzy) return null;
                 const maxEdits = word.length >= 5 ? 2 : 1;
@@ -405,19 +412,35 @@ exports.searchWallpapers = async (req, res) => {
 
                 for (const variant of [...new Set(variants)]) {
                     if (variant.includes(' ')) {
-                        // 1. Coincidencia exacta de la frase (Boosted)
+                        // 1. Coincidencia exacta de la frase (Boost muy alto)
                         shouldClauses.push({
                             text: {
                                 query: variant,
                                 path: "tags",
-                                score: { boost: { value: 5 } }
+                                score: { boost: { value: 10 } }
                             }
                         });
 
-                        // 2. Coincidencias de palabras individuales
+                        // 2. Coincidencia obligatoria de TODOS los términos del variante (AND con Boost medio)
                         const words = variant.split(/\s+/).filter(Boolean);
+                        if (words.length > 1) {
+                            const mustClauses = words.map(word => {
+                                const textQuery = { query: word, path: "tags" };
+                                const fuzzyConf = wordFuzzy(word);
+                                if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
+                                return { text: textQuery };
+                            });
+                            shouldClauses.push({
+                                compound: {
+                                    must: mustClauses
+                                },
+                                score: { boost: { value: 4 } }
+                            });
+                        }
+
+                        // 3. Coincidencias sueltas individuales SOLO si la palabra estaba en la consulta original
                         words.forEach(word => {
-                            if (word.length >= 2) {
+                            if (word.length >= 2 && originalWords.has(word)) {
                                 const textQuery = { query: word, path: "tags" };
                                 const fuzzyConf = wordFuzzy(word);
                                 if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
@@ -429,7 +452,16 @@ exports.searchWallpapers = async (req, res) => {
                         const textQuery = { query: variant, path: "tags" };
                         const fuzzyConf = wordFuzzy(variant);
                         if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
-                        shouldClauses.push({ text: textQuery });
+                        
+                        // Si la palabra estaba en la consulta original, tiene prioridad sobre sinónimos sueltos
+                        if (originalWords.has(variant)) {
+                            shouldClauses.push({
+                                text: textQuery,
+                                score: { boost: { value: 2 } }
+                            });
+                        } else {
+                            shouldClauses.push({ text: textQuery });
+                        }
                     }
                 }
             }
