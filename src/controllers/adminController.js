@@ -331,15 +331,39 @@ exports.getDashboardStats = async (req, res) => {
                 }
             ]),
 
-            // ── Brechas de contenido (últimos 7 días, resultsCount === 0) ──
+            // ── Brechas de contenido (últimos 7 días, latest resultsCount === 0 y sin wallpapers aprobados actualmente) ──
             SearchLog.aggregate([
-                { $match: { date: { $gte: ago7days }, resultsCount: 0 } },
+                { $match: { date: { $gte: ago7days } } },
+                { $sort: { date: -1 } },
                 {
                     $group: {
                         _id: "$term",
-                        count: { $sum: "$count" }
+                        count: { $sum: "$count" },
+                        latestResultsCount: { $first: "$resultsCount" }
                     }
                 },
+                { $match: { latestResultsCount: 0 } },
+                {
+                    $lookup: {
+                        from: 'wallpapers',
+                        let: { term: "$_id" },
+                        pipeline: [
+                            { 
+                                $match: { 
+                                    $expr: { 
+                                        $and: [
+                                            { $eq: ["$status", "approved"] },
+                                            { $in: ["$$term", { $ifNull: ["$tags", []] }] }
+                                        ]
+                                    } 
+                                } 
+                            },
+                            { $limit: 1 }
+                        ],
+                        as: 'matchingWallpapers'
+                    }
+                },
+                { $match: { matchingWallpapers: { $size: 0 } } },
                 { $sort: { count: -1 } },
                 { $limit: 10 },
                 {
@@ -399,18 +423,23 @@ exports.cleanupSearchLogs = async (req, res) => {
     try {
         const minCount      = parseInt(req.query.minCount, 10)      || 1;
         const olderThanDays = parseInt(req.query.olderThanDays, 10) || null;
+        const clearAll      = req.query.all === 'true';
 
         // Construimos el filtro dinámicamente
-        const filter = { count: { $lte: minCount } };
-
-        if (olderThanDays) {
-            filter.updatedAt = { $lte: daysAgo(olderThanDays) };
+        let filter = {};
+        if (clearAll) {
+            filter = {};
+        } else {
+            filter = { count: { $lte: minCount } };
+            if (olderThanDays) {
+                filter.updatedAt = { $lte: daysAgo(olderThanDays) };
+            }
         }
 
         const { deletedCount } = await SearchLog.deleteMany(filter);
 
         return res.json({
-            msg:     `Se eliminaron ${deletedCount} búsqueda(s) con count ≤ ${minCount}`,
+            msg:     clearAll ? 'Se vació el historial de búsquedas por completo' : `Se eliminaron ${deletedCount} búsqueda(s) con count ≤ ${minCount}`,
             deleted: deletedCount,
         });
 
