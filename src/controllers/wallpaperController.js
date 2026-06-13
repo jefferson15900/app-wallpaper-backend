@@ -385,8 +385,8 @@ exports.searchWallpapers = async (req, res) => {
             if (ids.length) matchQuery._id = { $nin: ids };
         }
 
-        // Helper para construir el pipeline de Atlas Search con lógica flex (OR/should) y boost
-        const buildSearchPipeline = (useFuzzy) => {
+        // Helper para construir el pipeline de Atlas Search con lógica flex (OR/should), boost y matchRatio
+        const buildSearchPipeline = (useFuzzy, minRatio = 0) => {
             const shouldClauses = [];
             const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
@@ -396,6 +396,8 @@ exports.searchWallpapers = async (req, res) => {
                     .filter(w => w.length >= 2)
                     .map(w => w.toLowerCase().trim())
             );
+
+            const originalWordsArray = [...originalWords];
 
             const wordFuzzy = (word) => {
                 if (!useFuzzy) return null;
@@ -486,6 +488,43 @@ exports.searchWallpapers = async (req, res) => {
                 { $addFields: { score: { $meta: 'searchScore' } } },
                 { $match: matchQuery },
                 {
+                    $addFields: {
+                        matchRatio: {
+                            $divide: [
+                                {
+                                    $size: {
+                                        $filter: {
+                                            input: originalWordsArray,
+                                            as: "word",
+                                            cond: {
+                                                $gt: [
+                                                    {
+                                                        $size: {
+                                                            $filter: {
+                                                                input: { $ifNull: ["$tags", []] },
+                                                                as: "tag",
+                                                                cond: {
+                                                                    $ne: [
+                                                                        { $indexOfCP: [ { $toLower: "$$tag" }, "$$word" ] },
+                                                                        -1
+                                                                    ]
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    0
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                Math.max(1, originalWordsArray.length)
+                            ]
+                        }
+                    }
+                },
+                ...(minRatio > 0 ? [{ $match: { matchRatio: { $gte: minRatio } } }] : []),
+                {
                     // Aplicar boost de coincidencia exacta de etiquetas en la base de datos
                     $addFields: {
                         exactTagMatchBoost: {
@@ -555,6 +594,7 @@ exports.searchWallpapers = async (req, res) => {
                         score          : 0,
                         randomizedScore: 0,
                         exactTagMatchBoost: 0,
+                        matchRatio     : 0,
                         // Mantenemos finalBaseScore temporalmente para el pruning en JS
                         'artist.password' : 0,
                         'artist.email'    : 0,
@@ -564,15 +604,34 @@ exports.searchWallpapers = async (req, res) => {
             ];
         };
 
-        // ── EJECUCIÓN EN DOS FASES ───────────────────────────────────────────
+        // ── EJECUCIÓN EN TRES FASES (RELEVANCIA Y DENSIDAD) ─────────────────
+        const queryWords = rawSearch.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
         
-        // Fase 1: Intentamos búsqueda exacta (sin fuzzy)
-        let pipeline = buildSearchPipeline(false);
+        let strictRatio = 0.6; // Para 3 o más palabras (ej: miles morales -> al menos 2 palabras o 67%)
+        if (queryWords.length === 2) {
+            strictRatio = 0.9; // Para 2 palabras (ej: anime girl -> ambas palabras o 100%)
+        } else if (queryWords.length === 1) {
+            strictRatio = 0.9;
+        }
+
+        let looseRatio = 0.3; // Fallback
+        if (queryWords.length === 2) {
+            looseRatio = 0.4;
+        }
+
+        // Fase 1: Búsqueda exacta (sin fuzzy) + Ratio estricto
+        let pipeline = buildSearchPipeline(false, strictRatio);
         let results = await Wallpaper.aggregate(pipeline);
 
-        // Fase 2: Si no hubo resultados en la Fase 1, ejecutamos búsqueda con fallback difuso (con fuzzy)
+        // Fase 2: Si no hay resultados, bajamos el ratio de coincidencia (Fase exacta con ratio suelto)
         if (results.length === 0) {
-            pipeline = buildSearchPipeline(true);
+            pipeline = buildSearchPipeline(false, looseRatio);
+            results = await Wallpaper.aggregate(pipeline);
+        }
+
+        // Fase 3: Si aún no hay resultados, ejecutamos búsqueda con fallback difuso (con fuzzy y ratio suelto)
+        if (results.length === 0) {
+            pipeline = buildSearchPipeline(true, looseRatio);
             results = await Wallpaper.aggregate(pipeline);
         }
 
