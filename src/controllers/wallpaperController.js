@@ -416,7 +416,7 @@ exports.searchWallpapers = async (req, res) => {
                     if (variant.includes(' ')) {
                         // 1. Coincidencia exacta de la frase (Boost muy alto con score constante)
                         shouldClauses.push({
-                            text: {
+                            phrase: {
                                 query: variant,
                                 path: "tags",
                                 score: { constant: { value: 10 } }
