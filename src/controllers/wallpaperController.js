@@ -353,6 +353,8 @@ exports.searchWallpapers = async (req, res) => {
             canonicalSynonyms.push(...csEsp);
         }
 
+        const exactTerms = [...new Set([rawSearch, canonicalEnglish, canonicalSpanish].filter(Boolean))];
+
         const expandedTerms = new Set(
             [rawSearch, singularSearchEnglish, singularSearchSpanish, canonicalEnglish, canonicalSpanish].filter(Boolean)
         );
@@ -483,6 +485,35 @@ exports.searchWallpapers = async (req, res) => {
                 },
                 { $addFields: { score: { $meta: 'searchScore' } } },
                 { $match: matchQuery },
+                {
+                    // Aplicar boost de coincidencia exacta de etiquetas en la base de datos
+                    $addFields: {
+                        exactTagMatchBoost: {
+                            $cond: {
+                                if: {
+                                    $gt: [
+                                        {
+                                            $size: {
+                                                $setIntersection: [
+                                                    { $map: { input: "$tags", as: "t", in: { $toLower: { $trim: { input: "$$t" } } } } },
+                                                    exactTerms
+                                                ]
+                                            }
+                                        },
+                                        0
+                                    ]
+                                },
+                                then: 15,
+                                else: 0
+                            }
+                        }
+                    }
+                },
+                {
+                    $addFields: {
+                        finalBaseScore: { $add: ["$score", "$exactTagMatchBoost"] }
+                    }
+                },
                 { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
                 { $unwind: '$artist' },
                 { $match: { 'artist.isActive': { $ne: false } } },
@@ -490,7 +521,7 @@ exports.searchWallpapers = async (req, res) => {
                     $addFields: {
                         randomizedScore: {
                             $multiply: [
-                                '$score',
+                                '$finalBaseScore',
                                 {
                                     $add: [
                                         1,
@@ -523,6 +554,8 @@ exports.searchWallpapers = async (req, res) => {
                     $project: {
                         score          : 0,
                         randomizedScore: 0,
+                        exactTagMatchBoost: 0,
+                        // Mantenemos finalBaseScore temporalmente para el pruning en JS
                         'artist.password' : 0,
                         'artist.email'    : 0,
                         'artist.pushToken': 0,
@@ -543,12 +576,26 @@ exports.searchWallpapers = async (req, res) => {
             results = await Wallpaper.aggregate(pipeline);
         }
 
+        // ── PRUNING DE RESULTADOS DINÁMICO (Umbral de relevancia del 30%) ──
+        if (results.length > 0) {
+            const maxScore = results[0].finalBaseScore || 0;
+            // Solo aplicamos umbral si hay un término con score significativamente alto
+            if (maxScore > 4) {
+                const threshold = maxScore * 0.3;
+                results = results.filter(r => (r.finalBaseScore || 0) >= threshold);
+            }
+        }
+
         // Registro de búsqueda en segundo plano (fire-and-forget)
         saveSearchLogAsync(singularSearchSpanish || rawSearch, results.length).catch(err => 
             console.error('Error logging search:', err)
         );
 
-        return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
+        return res.json(results.map(item => {
+            const cleanItem = { ...item, price: item.price ?? 0 };
+            delete cleanItem.finalBaseScore;
+            return cleanItem;
+        }));
          
     } catch (err) {
         console.error('❌ Error en búsqueda:', err);
