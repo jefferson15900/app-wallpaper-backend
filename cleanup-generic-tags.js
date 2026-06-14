@@ -190,7 +190,7 @@ const TAGS_TO_REMOVE = [
 'modern', 'moderno', 'contemporary',
 'luxury', 'lujoso', 'premium',
 'grunge', 'edgy',
-'pastel', 'pastel colors', 'pastel aesthetic',
+'pastel colors', 'pastel aesthetic',
 'neutral', 'neutral tones', 'neutral colors',
 'earth tones', 'tonos tierra',
 'monocromático', 'black and white', 'blanco y negro',
