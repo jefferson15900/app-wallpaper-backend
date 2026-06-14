@@ -15,6 +15,7 @@ router.get('/tags/search', wallpaperController.searchTags);
 router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
 router.get('/latest', wallpaperController.getLatestWallpapers);
+router.get('/spotlight', wallpaperController.getSpotlights);
 
 // 2. RUTAS DE PERFIL Y BIBLIOTECA
 router.get('/artist/:artistId', wallpaperController.getArtistWallpapers);
@@ -27,6 +28,8 @@ router.put('/like/:id', auth, wallpaperController.toggleLike);
 router.put('/save/:id', auth, wallpaperController.toggleSave);
 router.put('/admin/remove-tag/:id', [auth, isAdmin], wallpaperController.adminRemoveTag);
 router.put('/admin/add-tag/:id', [auth, isAdmin], wallpaperController.adminAddTag);
+router.post('/admin/spotlight', [auth, isAdmin], wallpaperController.addSpotlight);
+router.delete('/admin/spotlight/:id', [auth, isAdmin], wallpaperController.deleteSpotlight);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
 
