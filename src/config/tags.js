@@ -190,7 +190,7 @@ const BLACKLIST_TAGS = new Set([
 'modern', 'moderno', 'contemporary','semi-realistic anime',
 'luxury', 'lujoso', 'premium',
 'grunge', 'edgy',
-'pastel', 'pastel colors', 'pastel aesthetic',
+'pastel colors', 'pastel aesthetic',
 'neutral', 'neutral tones', 'neutral colors',
 'earth tones', 'tonos tierra',
 'monochrome', 'monocromático', 'black and white', 'blanco y negro',

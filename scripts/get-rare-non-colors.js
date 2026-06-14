@@ -7,7 +7,7 @@ const COLORS = new Set([
     // English
     'red', 'green', 'blue', 'yellow', 'black', 'white', 'orange', 'purple', 'pink', 'brown', 'gray', 'grey',
     'silver', 'gold', 'violet', 'indigo', 'teal', 'cyan', 'magenta', 'beige', 'turquoise', 'navy', 'maroon',
-    'olive', 'lime', 'bronze', 'lavender', 'peach', 'coral', 'mint', 'cream', 'neon', 'pastel', 'crimson',
+    'olive', 'lime', 'bronze', 'lavender', 'peach', 'coral', 'mint', 'cream', 'neon','crimson',
     'lilac', 'mustard', 'khaki', 'mauve', 'charcoal', 'ivory', 'aqua', 'fuchsia', 'plum', 'rose', 'amber',
     'emerald', 'sapphire', 'ruby', 'dark blue', 'light blue', 'sky blue',
     // Spanish
