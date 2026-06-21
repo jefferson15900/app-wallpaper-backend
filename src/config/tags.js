@@ -448,8 +448,8 @@ const SYNONYMS = {
 
   'rojo y negro': 'red and black', 'negro y rojo': 'red and black',
   'ojos brillante': 'glowing eyes', 'ojos rojos brillante': 'glowing eyes',
-  'deportivo': 'sports car', 'coche deportivo': 'sports car',
-  'auto': 'car', 'coche': 'car', 'automotive': 'car',
+  'deportivo': 'sports car', 'coche deportivo': 'sports car', 'supercar': 'sports car', 'superdeportivo': 'sports car',
+  'auto': 'car', 'coche': 'car', 'carro': 'car', 'automotive': 'car',
   'urbano': 'urban', 'estilo urbano': 'urban', 'urban style': 'urban',
   'fluido': 'fluid', 'fluidez': 'fluid',
   'reflejo': 'reflection',
