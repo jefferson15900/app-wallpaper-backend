@@ -48,22 +48,28 @@ exports.getBoardById = async (req, res) => {
 // 🆕 Crear un nuevo tablero
 exports.createBoard = async (req, res) => {
     try {
-        const { name, description, isPrivate } = req.body;
+        const { name, description, isPrivate, wallpaperIds } = req.body;
 
         if (!name || name.trim() === '') {
             return res.status(400).json({ msg: 'El nombre del tablero es obligatorio' });
         }
+
+        // Validar que los wallpaperIds sean objectIds válidos
+        const validWallpaperIds = Array.isArray(wallpaperIds)
+            ? wallpaperIds.filter(id => mongoose.Types.ObjectId.isValid(id))
+            : [];
 
         const newBoard = new Board({
             name: name.trim(),
             description: description ? description.trim() : "",
             isPrivate: !!isPrivate,
             user: req.user.id,
-            wallpapers: []
+            wallpapers: validWallpaperIds
         });
 
         const savedBoard = await newBoard.save();
-        res.status(201).json(savedBoard);
+        const populatedBoard = await Board.findById(savedBoard._id).populate('wallpapers', 'imageUrl type images');
+        res.status(201).json(populatedBoard);
     } catch (err) {
         console.error('Error al crear tablero:', err);
         res.status(500).json({ msg: 'Error al crear el tablero' });
@@ -110,6 +116,52 @@ exports.addWallpaperToBoard = async (req, res) => {
     } catch (err) {
         console.error('Error al agregar al tablero:', err);
         res.status(500).json({ msg: 'Error al agregar el fondo al tablero' });
+    }
+};
+
+// ➕➕ Agregar múltiples wallpapers a un tablero
+exports.addMultipleWallpapersToBoard = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { wallpaperIds } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id) || !Array.isArray(wallpaperIds)) {
+            return res.status(400).json({ msg: 'Datos no válidos' });
+        }
+
+        const board = await Board.findById(id);
+        if (!board) {
+            return res.status(404).json({ msg: 'Tablero no encontrado' });
+        }
+
+        // Seguridad: Verificar propiedad
+        if (board.user.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        // Validar IDs de wallpapers y filtrar duplicados
+        const validWallpaperIds = wallpaperIds.filter(wId => mongoose.Types.ObjectId.isValid(wId));
+        
+        const existingIds = new Set(board.wallpapers.map(w => w.toString()));
+        const newIds = validWallpaperIds.filter(wId => !existingIds.has(wId));
+
+        if (newIds.length > 0) {
+            // Verificar cuáles de estos wallpapers realmente existen en la base de datos
+            const existingWallpapers = await Wallpaper.find({ _id: { $in: newIds } }).select('_id');
+            const verifiedIds = existingWallpapers.map(w => w._id.toString());
+            
+            if (verifiedIds.length > 0) {
+                // Añadir al inicio
+                board.wallpapers = [...verifiedIds.map(wId => new mongoose.Types.ObjectId(wId)), ...board.wallpapers];
+                await board.save();
+            }
+        }
+
+        const updatedBoard = await Board.findById(id).populate('wallpapers', 'imageUrl type images');
+        res.json(updatedBoard);
+    } catch (err) {
+        console.error('Error al agregar múltiples al tablero:', err);
+        res.status(500).json({ msg: 'Error al agregar los fondos al tablero' });
     }
 };
 
