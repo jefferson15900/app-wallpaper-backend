@@ -158,12 +158,8 @@ const TAGS_TO_REMOVE = [
   // ── AMBIENTE / ESCENARIO ULTRA GENÉRICO ──────────────────
   'scene', 'escena',
   'environment', 'entorno', 'ambiente',
-  'landscape', 'paisaje',
   'background scene', 'escenario',
   'outdoor', 'indoor', 'exterior', 'interior',
-  'sunrise', 'sunset', 'amanecer', 'atardecer',
-  'sky', 'cielo', 'clouds', 'nubes',
-  'nature', 'naturaleza',
   'dark', 'oscuro', 'bright', 'brillante',
 
   // ── PINTEREST / MOOD BOARDS ───────────────────────────────
@@ -180,13 +176,13 @@ const TAGS_TO_REMOVE = [
 'y2k aesthetic',
 
 // ── LIFESTYLE VACÍO ───────────────────────────────────────
-'minimal', 'clean', 'simple', 'sencillo',
+  'clean', 'simple', 'sencillo',
 'soft', 'suave', 'cozy', 'acogedor',
 'dreamy', 'ethereal', 'etéreo',
 'magical', 'mágico', 'mystic', 'místico',
 'romantic', 'romántico',
 'mysterious', 'misterioso',
-'vintage', 'retro', 'old school',
+  'vintage', 'old school',
 'modern', 'moderno', 'contemporary',
 'luxury', 'lujoso', 'premium',
 'grunge', 'edgy',

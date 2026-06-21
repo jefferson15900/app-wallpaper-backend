@@ -10,10 +10,10 @@ const BLACKLIST_TAGS = new Set([
   'sharp', 'sharp focus', 'sharp image', 'in focus','funny',
   'intricate', 'intricate details', 'intricate design',
   'highly detailed', 'detailed', 'very detailed', 'ultra detailed', 'super detailed',
-  'extremely detailed', 'insanely detailed', 'richly detailed','supercar',
+  'extremely detailed', 'insanely detailed', 'richly detailed',
   'hyperrealistic', 'hyper-realistic', 'hyper realistic',
   'photorealistic', 'photo realistic', 'photo-realistic',
-  'raw photo', 'raw image', 'dslr', 'dslr photo','ocean',
+  'raw photo', 'raw image', 'dslr', 'dslr photo',
   'professional photo', 'professional photograph', 'professional photography',
   'perfect composition', 'perfect lighting', 'perfect details',
   'high detail', 'fine detail', 'fine details', 'maximum detail',
@@ -158,13 +158,9 @@ const BLACKLIST_TAGS = new Set([
   // ── AMBIENTE / ESCENARIO ULTRA GENÉRICO ──────────────────
   'scene', 'escena',
   'environment', 'entorno', 'ambiente',
-  'landscape', 'paisaje',
   'background scene', 'escenario',
   'outdoor', 'indoor', 'exterior', 'interior',
-  'day', 'night', 'día', 'noche',
-  'sunrise', 'sunset', 'amanecer', 'atardecer',
-  'sky', 'cielo', 'clouds', 'nubes',
-  'nature', 'naturaleza', 'oscuro', 'bright', 'brillante',
+  'oscuro', 'bright', 'brillante',
 
   // ── PINTEREST / MOOD BOARDS ───────────────────────────────
 'aesthetic', 'aesthetics', 'estética',
@@ -180,13 +176,13 @@ const BLACKLIST_TAGS = new Set([
 'retrofuturism', 'y2k aesthetic',
 
 // ── LIFESTYLE VACÍO ───────────────────────────────────────
-'minimal', 'clean', 'simple', 'sencillo',
+  'clean', 'simple', 'sencillo',
 'soft', 'suave', 'cozy', 'acogedor',
 'dreamy', 'ethereal', 'etéreo',
 'magical', 'mágico', 'mystic', 'místico',
 'romantic', 'romántico',
 'mysterious', 'misterioso',
-'vintage', 'retro', 'old school',
+  'vintage', 'old school',
 'modern', 'moderno', 'contemporary','semi-realistic anime',
 'luxury', 'lujoso', 'premium',
 'grunge', 'edgy',
