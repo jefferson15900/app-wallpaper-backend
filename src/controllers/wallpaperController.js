@@ -505,9 +505,22 @@ exports.searchWallpapers = async (req, res) => {
                                                                 input: { $ifNull: ["$tags", []] },
                                                                 as: "tag",
                                                                 cond: {
-                                                                    $ne: [
-                                                                        { $indexOfCP: [ { $toLower: "$$tag" }, "$$word" ] },
-                                                                        -1
+                                                                    $or: [
+                                                                        {
+                                                                            $ne: [
+                                                                                { $indexOfCP: [ { $toLower: "$$tag" }, "$$word" ] },
+                                                                                -1
+                                                                            ]
+                                                                        },
+                                                                        {
+                                                                            $ne: [
+                                                                                { $indexOfCP: [
+                                                                                    { $replaceAll: { input: { $toLower: "$$tag" }, find: " ", replacement: "" } },
+                                                                                    "$$word"
+                                                                                ]},
+                                                                                -1
+                                                                            ]
+                                                                        }
                                                                     ]
                                                                 }
                                                             }
