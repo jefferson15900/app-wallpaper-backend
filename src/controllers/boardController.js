@@ -168,3 +168,96 @@ exports.deleteBoard = async (req, res) => {
         res.status(500).json({ msg: 'Error al eliminar el tablero' });
     }
 };
+
+// ✏️ Actualizar un tablero (nombre, descripción, privacidad)
+exports.updateBoard = async (req, res) => {
+    try {
+        const { name, description, isPrivate } = req.body;
+
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ msg: 'El nombre del tablero es obligatorio' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ msg: 'ID de tablero no válido' });
+        }
+
+        const board = await Board.findById(req.params.id);
+        if (!board) {
+            return res.status(404).json({ msg: 'Tablero no encontrado' });
+        }
+
+        // Seguridad: Verificar propiedad
+        if (board.user.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        board.name = name.trim();
+        board.description = description ? description.trim() : "";
+        board.isPrivate = !!isPrivate;
+
+        await board.save();
+        res.json(board);
+    } catch (err) {
+        console.error('Error al actualizar tablero:', err);
+        res.status(500).json({ msg: 'Error al actualizar el tablero' });
+    }
+};
+
+// 🔄 Fusionar dos tableros (Fusiona el origen en el destino)
+exports.mergeBoards = async (req, res) => {
+    try {
+        const { targetId, sourceId } = req.params;
+        const deleteSource = req.query.deleteSource === 'true';
+
+        if (!mongoose.Types.ObjectId.isValid(targetId) || !mongoose.Types.ObjectId.isValid(sourceId)) {
+            return res.status(400).json({ msg: 'IDs de tablero no válidos' });
+        }
+
+        if (targetId === sourceId) {
+            return res.status(400).json({ msg: 'No se puede fusionar un tablero consigo mismo' });
+        }
+
+        // Obtener ambos tableros
+        const sourceBoard = await Board.findById(sourceId);
+        const targetBoard = await Board.findById(targetId);
+
+        if (!sourceBoard || !targetBoard) {
+            return res.status(404).json({ msg: 'Uno o ambos tableros no fueron encontrados' });
+        }
+
+        // Seguridad: Verificar propiedad de ambos tableros
+        if (sourceBoard.user.toString() !== req.user.id || targetBoard.user.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'No autorizado' });
+        }
+
+        // Combinar wallpapers evitando duplicados
+        const sourceWallpapers = sourceBoard.wallpapers.map(w => w.toString());
+        const targetWallpapers = targetBoard.wallpapers.map(w => w.toString());
+
+        // Unir arrays y mantener orden (antiguos del target y luego agregamos los del source)
+        const combinedSet = new Set([...targetWallpapers, ...sourceWallpapers]);
+        targetBoard.wallpapers = Array.from(combinedSet).map(id => new mongoose.Types.ObjectId(id));
+
+        await targetBoard.save();
+
+        if (deleteSource) {
+            await Board.findByIdAndDelete(sourceId);
+        }
+
+        // Devolver la lista completa y actualizada de tableros del usuario
+        const boards = await Board.find({ user: req.user.id })
+            .populate('wallpapers', 'imageUrl type images')
+            .sort({ createdAt: -1 });
+
+        res.json({
+            msg: 'Tableros fusionados con éxito',
+            boards,
+            targetBoardId: targetId
+        });
+    } catch (err) {
+        console.error('Error al fusionar tableros:', err);
+        res.status(500).json({ msg: 'Error al fusionar los tableros' });
+    }
+};
+
