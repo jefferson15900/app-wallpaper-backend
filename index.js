@@ -38,6 +38,7 @@ app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
 app.use('/api/feedback', require('./src/routes/feedbackRoutes'));
 app.use('/api/coins', require('./src/routes/coinRoutes'));
+app.use('/api/boards', require('./src/routes/boardRoutes'));
 app.use('/api/config', configRoutes);
 
 // 5. MANEJADOR DE ERRORES GLOBAL
