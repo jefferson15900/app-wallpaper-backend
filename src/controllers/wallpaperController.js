@@ -14,6 +14,7 @@ const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
 const SearchLog = require('../models/SearchLog');
 const Spotlight = require('../models/Spotlight');
+const FloatingBubble = require('../models/FloatingBubble');
 
 // 💾 Utilidad: Guardar Log de Búsqueda en segundo plano
 const saveSearchLogAsync = async (term, resultsCount) => {
@@ -1474,3 +1475,67 @@ exports.deleteSpotlight = async (req, res) => {
         return res.status(500).json({ msg: 'Error al eliminar banner destacado' });
     }
 };
+
+// ── ENDPOINTS DE BURBUJAS FLOTANTES (FLOATING BUBBLES) ──
+
+// GET /api/wallpapers/floating-bubbles
+exports.getFloatingBubbles = async (req, res) => {
+    try {
+        const bubbles = await FloatingBubble.find()
+            .populate({
+                path: 'wallpaperId',
+                populate: { path: 'artist', select: 'username profilePic isVerified' }
+            })
+            .sort({ createdAt: -1 });
+
+        // Filtrar burbujas donde el wallpaper exista y esté aprobado
+        const validBubbles = bubbles.filter(b => b.wallpaperId && b.wallpaperId.status === 'approved');
+        
+        return res.json(validBubbles);
+    } catch (err) {
+        console.error('❌ Error en getFloatingBubbles:', err);
+        return res.status(500).json({ msg: 'Error al obtener burbujas flotantes' });
+    }
+};
+
+// POST /api/wallpapers/admin/floating-bubbles
+exports.addFloatingBubble = async (req, res) => {
+    try {
+        const { wallpaperId, title } = req.body;
+        if (!wallpaperId || !title) {
+            return res.status(400).json({ msg: 'Faltan campos requeridos: wallpaperId y title' });
+        }
+
+        const wallpaper = await Wallpaper.findById(wallpaperId);
+        if (!wallpaper) {
+            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
+        }
+
+        const newBubble = new FloatingBubble({
+            wallpaperId,
+            title: title.trim()
+        });
+
+        await newBubble.save();
+        return res.status(201).json(newBubble);
+    } catch (err) {
+        console.error('❌ Error en addFloatingBubble:', err);
+        return res.status(500).json({ msg: 'Error al agregar burbuja flotante' });
+    }
+};
+
+// DELETE /api/wallpapers/admin/floating-bubbles/:id
+exports.deleteFloatingBubble = async (req, res) => {
+    try {
+        const bubble = await FloatingBubble.findById(req.params.id);
+        if (!bubble) {
+            return res.status(404).json({ msg: 'Burbuja flotante no encontrada' });
+        }
+
+        await FloatingBubble.findByIdAndDelete(req.params.id);
+        return res.json({ msg: 'Burbuja flotante eliminada correctamente' });
+    } catch (err) {
+        console.error('❌ Error en deleteFloatingBubble:', err);
+        return res.status(500).json({ msg: 'Error al eliminar burbuja flotante' });
+    }
+};

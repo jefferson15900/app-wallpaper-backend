@@ -16,6 +16,7 @@ router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
 router.get('/latest', wallpaperController.getLatestWallpapers);
 router.get('/spotlight', wallpaperController.getSpotlights);
+router.get('/floating-bubbles', wallpaperController.getFloatingBubbles);
 
 // 2. RUTAS DE PERFIL Y BIBLIOTECA
 router.get('/artist/:artistId', wallpaperController.getArtistWallpapers);
@@ -30,6 +31,8 @@ router.put('/admin/remove-tag/:id', [auth, isAdmin], wallpaperController.adminRe
 router.put('/admin/add-tag/:id', [auth, isAdmin], wallpaperController.adminAddTag);
 router.post('/admin/spotlight', [auth, isAdmin], wallpaperController.addSpotlight);
 router.delete('/admin/spotlight/:id', [auth, isAdmin], wallpaperController.deleteSpotlight);
+router.post('/admin/floating-bubbles', [auth, isAdmin], wallpaperController.addFloatingBubble);
+router.delete('/admin/floating-bubbles/:id', [auth, isAdmin], wallpaperController.deleteFloatingBubble);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
 
