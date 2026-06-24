@@ -1481,6 +1481,11 @@ exports.deleteSpotlight = async (req, res) => {
 // GET /api/wallpapers/floating-bubbles
 exports.getFloatingBubbles = async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+
         const bubbles = await FloatingBubble.find()
             .populate({
                 path: 'wallpaperId',
