@@ -1496,7 +1496,28 @@ exports.getFloatingBubbles = async (req, res) => {
         // Filtrar burbujas donde el wallpaper exista y esté aprobado
         const validBubbles = bubbles.filter(b => b.wallpaperId && b.wallpaperId.status === 'approved');
         
-        return res.json(validBubbles);
+        // Obtener etiquetas de wallpapers subidos en los últimos 3 días (72 horas)
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        const recentTags = await Wallpaper.find({
+            status: 'approved',
+            createdAt: { $gte: threeDaysAgo }
+        }).distinct('tags');
+
+        const recentTagsLower = recentTags.map(t => t.toLowerCase().trim());
+
+        // Asignar flag hasNewContent si el título de la burbuja coincide con una etiqueta reciente
+        const bubblesWithNewFlag = validBubbles.map(bubble => {
+            const bubbleTag = bubble.title.toLowerCase().trim();
+            const hasNewContent = recentTagsLower.includes(bubbleTag);
+            
+            const bubbleObj = bubble.toObject();
+            bubbleObj.hasNewContent = hasNewContent;
+            return bubbleObj;
+        });
+        
+        return res.json(bubblesWithNewFlag);
     } catch (err) {
         console.error('❌ Error en getFloatingBubbles:', err);
         return res.status(500).json({ msg: 'Error al obtener burbujas flotantes' });
