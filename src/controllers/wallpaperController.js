@@ -734,6 +734,7 @@ exports.getArtistWallpapers = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 12;
         const skip = (page - 1) * limit;
+        const status = req.query.status || 'approved';
 
         if (!mongoose.Types.ObjectId.isValid(artistId)) {
             return res.status(400).json({ msg: 'ID de artista no válido' });
@@ -741,10 +742,15 @@ exports.getArtistWallpapers = async (req, res) => {
 
         const artistObjId = new mongoose.Types.ObjectId(artistId);
 
+        const matchQuery = { artist: artistObjId };
+        if (status !== 'all') {
+            matchQuery.status = status;
+        }
+
         // Ejecutamos el conteo y la búsqueda en paralelo para ganar velocidad
         const [totalCount, wallpapers] = await Promise.all([
-            Wallpaper.countDocuments({ artist: artistObjId, status: 'approved' }),
-            Wallpaper.find({ artist: artistObjId, status: 'approved' })
+            Wallpaper.countDocuments(matchQuery),
+            Wallpaper.find(matchQuery)
                 .populate('artist', 'username profilePic isVerified')
                 .sort({ createdAt: -1 })
                 .skip(skip)
