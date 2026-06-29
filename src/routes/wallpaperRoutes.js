@@ -33,6 +33,7 @@ router.post('/admin/spotlight', [auth, isAdmin], wallpaperController.addSpotligh
 router.delete('/admin/spotlight/:id', [auth, isAdmin], wallpaperController.deleteSpotlight);
 router.post('/admin/floating-bubbles', [auth, isAdmin], wallpaperController.addFloatingBubble);
 router.delete('/admin/floating-bubbles/:id', [auth, isAdmin], wallpaperController.deleteFloatingBubble);
+router.post('/admin/merge', [auth, isAdmin], wallpaperController.mergeWallpapers);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
 

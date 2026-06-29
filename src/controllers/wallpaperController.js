@@ -732,7 +732,7 @@ exports.getArtistWallpapers = async (req, res) => {
     try {
         const { artistId } = req.params;
         const page = parseInt(req.query.page) || 1;
-        const limit = 12;
+        const limit = parseInt(req.query.limit) || 12;
         const skip = (page - 1) * limit;
 
         if (!mongoose.Types.ObjectId.isValid(artistId)) {
@@ -1563,5 +1563,89 @@ exports.deleteFloatingBubble = async (req, res) => {
     } catch (err) {
         console.error('❌ Error en deleteFloatingBubble:', err);
         return res.status(500).json({ msg: 'Error al eliminar burbuja flotante' });
+    }
+};
+
+// ==========================================
+// 🛠️ ADMIN: FUSIONAR WALLPAPERS (LOTES)
+// ==========================================
+exports.mergeWallpapers = async (req, res) => {
+    try {
+        const { primaryId, secondaryId } = req.body;
+
+        if (!primaryId || !secondaryId) {
+            return res.status(400).json({ msg: 'Faltan campos requeridos: primaryId y secondaryId' });
+        }
+
+        if (primaryId === secondaryId) {
+            return res.status(400).json({ msg: 'No se puede fusionar un wallpaper consigo mismo' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(primaryId) || !mongoose.Types.ObjectId.isValid(secondaryId)) {
+            return res.status(400).json({ msg: 'IDs inválidos' });
+        }
+
+        const [primary, secondary] = await Promise.all([
+            Wallpaper.findById(primaryId),
+            Wallpaper.findById(secondaryId)
+        ]);
+
+        if (!primary) return res.status(404).json({ msg: 'Wallpaper principal no encontrado' });
+        if (!secondary) return res.status(404).json({ msg: 'Wallpaper secundario no encontrado' });
+
+        // 1. Inicializar imágenes del principal si no están pobladas
+        let primaryImages = primary.images && primary.images.length > 0
+            ? primary.images
+            : [{ imageUrl: primary.imageUrl, public_id: primary.public_id }];
+
+        // 2. Obtener imágenes del secundario
+        let secondaryImages = secondary.images && secondary.images.length > 0
+            ? secondary.images
+            : [{ imageUrl: secondary.imageUrl, public_id: secondary.public_id }];
+
+        // 3. Fusionar las listas de imágenes evitando duplicar por public_id o imageUrl
+        const mergedImages = [...primaryImages];
+        for (const secImg of secondaryImages) {
+            const exists = mergedImages.some(img => 
+                (img.public_id && img.public_id === secImg.public_id) || 
+                (img.imageUrl && img.imageUrl === secImg.imageUrl)
+            );
+            if (!exists) {
+                mergedImages.push(secImg);
+            }
+        }
+
+        primary.images = mergedImages;
+
+        // 4. Fusionar etiquetas (tags)
+        const combinedTags = [...(primary.tags || []), ...(secondary.tags || [])];
+        primary.tags = [...new Set(combinedTags.map(t => t.trim().toLowerCase()))];
+
+        // 5. Sumar descargas
+        primary.downloads = (primary.downloads || 0) + (secondary.downloads || 0);
+
+        // 6. Fusionar Likes
+        const primaryLikesStr = (primary.likes || []).map(id => id.toString());
+        const secondaryLikesStr = (secondary.likes || []).map(id => id.toString());
+        const uniqueLikesStr = [...new Set([...primaryLikesStr, ...secondaryLikesStr])];
+        primary.likes = uniqueLikesStr.map(id => new mongoose.Types.ObjectId(id));
+
+        // 7. Guardar cambios en el principal
+        await primary.save();
+
+        // 8. Eliminar el secundario (de la base de datos únicamente, sin borrar de Cloudinary)
+        await Wallpaper.findByIdAndDelete(secondaryId);
+
+        // 9. Decrementar contador del artista del secundario
+        await User.findByIdAndUpdate(secondary.artist, { $inc: { wallpaperCount: -1 } });
+
+        return res.json({ 
+            msg: 'Wallpapers fusionados con éxito', 
+            wallpaper: primary 
+        });
+
+    } catch (err) {
+        console.error('❌ Error en mergeWallpapers:', err);
+        return res.status(500).json({ msg: 'Error al fusionar wallpapers' });
     }
 };
