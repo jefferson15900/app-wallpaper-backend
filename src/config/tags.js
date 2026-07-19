@@ -508,6 +508,7 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2, maxLength = 40 } = 
 
     // 3. Normalización NLP: singular (con protección contra resultados vacíos/distorsionados)
     .map(t => {
+      if (t.includes(' ')) return t; // Evita truncar etiquetas multi-palabra
       const singular = nlp(t).nouns().toSingular().text().trim();
       // Solo aceptar el resultado NLP si tiene sentido (no vacío y longitud similar)
       return singular && Math.abs(singular.length - t.length) < 10 ? singular : t;

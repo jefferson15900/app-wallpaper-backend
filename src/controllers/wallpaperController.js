@@ -332,6 +332,7 @@ exports.searchWallpapers = async (req, res) => {
 
         // 2. Singularización (Inglés + Español)
         const singularSearchEnglish = (() => {
+            if (rawSearch.includes(' ')) return rawSearch; // Evita truncar búsquedas multi-palabra
             const s = nlp(rawSearch).nouns().toSingular().text().trim();
             return s?.length >= 2 ? s : rawSearch;
         })();
@@ -1134,7 +1135,7 @@ exports.toggleLike = async (req, res) => {
             const { q } = req.query;
             if (q && q.trim().length >= 2) {
                 const searchTerms = q.trim().toLowerCase();
-                const singular = nlp(searchTerms).nouns().toSingular().text().trim();
+                const singular = searchTerms.includes(' ') ? searchTerms : nlp(searchTerms).nouns().toSingular().text().trim();
                 const term = singular || searchTerms;
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -1209,7 +1210,7 @@ exports.registerDownload = async (req, res) => {
         const { q } = req.query;
         if (q && q.trim().length >= 2) {
             const searchTerms = q.trim().toLowerCase();
-            const singular = nlp(searchTerms).nouns().toSingular().text().trim();
+            const singular = searchTerms.includes(' ') ? searchTerms : nlp(searchTerms).nouns().toSingular().text().trim();
             const term = singular || searchTerms;
             const today = new Date();
             today.setHours(0, 0, 0, 0);

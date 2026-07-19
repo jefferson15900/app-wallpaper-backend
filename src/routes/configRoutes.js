@@ -25,7 +25,7 @@ router.post('/track-search', async (req, res) => {
     if (!rawTerm || rawTerm.length < 2) return res.sendStatus(200);
 
     try {
-        const singular = nlp(rawTerm).nouns().toSingular().text().trim();
+        const singular = rawTerm.includes(' ') ? rawTerm : nlp(rawTerm).nouns().toSingular().text().trim();
         const term = singular || rawTerm;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -51,7 +51,7 @@ router.post('/track-search-click', async (req, res) => {
     if (!rawTerm || rawTerm.length < 2) return res.sendStatus(200);
 
     try {
-        const singular = nlp(rawTerm).nouns().toSingular().text().trim();
+        const singular = rawTerm.includes(' ') ? rawTerm : nlp(rawTerm).nouns().toSingular().text().trim();
         const term = singular || rawTerm;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
