@@ -1066,6 +1066,11 @@ exports.searchTags = async (req, res) => {
 // ==========================================
 exports.getPopularTags = async (req, res) => {
     try {
+        const requestedLimit = parseInt(req.query.limit, 10);
+        const limit = Number.isFinite(requestedLimit)
+            ? Math.min(Math.max(requestedLimit, 1), 50)
+            : 30;
+
         const DEFAULT_POPULAR_TAGS = [
             'anime',
             'cyberpunk',
@@ -1080,27 +1085,34 @@ exports.getPopularTags = async (req, res) => {
 
         // Consulta optimizada a la colección pre-calculada
         const result = await TagSuggestion.find(
-            { tag: { $nin: excludedTags } },
+            {
+                tag: {
+                    $nin: excludedTags,
+                    $regex: /^[a-z0-9 ]+$/
+                }
+            },
             { tag: 1, _id: 0 }
         )
         .sort({ count: -1 })
-        .limit(30)
+        .limit(limit)
         .lean();
 
         let tagsOnly = result.map(t => t.tag);
 
         // Si hay menos de 10 tags en la DB, completamos con los defaults
-        if (tagsOnly.length < 10) {
+        const minFallbackCount = Math.min(10, limit);
+        if (tagsOnly.length < minFallbackCount) {
             const added = new Set(tagsOnly);
             for (const tag of DEFAULT_POPULAR_TAGS) {
                 if (!added.has(tag)) {
                     tagsOnly.push(tag);
                     added.add(tag);
                 }
-                if (tagsOnly.length >= 10) break;
+                if (tagsOnly.length >= minFallbackCount) break;
             }
         }
 
+        res.setHeader('Cache-Control', 'public, max-age=900');
         return res.json(tagsOnly);
     } catch (err) {
         console.error('❌ Error al obtener etiquetas populares:', err);
@@ -1655,4 +1667,4 @@ exports.mergeWallpapers = async (req, res) => {
         console.error('❌ Error en mergeWallpapers:', err);
         return res.status(500).json({ msg: 'Error al fusionar wallpapers' });
     }
-};
+};
