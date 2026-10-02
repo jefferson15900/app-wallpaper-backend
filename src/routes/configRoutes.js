@@ -75,7 +75,7 @@ router.post('/track-search-click', async (req, res) => {
 router.get('/version', (req, res) => {
     try {
         res.json({
-            latestVersion: "3.2.7", // Versión superior a 3.1.2 para pruebas
+            latestVersion: "3.3.3", // Versión superior a 3.1.2 para pruebas
             playStoreUrl: "market://details?id=com.vexel.wallpapers",
             fallbackUrl: "https://play.google.com/store/apps/details?id=com.vexel.wallpapers"
         });
@@ -85,4 +85,4 @@ router.get('/version', (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = router; 
