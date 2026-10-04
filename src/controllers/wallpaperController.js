@@ -907,10 +907,13 @@ exports.uploadWallpaper = async (req, res) => {
 exports.getRelatedWallpapers = async (req, res) => {
     try {
         const { id } = req.params;
-        const { primaryTag } = req.query;
+        const primaryTag = typeof req.query.primaryTag === 'string'
+            ? req.query.primaryTag.trim().toLowerCase()
+            : '';
         const page     = Math.max(1, parseInt(req.query.page)  || 1);
-        const limit    = Math.min(50, parseInt(req.query.limit) || 12); // tope de seguridad
+        const limit    = Math.max(1, Math.min(50, parseInt(req.query.limit) || 12));
         const skip     = (page - 1) * limit;
+        const rankingVersion = 2;
 
         // ── 1. CACHE solo para página 1 y cuando no hay una etiqueta de prioridad ──
         if (page === 1 && !primaryTag) {
@@ -920,6 +923,8 @@ exports.getRelatedWallpapers = async (req, res) => {
 
             const isFresh =
                 cache &&
+                cache.rankingVersion === rankingVersion &&
+                cache.limit === limit &&
                 cache.snapshot?.length > 0 &&
                 Date.now() - cache.updatedAt < CACHE_TTL_MS;
 
@@ -932,10 +937,19 @@ exports.getRelatedWallpapers = async (req, res) => {
         const original = await Wallpaper.findById(id).lean();
         if (!original || !original.tags?.length) return res.json([]);
 
-        // Normalizar y dividir la etiqueta principal en palabras clave (ej: "miles morales" -> ["miles", "morales"])
-        const queryWords = primaryTag
-            ? primaryTag.trim().toLowerCase().split(/\s+/).filter(w => w.length >= 2)
-            : [];
+        const originalTags = [...new Set(original.tags)];
+        // ponytail: la frecuencia aproxima la especificidad sin mantener listas de personajes.
+        // Si se necesita distinguir personaje de estilo, añadir ese dato al etiquetado.
+        const tagCounts = await Wallpaper.aggregate([
+            { $match: { status: 'approved', tags: { $in: originalTags } } },
+            { $project: { tags: { $setIntersection: ['$tags', originalTags] } } },
+            { $unwind: '$tags' },
+            { $group: { _id: '$tags', count: { $sum: 1 } } },
+        ]);
+        const tagWeights = originalTags.map(tag => ({
+            tag,
+            weight: 1 / Math.max(1, tagCounts.find(entry => entry._id === tag)?.count || 1),
+        }));
 
         // ── 3. AGGREGATE unificado (mismo formato siempre) ───────────────────
         //    Índice recomendado: { status:1, tags:1, createdAt:-1 }
@@ -944,29 +958,34 @@ exports.getRelatedWallpapers = async (req, res) => {
                 $match: {
                     status : 'approved',
                     _id    : { $ne: original._id },
-                    tags   : { $in: original.tags },
+                    tags   : { $in: originalTags },
                 },
             },
             {
                 $addFields: {
-                    primaryTagMatches: queryWords.length > 0 ? {
-                        $add: [
-                            { $size: { $setIntersection: ['$tags', queryWords] } },
-                            { $cond: [{ $in: [primaryTag.toLowerCase().trim(), '$tags'] }, 2, 0] }
-                        ]
-                    } : 0,
+                    // La búsqueda solo desempata; el wallpaper seleccionado define el tema.
+                    primaryTagMatches: primaryTag
+                        ? { $cond: [{ $in: [primaryTag, '$tags'] }, 1, 0] }
+                        : 0,
+                    strongestTagWeight: {
+                        $max: tagWeights.map(({ tag, weight }) => (
+                            { $cond: [{ $in: [tag, '$tags'] }, weight, 0] }
+                        )),
+                    },
+                    weightedTags: {
+                        $sum: tagWeights.map(({ tag, weight }) => (
+                            { $cond: [{ $in: [tag, '$tags'] }, weight, 0] }
+                        )),
+                    },
                     commonTags: {
-                        $size: { $setIntersection: ['$tags', original.tags] },
+                        $size: { $setIntersection: ['$tags', originalTags] },
                     },
                 },
             },
             { 
-                $sort: queryWords.length > 0
-                    ? { primaryTagMatches: -1, commonTags: -1, createdAt: -1 }
-                    : { commonTags: -1, createdAt: -1 }
+                $sort: { strongestTagWeight: -1, weightedTags: -1, commonTags: -1,
+                    primaryTagMatches: -1, createdAt: -1, _id: -1 }
             },
-            { $skip: skip },
-            { $limit: limit },
             {
                 $lookup: {
                     from         : 'users',
@@ -979,12 +998,16 @@ exports.getRelatedWallpapers = async (req, res) => {
             {
                 $match: { 'artist.isActive': { $ne: false } },
             },
+            { $skip: skip },
+            { $limit: limit },
             {
                 $project: {
                     'artist.password' : 0,
                     'artist.email'    : 0,
                     commonTags        : 0, // campo auxiliar, no necesario en respuesta
-                    primaryTagMatches : 0  // campo auxiliar, no necesario en respuesta
+                    primaryTagMatches : 0,
+                    strongestTagWeight: 0,
+                    weightedTags: 0,
                 },
             },
         ]);
@@ -994,7 +1017,7 @@ exports.getRelatedWallpapers = async (req, res) => {
             // Guardamos el snapshot completo (no solo IDs) → respuesta idéntica
             RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
-                { snapshot: results, updatedAt: new Date() },
+                { snapshot: results, updatedAt: new Date(), rankingVersion, limit },
                 { upsert: true }
             ).catch(err => console.error('[RELATED] Error guardando cache:', err));
             // fire-and-forget: no bloqueamos la respuesta al usuario
