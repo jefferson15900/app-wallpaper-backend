@@ -5,6 +5,7 @@ const path = require('path'); // 👈 Necesario para leer los archivos
 const connectDB = require('./src/config/db.js');
 const compression = require('compression');
 const configRoutes = require('./src/routes/configRoutes');
+const { startUpdateRetention } = require('./src/services/updateRetention');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -32,7 +33,8 @@ app.get('/delete-account', (req, res) => {
 });
 
 // 4. CONEXIÓN A DB Y RUTAS DE API
-connectDB();
+let stopUpdateRetention;
+connectDB().then(() => { stopUpdateRetention = startUpdateRetention(); });
 app.use('/api/auth', require('./src/routes/authRoutes')); 
 app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));
@@ -54,6 +56,7 @@ const server = app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${POR
 
 // CIERRE LIMPIO
 const shutdown = (signal) => {
+    if (stopUpdateRetention) stopUpdateRetention();
     server.close(() => { process.exit(0); });
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));

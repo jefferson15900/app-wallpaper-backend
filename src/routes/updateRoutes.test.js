@@ -26,7 +26,11 @@ test('updates API protects publication, filters unavailable content and preserve
     User.findById = async userId => ({ role: userId === admin ? 'admin' : 'user' });
     User.findByIdAndUpdate = async () => ({});
     Wallpaper.find = () => query([available]);
-    WallpaperUpdate.find = filter => query(filter._id.$nin.includes(admin) ? [] : [update]);
+    WallpaperUpdate.find = filter => {
+        assert.ok(filter.createdAt.$gt instanceof Date);
+        assert.ok(Math.abs(Date.now() - filter.createdAt.$gt.getTime() - 30 * 86400000) < 1000);
+        return query(filter._id.$nin.includes(admin) || update.createdAt <= filter.createdAt.$gt ? [] : [update]);
+    };
     WallpaperUpdate.findById = () => query(update);
     WallpaperUpdate.create = async value => { created = value; return { _id: admin }; };
     WallpaperUpdate.findByIdAndDelete = async () => { sharedDeleteCalled = true; return update; };
@@ -68,6 +72,14 @@ test('updates API protects publication, filters unavailable content and preserve
         assert.equal(feed.items[0].wallpapers, undefined);
         const detail = await (await read(`/${admin}`)).json();
         assert.equal(detail.wallpapers.length, 1);
+        const originalDate = update.createdAt;
+        update.createdAt = new Date(Date.now() - 30 * 86400000);
+        assert.equal((await (await read()).json()).items.length, 0);
+        assert.equal((await read(`/${admin}`)).status, 404);
+        update.createdAt = new Date(Date.now() - 29 * 86400000);
+        assert.equal((await (await read()).json()).items.length, 1);
+        assert.equal((await read(`/${admin}`)).status, 200);
+        update.createdAt = originalDate;
         assert.equal((await read('/invalid')).status, 400);
         WallpaperUpdate.findById = () => query(null);
         assert.equal((await read(`/${admin}`)).status, 404);

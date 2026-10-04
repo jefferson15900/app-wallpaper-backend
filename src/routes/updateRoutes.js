@@ -5,6 +5,7 @@ const UpdateDismissal = require('../models/UpdateDismissal');
 const auth = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 const { validateUpdate, isId } = require('../utils/updateValidation');
+const { retentionCutoff } = require('../services/updateRetention');
 
 // Each signed-in account sees only available updates it hasn't dismissed.
 const populateWalls = {
@@ -27,7 +28,7 @@ router.get('/', auth, async (req, res, next) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = 20;
         const hiddenIds = await UpdateDismissal.distinct('update', { user: req.user.id });
-        const rows = await WallpaperUpdate.find({ _id: { $nin: hiddenIds } }).sort({ createdAt: -1, _id: -1 })
+        const rows = await WallpaperUpdate.find({ _id: { $nin: hiddenIds }, createdAt: { $gt: retentionCutoff() } }).sort({ createdAt: -1, _id: -1 })
             .skip((page - 1) * limit).limit(limit).populate(populateWalls).lean();
         res.json({ items: rows.map(row => serialize(row)).filter(Boolean), hasMore: rows.length === limit });
     } catch (error) { next(error); }
@@ -52,7 +53,7 @@ router.get('/:id', auth, async (req, res, next) => {
     try {
         if (!isId(req.params.id)) return res.status(400).json({ msg: 'Actualización no válida.' });
         const row = await WallpaperUpdate.findById(req.params.id).populate(populateWalls).lean();
-        const update = row && serialize(row, true);
+        const update = row && new Date(row.createdAt) > retentionCutoff() && serialize(row, true);
         if (!update) return res.status(404).json({ msg: 'Esta actualización ya no está disponible.' });
         res.json(update);
     } catch (error) { next(error); }
