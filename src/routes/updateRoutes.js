@@ -1,11 +1,12 @@
 const router = require('express').Router();
 const WallpaperUpdate = require('../models/WallpaperUpdate');
 const Wallpaper = require('../models/Wallpaper');
+const UpdateDismissal = require('../models/UpdateDismissal');
 const auth = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 const { validateUpdate, isId } = require('../utils/updateValidation');
 
-// Public updates only expose approved wallpapers from active artists.
+// Each signed-in account sees only available updates it hasn't dismissed.
 const populateWalls = {
     path: 'wallpapers', match: { status: 'approved' },
     populate: { path: 'artist', select: 'username profilePic isVerified isActive', match: { isActive: { $ne: false } } },
@@ -21,11 +22,12 @@ function serialize(update, detail = false) {
     };
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', auth, async (req, res, next) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = 20;
-        const rows = await WallpaperUpdate.find().sort({ createdAt: -1, _id: -1 })
+        const hiddenIds = await UpdateDismissal.distinct('update', { user: req.user.id });
+        const rows = await WallpaperUpdate.find({ _id: { $nin: hiddenIds } }).sort({ createdAt: -1, _id: -1 })
             .skip((page - 1) * limit).limit(limit).populate(populateWalls).lean();
         res.json({ items: rows.map(row => serialize(row)).filter(Boolean), hasMore: rows.length === limit });
     } catch (error) { next(error); }
@@ -46,7 +48,7 @@ router.post('/', [auth, isAdmin], async (req, res, next) => {
     } catch (error) { next(error); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', auth, async (req, res, next) => {
     try {
         if (!isId(req.params.id)) return res.status(400).json({ msg: 'Actualización no válida.' });
         const row = await WallpaperUpdate.findById(req.params.id).populate(populateWalls).lean();
@@ -56,12 +58,16 @@ router.get('/:id', async (req, res, next) => {
     } catch (error) { next(error); }
 });
 
-router.delete('/:id', [auth, isAdmin], async (req, res, next) => {
+router.delete('/:id', auth, async (req, res, next) => {
     try {
         if (!isId(req.params.id)) return res.status(400).json({ msg: 'Actualización no válida.' });
-        const row = await WallpaperUpdate.findByIdAndDelete(req.params.id);
-        if (!row) return res.status(404).json({ msg: 'La actualización ya fue retirada.' });
-        res.json({ msg: 'Actualización retirada.' });
+        // Idempotent and account-scoped: never delete the shared publication or its wallpapers.
+        await UpdateDismissal.updateOne(
+            { user: req.user.id, update: req.params.id },
+            { $setOnInsert: { user: req.user.id, update: req.params.id } },
+            { upsert: true }
+        );
+        res.json({ msg: 'Actualización eliminada de tu buzón.' });
     } catch (error) { next(error); }
 });
 module.exports = router;
