@@ -6,12 +6,18 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // Evaluate the ranking expressions emitted by the controller, without a database.
-function evaluate(value, item) {
+function evaluate(value, item, variables = {}) {
+    if (typeof value === 'string' && value.startsWith('$$')) return variables[value.slice(2)];
     if (typeof value === 'string' && value.startsWith('$')) return item[value.slice(1)];
-    if (Array.isArray(value)) return value.map(entry => evaluate(entry, item));
+    if (Array.isArray(value)) return value.map(entry => evaluate(entry, item, variables));
     if (!value || typeof value !== 'object') return value;
     const [operator, input] = Object.entries(value)[0];
-    const args = evaluate(input, item);
+    if (operator === '$reduce') {
+        return evaluate(input.input, item, variables).reduce((value, entry) =>
+            evaluate(input.in, item, { ...variables, value, this: entry }),
+        evaluate(input.initialValue, item, variables));
+    }
+    const args = evaluate(input, item, variables);
     switch (operator) {
         case '$in': return args[1].includes(args[0]);
         case '$cond': return args[0] ? args[1] : args[2];
@@ -21,6 +27,12 @@ function evaluate(value, item) {
         case '$sum': return args.reduce((sum, weight) => sum + weight, 0);
         // Also support the previous algorithm so these cases fail against it.
         case '$add': return args.reduce((sum, weight) => sum + weight, 0);
+        case '$multiply': return args.reduce((product, value) => product * value, 1);
+        case '$mod': return args[0] % args[1];
+        case '$range': return Array.from({ length: args[1] - args[0] }, (_, i) => args[0] + i);
+        case '$toString': return String(args);
+        case '$substrBytes': return args[0].slice(args[1], args[1] + args[2]);
+        case '$indexOfBytes': return args[0].indexOf(args[1]);
         default: throw new Error(`Unsupported expression: ${operator}`);
     }
 }
@@ -166,4 +178,33 @@ test('missing wallpapers, empty tags and malformed context return safely', async
     assert.deepEqual(await h.request('missing'), []);
     assert.deepEqual(await h.request('empty'), []);
     assert.equal((await h.request('bayonetta-source', { primaryTag: ['gaming girl'], limit: '-1' })).length, 1);
+});
+
+test('seed varies tied recommendations across the full catalog while preserving relevance and pagination', async () => {
+    const id = value => `abcdef0123456789${value.toString(16).padStart(8, '0')}`;
+    const records = [wall(id(0), ['bayonetta', 'gaming girl']),
+        ...Array.from({ length: 30 }, (_, i) => wall(id(i + 1), ['bayonetta', 'gaming girl'], 100 - i)),
+        ...Array.from({ length: 5 }, (_, i) => wall(id(i + 31), ['gaming girl'], 999))];
+    const cached = { snapshot: [wall('old-fixed-order', ['gaming girl'])],
+        rankingVersion: 2, limit: 4, updatedAt: new Date() };
+    const h = harness(records, cached);
+    const query = { seed: '0.25', limit: '4' };
+    const first = await h.request(id(0), query);
+    assert.deepEqual(await h.request(id(0), query), first, 'same session order is stable');
+    const full = await h.request(id(0), { seed: '0.25', limit: '50' });
+    const pages = [];
+    for (let page = 1; page <= 9; page++) pages.push(...await h.request(id(0), { ...query, page: String(page) }));
+    assert.deepEqual(pages, full);
+    assert.equal(new Set(pages.map(item => item._id)).size, 35);
+    assert.ok(full.slice(0, 30).every(item => item.tags.includes('bayonetta')));
+    assert.ok(full.every(item => item.relatedRandomOrder === undefined));
+    const other = await h.request(id(0), { ...query, seed: '0.75' });
+    assert.notDeepEqual(other.map(item => item._id), first.map(item => item._id));
+    assert.equal(h.cache(), undefined, 'session order never overwrites a shared cache');
+});
+
+test('invalid seeds use the deterministic legacy behavior', async () => {
+    for (const seed of ['', 'NaN', '-1', '1', 'Infinity', ['0.25']]) {
+        assert.equal((await harness(catalog()).request('bayonetta-source', { seed }))[0]._id, 'bayonetta-related');
+    }
 });

@@ -914,9 +914,12 @@ exports.getRelatedWallpapers = async (req, res) => {
         const limit    = Math.max(1, Math.min(50, parseInt(req.query.limit) || 12));
         const skip     = (page - 1) * limit;
         const rankingVersion = 2;
+        const parsedSeed = typeof req.query.seed === 'string' ? Number(req.query.seed) : NaN;
+        const hasSeed = req.query.seed !== '' && Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1;
+        const randomMultiplier = hasSeed ? Math.floor(parsedSeed * 16777212) + 1 : 1;
 
         // ── 1. CACHE solo para página 1 y cuando no hay una etiqueta de prioridad ──
-        if (page === 1 && !primaryTag) {
+        if (page === 1 && !primaryTag && !hasSeed) {
             const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
             const cache = await RelatedCache.findOne({ wallpaperId: id });
@@ -980,11 +983,33 @@ exports.getRelatedWallpapers = async (req, res) => {
                     commonTags: {
                         $size: { $setIntersection: ['$tags', originalTags] },
                     },
+                    // Misma semilla en todas las páginas; un nuevo detalle puede variar los empates.
+                    relatedRandomOrder: hasSeed ? {
+                        $mod: [
+                            { $multiply: [
+                                { $reduce: {
+                                    input: { $range: [0, 24] },
+                                    initialValue: 0,
+                                    in: { $mod: [
+                                        { $add: [
+                                            { $multiply: ['$$value', 31] },
+                                            { $indexOfBytes: ['0123456789abcdef', {
+                                                $substrBytes: [{ $toString: '$_id' }, '$$this', 1],
+                                            }] },
+                                        ] },
+                                        16777213,
+                                    ] },
+                                } },
+                                randomMultiplier,
+                            ] },
+                            16777213,
+                        ],
+                    } : 0,
                 },
             },
             { 
                 $sort: { strongestTagWeight: -1, weightedTags: -1, commonTags: -1,
-                    primaryTagMatches: -1, createdAt: -1, _id: -1 }
+                    primaryTagMatches: -1, relatedRandomOrder: -1, createdAt: -1, _id: -1 }
             },
             {
                 $lookup: {
@@ -1008,12 +1033,13 @@ exports.getRelatedWallpapers = async (req, res) => {
                     primaryTagMatches : 0,
                     strongestTagWeight: 0,
                     weightedTags: 0,
+                    relatedRandomOrder: 0,
                 },
             },
         ]);
 
         // ── 4. GUARDAR cache solo en página 1 y cuando no hay una etiqueta de prioridad ──
-        if (page === 1 && !primaryTag && results.length > 0) {
+        if (page === 1 && !primaryTag && !hasSeed && results.length > 0) {
             // Guardamos el snapshot completo (no solo IDs) → respuesta idéntica
             RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
