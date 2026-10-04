@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { uploadCloud } = require('../config/cloudinary');
+const uploadRequest = require('../middleware/uploadRequestMiddleware');
 const wallpaperController = require('../controllers/wallpaperController');
 const isAdmin = require('../middleware/adminMiddleware');
 // VARIABLES PARA CACHÉ #HASHTAGS
@@ -23,7 +24,7 @@ router.get('/artist/:artistId', wallpaperController.getArtistWallpapers);
 router.get('/my/library', auth, wallpaperController.getUserLibrary);
 
 // 3. RUTAS DE ACCIÓN (POST y PUT)
-router.post('/upload', [auth, uploadCloud.array('image', 10)], wallpaperController.uploadWallpaper);
+router.post('/upload', [auth, uploadRequest, uploadCloud.array('image', 10)], wallpaperController.uploadWallpaper);
 router.put('/download/:id', wallpaperController.registerDownload);
 router.put('/like/:id', auth, wallpaperController.toggleLike);
 router.put('/save/:id', auth, wallpaperController.toggleSave);
@@ -198,4 +199,4 @@ router.get('/tags/trending', async (req, res) => {
     }
 });
 
-module.exports = router;  
+module.exports = router;

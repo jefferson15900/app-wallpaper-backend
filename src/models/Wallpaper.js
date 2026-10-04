@@ -3,6 +3,7 @@ const WallpaperSchema = new mongoose.Schema({
     tags: [{ type: String }],
     imageUrl: { type: String, required: true }, 
     public_id: { type: String, required: true },
+    uploadRequestId: { type: String, select: false },
     images: [{
         imageUrl: { type: String },
         public_id: { type: String }
@@ -21,4 +22,8 @@ const WallpaperSchema = new mongoose.Schema({
 WallpaperSchema.index({ status: 1, createdAt: -1 });
 WallpaperSchema.index({ category: 1 });
 WallpaperSchema.index({ artist: 1 });
+WallpaperSchema.index({ artist: 1, uploadRequestId: 1 }, {
+    unique: true,
+    partialFilterExpression: { uploadRequestId: { $type: 'string' } }
+});
 module.exports = mongoose.model('Wallpaper', WallpaperSchema);

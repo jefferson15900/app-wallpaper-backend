@@ -850,6 +850,7 @@ exports.uploadWallpaper = async (req, res) => {
         }));
 
         const newWallpaper = new Wallpaper({
+            ...(req.uploadRequestId ? { uploadRequestId: req.uploadRequestId } : {}),
             tags:      finalTags,
             imageUrl:  firstFile.path,
             public_id: firstFile.filename,
@@ -862,7 +863,8 @@ exports.uploadWallpaper = async (req, res) => {
         });
 
         await newWallpaper.save();
-        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } });
+        await User.findByIdAndUpdate(req.user.id, { $inc: { wallpaperCount: 1 } })
+            .catch(error => console.error('Error actualizando contador de wallpapers:', error.message));
 
         res.json(newWallpaper);
 
@@ -877,6 +879,8 @@ exports.uploadWallpaper = async (req, res) => {
 
     } catch (err) {
         console.error('❌ ERROR EN UPLOAD:', err);
+        // A post-response AI error must never delete an already saved wallpaper.
+        if (res.headersSent) return;
 
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
@@ -888,6 +892,10 @@ exports.uploadWallpaper = async (req, res) => {
             }
         }
 
+        if (err.code === 11000 && req.uploadRequestId) {
+            const existing = await Wallpaper.findOne({ artist: req.user.id, uploadRequestId: req.uploadRequestId }).lean();
+            if (existing) return res.json(existing);
+        }
         res.status(500).json({ msg: 'Error interno en la subida' });
     }
 };
