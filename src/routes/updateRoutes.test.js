@@ -12,7 +12,7 @@ test('updates API protects publication, filters unavailable content and preserve
     const originals = { user: User.findById, tracking: User.findByIdAndUpdate, walls: Wallpaper.find,
         list: WallpaperUpdate.find, detail: WallpaperUpdate.findById, create: WallpaperUpdate.create,
         remove: WallpaperUpdate.findByIdAndDelete, dismiss: UpdateDismissal.updateOne,
-        dismissed: UpdateDismissal.distinct, secret: process.env.JWT_SECRET };
+        dismissed: UpdateDismissal.distinct, cleanup: UpdateDismissal.deleteMany, secret: process.env.JWT_SECRET };
     const id = 'a'.repeat(24), other = 'b'.repeat(24), admin = 'c'.repeat(24);
     const available = { _id: id, imageUrl: 'https://example.com/naruto.jpg', artist: { _id: admin }, status: 'approved', type: 'image' };
     const hidden = { _id: other, imageUrl: 'https://example.com/hidden.jpg', artist: null };
@@ -29,11 +29,20 @@ test('updates API protects publication, filters unavailable content and preserve
     WallpaperUpdate.find = filter => {
         assert.ok(filter.createdAt.$gt instanceof Date);
         assert.ok(Math.abs(Date.now() - filter.createdAt.$gt.getTime() - 30 * 86400000) < 1000);
-        return query(filter._id.$nin.includes(admin) || update.createdAt <= filter.createdAt.$gt ? [] : [update]);
+        return query(sharedDeleteCalled || filter._id.$nin.includes(admin) || update.createdAt <= filter.createdAt.$gt ? [] : [update]);
     };
     WallpaperUpdate.findById = () => query(update);
     WallpaperUpdate.create = async value => { created = value; return { _id: admin }; };
-    WallpaperUpdate.findByIdAndDelete = async () => { sharedDeleteCalled = true; return update; };
+    WallpaperUpdate.findByIdAndDelete = async updateId => {
+        assert.equal(updateId, admin);
+        sharedDeleteCalled = true;
+        return update;
+    };
+    UpdateDismissal.deleteMany = async filter => {
+        assert.deepEqual(filter, { update: admin });
+        for (const hidden of dismissals.values()) hidden.delete(filter.update);
+        return { acknowledged: true };
+    };
     UpdateDismissal.distinct = async (field, filter) => {
         assert.equal(field, 'update');
         return [...(dismissals.get(filter.user) || [])];
@@ -96,6 +105,24 @@ test('updates API protects publication, filters unavailable content and preserve
         assert.equal((await (await read('', admin)).json()).items.length, 1);
         assert.equal(sharedDeleteCalled, false);
         assert.equal((await fetch(`${base}/bad`, { method: 'DELETE', headers: { 'x-auth-token': token(id) } })).status, 400);
+        const removeGlobally = (updateId, userId) => fetch(`${base}/${updateId}/global`, {
+            method: 'DELETE', headers: userId ? { 'x-auth-token': token(userId) } : {},
+        });
+        assert.equal((await removeGlobally(admin)).status, 401);
+        assert.equal((await removeGlobally(admin, id)).status, 403);
+        assert.equal(sharedDeleteCalled, false);
+        assert.equal((await removeGlobally('bad', admin)).status, 400);
+        assert.equal(sharedDeleteCalled, false);
+        WallpaperUpdate.findById = () => query(sharedDeleteCalled ? null : update);
+        assert.equal((await removeGlobally(admin, admin)).status, 200);
+        assert.equal(sharedDeleteCalled, true);
+        assert.equal(dismissals.get(id).size, 0);
+        for (const userId of [id, other, admin]) {
+            assert.equal((await (await read('', userId)).json()).items.length, 0);
+            assert.equal((await read(`/${admin}`, userId)).status, 404);
+        }
+        assert.equal((await removeGlobally(admin, admin)).status, 200);
+        assert.equal(available.status, 'approved');
     } finally {
         await new Promise(resolve => server.close(resolve));
         User.findById = originals.user; User.findByIdAndUpdate = originals.tracking;
@@ -103,6 +130,7 @@ test('updates API protects publication, filters unavailable content and preserve
         WallpaperUpdate.findById = originals.detail; WallpaperUpdate.create = originals.create;
         WallpaperUpdate.findByIdAndDelete = originals.remove;
         UpdateDismissal.updateOne = originals.dismiss; UpdateDismissal.distinct = originals.dismissed;
+        UpdateDismissal.deleteMany = originals.cleanup;
         if (originals.secret === undefined) delete process.env.JWT_SECRET;
         else process.env.JWT_SECRET = originals.secret;
     }

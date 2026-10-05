@@ -59,6 +59,16 @@ router.get('/:id', auth, async (req, res, next) => {
     } catch (error) { next(error); }
 });
 
+router.delete('/:id/global', [auth, isAdmin], async (req, res, next) => {
+    try {
+        if (!isId(req.params.id)) return res.status(400).json({ msg: 'Actualización no válida.' });
+        // Delete only the shared publication; catalogue wallpapers remain available.
+        await WallpaperUpdate.findByIdAndDelete(req.params.id);
+        await UpdateDismissal.deleteMany({ update: req.params.id });
+        res.json({ msg: 'Actualización eliminada para todos.' });
+    } catch (error) { next(error); }
+});
+
 router.delete('/:id', auth, async (req, res, next) => {
     try {
         if (!isId(req.params.id)) return res.status(400).json({ msg: 'Actualización no válida.' });
