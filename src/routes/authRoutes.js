@@ -437,11 +437,14 @@ router.get('/all-artists', async (req, res) => {
 
 // GUARDAR PUSH TOKEN (Para notificaciones)
 router.put('/save-token', auth, async (req, res) => {
-    const { token } = req.body;
+    const { token } = req.body || {};
+    if (typeof token !== 'string' || !Expo.isExpoPushToken(token)) {
+        return res.status(400).json({ msg: 'El token de notificaciones de Expo no es válido' });
+    }
 
     try {
         await User.updateMany(
-            { pushToken: token }, 
+            { pushToken: token, _id: { $ne: req.user.id } },
             { $set: { pushToken: "" } }
         );
 

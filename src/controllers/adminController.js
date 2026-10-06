@@ -15,59 +15,99 @@ let expo = new Expo();
 
 // 1. ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN) 
 exports.broadcast = async (req, res) => {
-    const { title, body } = req.body;
+    const { title, body } = req.body || {};
+    if (typeof title !== 'string' || typeof body !== 'string' || !title.trim() || !body.trim()) {
+        return res.status(400).json({ msg: 'Completa el título y el contenido de la notificación' });
+    }
 
     try {
-        // OBTENER TOKENS ÚNICOS (Solución al bug de duplicados)
         const uniqueTokens = await User.distinct('pushToken', { 
             pushToken: { $ne: "", $exists: true } 
         });
-
-        if (uniqueTokens.length === 0) {
-            return res.status(400).json({ msg: 'No hay dispositivos registrados para recibir notificaciones' });
+        const validTokens = uniqueTokens.filter(token => Expo.isExpoPushToken(token));
+        if (validTokens.length === 0) {
+            return res.status(400).json({ msg: 'No hay dispositivos con un token de Expo válido. Abre la app instalada y permite las notificaciones.' });
         }
-
-        // Preparar los mensajes para Expo
-        let messages = [];
-        for (let token of uniqueTokens) {
-            if (Expo.isExpoPushToken(token)) {
-                messages.push({
-                    to: token,
-                    sound: 'default',
-                    title: title || '✨ ¡Nuevos Wallpapers!',
-                    body: body || 'Hemos subido arte nuevo. ¡Entra a descubrirlo!',
-                    data: { screen: 'Explorar' },
-                    priority: 'high',
-                    channelId: 'default', 
-                });
-            } else {
-                console.log(`Token detectado como inválido: ${token}`); 
-            }
-        }
-
-        // Envío por lotes (Chunks) para evitar bloqueos de red
-        let chunks = expo.chunkPushNotifications(messages); 
-        let tickets = [];
-        
-        for (let chunk of chunks) {
+        const messages = validTokens.map(to => ({
+            to, sound: 'default', title: title.trim(), body: body.trim(),
+            data: { screen: 'Explorar' }, priority: 'high', channelId: 'default',
+        }));
+        const receiptIds = [];
+        const errors = {};
+        const staleTokens = [];
+        let failed = 0;
+        for (const chunk of expo.chunkPushNotifications(messages)) {
+            let tickets;
             try {
-                let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-                tickets.push(...ticketChunk);
+                tickets = await expo.sendPushNotificationsAsync(chunk);
             } catch (error) {
-                console.error("Error al enviar un lote de notificaciones:", error);
+                // A network failure can be ambiguous; do not resend this batch automatically.
+                failed += chunk.length;
+                const code = error.code || 'ExpoRequestFailed';
+                errors[code] = (errors[code] || 0) + chunk.length;
+                console.error('[broadcast] Expo rechazó o no confirmó un lote:', code);
+                continue;
+            }
+            for (const [index, message] of chunk.entries()) {
+                const ticket = tickets[index];
+                if (ticket?.status === 'ok' && ticket.id) {
+                    receiptIds.push(ticket.id);
+                } else {
+                    failed++;
+                    const code = ticket?.details?.error || 'InvalidExpoTicket';
+                    errors[code] = (errors[code] || 0) + 1;
+                    if (code === 'DeviceNotRegistered') staleTokens.push(message.to);
+                }
             }
         }
-
-        // Respuesta detallada tal como la tenías
-        res.json({ 
-            msg: `Proceso completado con éxito`, 
-            dispositivosAlcanzados: uniqueTokens.length,
-            mensajesProcesados: messages.length 
+        if (staleTokens.length) {
+            await User.updateMany({ pushToken: { $in: staleTokens } }, { $set: { pushToken: '' } })
+                .catch(() => console.error('[broadcast] No se pudieron limpiar los tokens vencidos'));
+        }
+        const accepted = receiptIds.length;
+        return res.status(accepted > 0 ? 200 : 502).json({
+            msg: accepted > 0
+                ? `Expo aceptó ${accepted} notificaciones; ${failed} envíos fallaron o no se confirmaron. La entrega está pendiente de comprobación.`
+                : 'Expo no aceptó ninguna notificación. Revisa los errores del envío.',
+            accepted, failed, invalidTokens: uniqueTokens.length - validTokens.length,
+            errors, receiptIds,
+            // Compatibility: these counts refer to acceptance by Expo, not delivery to phones.
+            dispositivosAlcanzados: accepted, mensajesProcesados: messages.length,
         });
-
     } catch (err) {
-        console.error("Error crítico en la función broadcast:", err);
-        res.status(500).send('Error interno del servidor al enviar notificaciones');
+        console.error('[broadcast] Error interno:', err.name);
+        res.status(500).json({ msg: 'Error interno del servidor al enviar notificaciones' });
+    }
+};
+
+// Tickets only confirm acceptance. Receipts confirm the handoff to FCM/APNs.
+exports.broadcastReceipts = async (req, res) => {
+    const { receiptIds } = req.body || {};
+    if (!Array.isArray(receiptIds) || receiptIds.length === 0 || receiptIds.length > 1000 ||
+        receiptIds.some(id => typeof id !== 'string' || !/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id))) {
+        return res.status(400).json({ msg: 'Envía entre 1 y 1000 identificadores de recibos válidos' });
+    }
+    try {
+        const ids = [...new Set(receiptIds)];
+        let confirmed = 0, failed = 0, pending = 0;
+        const errors = {};
+        for (const chunk of expo.chunkPushNotificationReceiptIds(ids)) {
+            const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+            for (const id of chunk) {
+                const receipt = receipts[id];
+                if (!receipt) pending++;
+                else if (receipt.status === 'ok') confirmed++;
+                else {
+                    failed++;
+                    const code = receipt.details?.error || 'UnknownReceiptError';
+                    errors[code] = (errors[code] || 0) + 1;
+                }
+            }
+        }
+        res.json({ confirmed, failed, pending, errors });
+    } catch (err) {
+        console.error('[broadcastReceipts] No se pudieron consultar los recibos:', err.code || err.name);
+        res.status(502).json({ msg: 'No se pudo consultar la entrega en Expo. Intenta verificar de nuevo sin reenviar la notificación.' });
     }
 };
 
