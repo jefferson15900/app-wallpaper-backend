@@ -538,6 +538,7 @@ exports.approveOrReject = async (req, res) => {
         return res.status(400).json({ msg: 'Acción inválida' });
     }
 
+    let approvalApplied = false;
     try {
         // Verificación de rol — idealmente en middleware, no aquí
         const user = await User.findById(req.user.id).lean();
@@ -569,14 +570,16 @@ exports.approveOrReject = async (req, res) => {
 
         // ── CASO B: APROBADO ──────────────────────────────────────────────────
         // Un solo update, { new: true } para tener el doc actualizado
-        const approved = await Wallpaper.findByIdAndUpdate(
-            req.params.id,
-            { status: 'approved' },
+        const approved = await Wallpaper.findOneAndUpdate(
+            { _id: req.params.id, status: 'pending' },
+            { $set: { status: 'approved' } },
             { new: true }
         );
+        if (!approved) return res.status(409).json({ msg: 'Este wallpaper ya no está pendiente de revisión.' });
+        approvalApplied = true;
 
-        // Fire-and-forget — no bloqueamos la respuesta por los tags
-        incrementTagCounts(approved.tags).catch(err =>
+        // Wait for tag updates before the client processes the next approval.
+        await incrementTagCounts(approved.tags).catch(err =>
             console.error('❌ Error incrementando tags:', err)
         );
 
@@ -641,6 +644,8 @@ exports.approveOrReject = async (req, res) => {
 
     } catch (err) {
         console.error('❌ Error en approveOrReject:', err);
+        // Publication is already committed; ancillary failures must not invite a duplicate retry.
+        if (approvalApplied) return res.json({ msg: 'Wallpaper aprobado; no se pudieron completar las notificaciones.' });
         return res.status(500).json({ msg: 'Error interno en la decisión' });
     }
 };
