@@ -10,23 +10,82 @@ const SearchLog = require('../models/SearchLog');
 const VerificationRequest = require('../models/VerificationRequest');
 const VALID_ACTIONS = ['approved', 'rejected'];
 const { incrementTagCounts } = require('../services/tagService');
+const Broadcast = require('../models/Broadcast');
 
 let expo = new Expo();
 
+const broadcastView = campaign => ({
+    ...(campaign.result || {}),
+    requestId: campaign.requestId, title: campaign.title, body: campaign.body,
+    mode: campaign.mode, status: campaign.status, createdAt: campaign.createdAt,
+    msg: campaign.result?.msg || 'Envío iniciado. Consulta su estado antes de crear otro envío.',
+});
+
+exports.broadcastHistory = async (req, res) => {
+    try {
+        const campaigns = await Broadcast.find({ owner: req.user.id }).sort({ createdAt: -1 }).limit(10).lean();
+        res.json({ campaigns: campaigns.map(broadcastView) });
+    } catch (err) {
+        res.status(500).json({ msg: 'No se pudo cargar el historial. Intenta de nuevo.' });
+    }
+};
+
+exports.broadcastStatus = async (req, res) => {
+    if (!/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(req.params.requestId || '')) {
+        return res.status(400).json({ msg: 'Identificador de envío inválido.' });
+    }
+    try {
+        const campaign = await Broadcast.findOne({ owner: req.user.id, requestId: req.params.requestId }).lean();
+        if (!campaign) return res.status(404).json({ msg: 'Este envío todavía no está registrado. Puedes recuperar el mismo intento sin duplicarlo.' });
+        res.json(broadcastView(campaign));
+    } catch (err) {
+        res.status(500).json({ msg: 'No se pudo consultar el envío. Intenta de nuevo sin reenviarlo.' });
+    }
+};
+
 // 1. ENVIAR NOTIFICACIÓN GLOBAL (SOLO ADMIN) 
 exports.broadcast = async (req, res) => {
-    const { title, body } = req.body || {};
+    const { title, body, requestId, mode = 'global' } = req.body || {};
     if (typeof title !== 'string' || typeof body !== 'string' || !title.trim() || !body.trim()) {
         return res.status(400).json({ msg: 'Completa el título y el contenido de la notificación' });
     }
 
+    if (title.trim().length > 120 || body.trim().length > 500) {
+        return res.status(400).json({ msg: 'Usa hasta 120 caracteres en el título y 500 en el mensaje.' });
+    }
+    if (!['global', 'test'].includes(mode) || (mode === 'test' && !requestId) ||
+        (requestId !== undefined && (typeof requestId !== 'string' || !/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(requestId)))) {
+        return res.status(400).json({ msg: 'El identificador o tipo de envío no es válido.' });
+    }
+
+    let campaign;
     try {
-        const uniqueTokens = await User.distinct('pushToken', { 
-            pushToken: { $ne: "", $exists: true } 
+        if (requestId) {
+            // The unique index claims the send atomically across requests and server instances.
+            await Broadcast.init();
+            try {
+                campaign = await Broadcast.create({ owner: req.user.id, requestId, title: title.trim(), body: body.trim(), mode });
+            } catch (error) {
+                if (error.code !== 11000) throw error;
+                const existing = await Broadcast.findOne({ owner: req.user.id, requestId }).lean();
+                if (!existing || existing.title !== title.trim() || existing.body !== body.trim() || existing.mode !== mode) {
+                    return res.status(409).json({ msg: 'Este identificador ya pertenece a otro mensaje. Consulta el historial.' });
+                }
+                return res.json(broadcastView(existing));
+            }
+        }
+        const uniqueTokens = await User.distinct('pushToken', {
+            pushToken: { $ne: "", $exists: true },
+            ...(mode === 'test' ? { _id: req.user.id } : {}),
         });
         const validTokens = uniqueTokens.filter(token => Expo.isExpoPushToken(token));
         if (validTokens.length === 0) {
-            return res.status(400).json({ msg: 'No hay dispositivos con un token de Expo válido. Abre la app instalada y permite las notificaciones.' });
+            const result = { msg: mode === 'test'
+                ? 'Tu cuenta no tiene un dispositivo registrado. Abre la app instalada y permite las notificaciones.'
+                : 'No hay dispositivos con un token de Expo válido. Abre la app instalada y permite las notificaciones.',
+                accepted: 0, failed: 0, errors: {}, receiptIds: [] };
+            if (campaign) { campaign.status = 'completed'; campaign.result = result; await campaign.save(); }
+            return res.status(400).json(campaign ? broadcastView(campaign) : result);
         }
         const messages = validTokens.map(to => ({
             to, sound: 'default', title: title.trim(), body: body.trim(),
@@ -36,16 +95,26 @@ exports.broadcast = async (req, res) => {
         const errors = {};
         const staleTokens = [];
         let failed = 0;
+        let unconfirmed = false;
+        const checkpoint = async () => {
+            if (!campaign) return;
+            campaign.result = { msg: 'Envío iniciado. Consulta su estado antes de crear otro envío.',
+                accepted: receiptIds.length, failed, invalidTokens: uniqueTokens.length - validTokens.length,
+                errors: { ...errors }, receiptIds: [...receiptIds] };
+            await campaign.save();
+        };
         for (const chunk of expo.chunkPushNotifications(messages)) {
             let tickets;
             try {
                 tickets = await expo.sendPushNotificationsAsync(chunk);
             } catch (error) {
                 // A network failure can be ambiguous; do not resend this batch automatically.
+                unconfirmed = true;
                 failed += chunk.length;
                 const code = error.code || 'ExpoRequestFailed';
                 errors[code] = (errors[code] || 0) + chunk.length;
                 console.error('[broadcast] Expo rechazó o no confirmó un lote:', code);
+                await checkpoint();
                 continue;
             }
             for (const [index, message] of chunk.entries()) {
@@ -54,18 +123,20 @@ exports.broadcast = async (req, res) => {
                     receiptIds.push(ticket.id);
                 } else {
                     failed++;
+                    if (!ticket || ticket.status !== 'error') unconfirmed = true;
                     const code = ticket?.details?.error || 'InvalidExpoTicket';
                     errors[code] = (errors[code] || 0) + 1;
                     if (code === 'DeviceNotRegistered') staleTokens.push(message.to);
                 }
             }
+            await checkpoint();
         }
         if (staleTokens.length) {
             await User.updateMany({ pushToken: { $in: staleTokens } }, { $set: { pushToken: '' } })
                 .catch(() => console.error('[broadcast] No se pudieron limpiar los tokens vencidos'));
         }
         const accepted = receiptIds.length;
-        return res.status(accepted > 0 ? 200 : 502).json({
+        const result = {
             msg: accepted > 0
                 ? `Expo aceptó ${accepted} notificaciones; ${failed} envíos fallaron o no se confirmaron. La entrega está pendiente de comprobación.`
                 : 'Expo no aceptó ninguna notificación. Revisa los errores del envío.',
@@ -73,10 +144,17 @@ exports.broadcast = async (req, res) => {
             errors, receiptIds,
             // Compatibility: these counts refer to acceptance by Expo, not delivery to phones.
             dispositivosAlcanzados: accepted, mensajesProcesados: messages.length,
-        });
+        };
+        if (campaign) { campaign.status = unconfirmed ? 'unknown' : 'completed'; campaign.result = result; await campaign.save(); }
+        return res.status(accepted > 0 ? 200 : 502).json(campaign ? broadcastView(campaign) : result);
     } catch (err) {
+        if (campaign) {
+            campaign.status = 'unknown';
+            campaign.result = { ...(campaign.result || {}), msg: 'No se pudo confirmar el resultado completo. Consulta este envío; crear otro podría repetir el aviso.' };
+            await campaign.save().catch(() => {});
+        }
         console.error('[broadcast] Error interno:', err.name);
-        res.status(500).json({ msg: 'Error interno del servidor al enviar notificaciones' });
+        res.status(500).json(campaign ? broadcastView(campaign) : { msg: 'Error interno del servidor al enviar notificaciones' });
     }
 };
 
