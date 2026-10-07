@@ -31,6 +31,10 @@ const SearchLogSchema = new mongoose.Schema({
     downloads: {
         type: Number,
         default: 0
+    },
+    likes: {
+        type: Number,
+        default: 0
     }
 }, { 
     timestamps: true 

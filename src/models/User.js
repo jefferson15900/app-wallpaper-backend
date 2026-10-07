@@ -41,4 +41,5 @@ const UserSchema = new mongoose.Schema({
     nativeLanguage: { type: String, default: "No definido" },
     isGoogleUser: { type: Boolean, default: false }
 });
+UserSchema.index({ createdAt: 1 });
 module.exports = mongoose.model('User', UserSchema);

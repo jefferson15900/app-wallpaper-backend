@@ -6,6 +6,7 @@ const connectDB = require('./src/config/db.js');
 const compression = require('compression');
 const configRoutes = require('./src/routes/configRoutes');
 const { startUpdateRetention } = require('./src/services/updateRetention');
+const { initializeAnalytics } = require('./src/services/analyticsService');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -34,7 +35,10 @@ app.get('/delete-account', (req, res) => {
 
 // 4. CONEXIÓN A DB Y RUTAS DE API
 let stopUpdateRetention;
-connectDB().then(() => { stopUpdateRetention = startUpdateRetention(); });
+connectDB().then(async () => {
+    stopUpdateRetention = startUpdateRetention();
+    await initializeAnalytics();
+}).catch(error => console.error('Error initializing analytics:', error.message));
 app.use('/api/auth', require('./src/routes/authRoutes')); 
 app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/wallpapers', require('./src/routes/wallpaperRoutes'));

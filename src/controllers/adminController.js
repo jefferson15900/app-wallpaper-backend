@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const Wallpaper = require('../models/Wallpaper');
-const Visitor = require('../models/Visitor');
 const Feedback = require('../models/Feedback');
 const { Expo } = require('expo-server-sdk');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
@@ -369,168 +368,7 @@ const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 // ============================================================
 // GET /api/admin/stats  →  getDashboardStats
 // ============================================================
-exports.getDashboardStats = async (req, res) => {
-    try {
-        const now       = new Date();
-        const ago1day   = daysAgo(1);
-        const ago3days  = daysAgo(3);
-        const ago4days  = daysAgo(4);
-        const ago7days  = daysAgo(7);
-
-        const [
-            totalUsers,
-            newUsersWeek,
-            dau,
-            totalVisitors,
-            newVisitorsWeek,
-            totalWallpapers,
-            pendingWallpapers,
-            totalDownloadsAgg,
-            totalLikesAgg, 
-            statsByTag, 
-            topSearches,
-            contentGaps,
-            cohort,
-        ] = await Promise.all([
-            // ── Usuarios ──────────────────────────────────────────
-            User.countDocuments(),
-            User.countDocuments({ createdAt: { $gte: ago7days } }),
-
-            // ── Visitantes ────────────────────────────────────────
-            Visitor.countDocuments({ lastActiveAt: { $gte: ago1day } }),
-            Visitor.countDocuments(),
-            Visitor.countDocuments({ createdAt: { $gte: ago7days } }),
-
-            // ── Wallpapers ────────────────────────────────────────
-            Wallpaper.countDocuments({ status: 'approved' }),
-            Wallpaper.countDocuments({ status: 'pending' }),
-
-            // ── Descargas totales ─────────────────────────────────
-            Wallpaper.aggregate([
-                { $group: { _id: null, total: { $sum: '$downloads' } } },
-            ]),
-
-            // ── Likes totales ─────────────────────────────────────
-            Wallpaper.aggregate([
-                { $project: { count: { $size: '$likes' } } },
-                { $group: { _id: null, total: { $sum: '$count' } } },
-            ]),
-
-            // ── Top 15 etiquetas en galería ───────────────────────
-            Wallpaper.aggregate([
-                { $match: { status: 'approved' } },
-                { $unwind: '$tags' },
-                { $group: { _id: '$tags', count: { $sum: 1 } } },
-                { $sort: { count: -1 } },
-                { $limit: 15 },
-            ]),
-
-            // ── Top 10 búsquedas (últimos 7 días) ──
-            SearchLog.aggregate([
-                { $match: { date: { $gte: ago7days } } },
-                {
-                    $group: {
-                        _id: "$term",
-                        count: { $sum: "$count" },
-                        clicks: { $sum: "$clicks" },
-                        downloads: { $sum: "$downloads" }
-                    }
-                },
-                { $sort: { count: -1 } },
-                { $limit: 10 },
-                {
-                    $project: {
-                        term: "$_id",
-                        count: 1,
-                        clicks: 1,
-                        downloads: 1,
-                        _id: 0
-                    }
-                }
-            ]),
-
-            // ── Brechas de contenido (últimos 7 días, latest resultsCount === 0 y sin wallpapers aprobados actualmente) ──
-            SearchLog.aggregate([
-                { $match: { date: { $gte: ago7days } } },
-                { $sort: { date: -1 } },
-                {
-                    $group: {
-                        _id: "$term",
-                        count: { $sum: "$count" },
-                        latestResultsCount: { $first: "$resultsCount" }
-                    }
-                },
-                { $match: { latestResultsCount: 0 } },
-                {
-                    $lookup: {
-                        from: 'wallpapers',
-                        let: { term: "$_id" },
-                        pipeline: [
-                            { 
-                                $match: { 
-                                    $expr: { 
-                                        $and: [
-                                            { $eq: ["$status", "approved"] },
-                                            { $in: ["$$term", { $ifNull: ["$tags", []] }] }
-                                        ]
-                                    } 
-                                } 
-                            },
-                            { $limit: 1 }
-                        ],
-                        as: 'matchingWallpapers'
-                    }
-                },
-                { $match: { matchingWallpapers: { $size: 0 } } },
-                { $sort: { count: -1 } },
-                { $limit: 10 },
-                {
-                    $project: {
-                        term: "$_id",
-                        count: 1,
-                        _id: 0
-                    }
-                }
-            ]),
-
-            // ── Cohorte de retención (descargaron hace 3-4 días) ──
-            Visitor.find({
-                lastDownloadAt: { $gte: ago4days, $lte: ago3days },
-            }).select('lastActiveAt').lean(),
-        ]);
-
-        // ── Tasa de retención ──────────────────────────────────────
-        const cohortSize    = cohort.length;
-        const retained      = cohort.filter(v => v.lastActiveAt >= ago1day).length;
-        const retentionRate = cohortSize > 0
-            ? +((retained / cohortSize) * 100).toFixed(1)
-            : 0;
-
-        return res.json({
-            users: {
-                total:           totalUsers,
-                newWeek:         newUsersWeek,
-                dau,
-                totalVisitors,
-                newVisitorsWeek,
-            },
-            content: {
-                total:     totalWallpapers,
-                pending:   pendingWallpapers,
-                downloads: totalDownloadsAgg[0]?.total ?? 0,
-                likes:     totalLikesAgg[0]?.total     ?? 0,
-                retention: retentionRate,
-            },
-            tags:    statsByTag,
-            searches: topSearches,
-            contentGaps: contentGaps,
-        });
-
-    } catch (err) {
-        console.error('[getDashboardStats]', err);
-        return res.status(500).json({ msg: 'Error al generar estadísticas' });
-    }
-};
+exports.getDashboardStats = require('../controllers/analyticsController').dashboard;
 
 // ============================================================
 // DELETE /api/admin/searches/cleanup  →  cleanupSearchLogs
@@ -539,16 +377,21 @@ exports.getDashboardStats = async (req, res) => {
 // ============================================================
 exports.cleanupSearchLogs = async (req, res) => {
     try {
-        const minCount      = parseInt(req.query.minCount, 10)      || 1;
-        const olderThanDays = parseInt(req.query.olderThanDays, 10) || null;
+        const minCount      = req.query.minCount === undefined ? 1 : Number(req.query.minCount);
+        const olderThanDays = req.query.olderThanDays === undefined ? null : Number(req.query.olderThanDays);
         const clearAll      = req.query.all === 'true';
+        if (!Number.isSafeInteger(minCount) || minCount < 0 ||
+            (olderThanDays !== null && (!Number.isSafeInteger(olderThanDays) || olderThanDays < 1 || olderThanDays > 3650)) ||
+            (req.query.all !== undefined && !['true', 'false'].includes(req.query.all))) {
+            return res.status(400).json({ msg: 'Parámetros de limpieza inválidos' });
+        }
 
         // Construimos el filtro dinámicamente
         let filter = {};
         if (clearAll) {
             filter = {};
         } else {
-            filter = { count: { $lte: minCount } };
+            filter = olderThanDays && req.query.minCount === undefined ? {} : { count: { $lte: minCount } };
             if (olderThanDays) {
                 filter.updatedAt = { $lte: daysAgo(olderThanDays) };
             }
@@ -557,7 +400,9 @@ exports.cleanupSearchLogs = async (req, res) => {
         const { deletedCount } = await SearchLog.deleteMany(filter);
 
         return res.json({
-            msg:     clearAll ? 'Se vació el historial de búsquedas por completo' : `Se eliminaron ${deletedCount} búsqueda(s) con count ≤ ${minCount}`,
+            msg: clearAll ? 'Se vació el registro anterior de búsquedas' : olderThanDays
+                ? `Se eliminaron ${deletedCount} registros antiguos de búsquedas`
+                : `Se eliminaron ${deletedCount} búsqueda(s) con count ≤ ${minCount}`,
             deleted: deletedCount,
         });
 

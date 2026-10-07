@@ -3,6 +3,7 @@ const router = express.Router();
 const { IGNORED_TAGS, SCORING_RULES } = require('../config/scoring');
 const nlp = require('compromise');
 const SearchLog = require('../models/SearchLog');
+const { recordSearchOutcome } = require('../services/analyticsService');
 
 // @route   GET /api/config/scoring
 // @desc    Entrega la configuración oficial del algoritmo de ADN
@@ -45,12 +46,13 @@ router.post('/track-search', async (req, res) => {
 });
 
 router.post('/track-search-click', async (req, res) => {
-    const { query, wallpaperId } = req.body;
-    let rawTerm = query?.toLowerCase().trim();
+    const { query, searchId } = req.body || {};
+    let rawTerm = typeof query === 'string' ? query.toLowerCase().trim().slice(0, 150) : '';
 
     if (!rawTerm || rawTerm.length < 2) return res.sendStatus(200);
 
     try {
+        await recordSearchOutcome(searchId, 'opened');
         const singular = rawTerm.includes(' ') ? rawTerm : nlp(rawTerm).nouns().toSingular().text().trim();
         const term = singular || rawTerm;
         const today = new Date();
@@ -85,4 +87,4 @@ router.get('/version', (req, res) => {
     }
 });
 
-module.exports = router; 
+module.exports = router;

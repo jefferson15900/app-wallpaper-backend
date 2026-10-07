@@ -13,6 +13,8 @@ const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
 const SearchLog = require('../models/SearchLog');
+const { recordSearch, recordSearchOutcome, recordDownload, recordActivity, quietly } = require('../services/analyticsService');
+const { validDeviceId } = require('../utils/analyticsDates');
 const Spotlight = require('../models/Spotlight');
 const FloatingBubble = require('../models/FloatingBubble');
 
@@ -661,10 +663,11 @@ exports.searchWallpapers = async (req, res) => {
             }
         }
 
-        // Registro de búsqueda en segundo plano (fire-and-forget)
-        saveSearchLogAsync(singularSearchSpanish || rawSearch, results.length).catch(err => 
-            console.error('Error logging search:', err)
-        );
+        // Only the first page represents a search; an empty next page is not unmet demand.
+        if (page === 1) {
+            await recordSearch(req.query.searchId, rawSearch, results.length).catch(error => console.error('[analytics]', error.message));
+            quietly(saveSearchLogAsync(singularSearchSpanish || rawSearch, results.length));
+        }
 
         return res.json(results.map(item => {
             const cleanItem = { ...item, price: item.price ?? 0 };
@@ -1211,13 +1214,15 @@ exports.toggleLike = async (req, res) => {
 
                 SearchLog.findOneAndUpdate(
                     { term, date: today },
-                    { $inc: { clicks: 1 } },
+                    { $inc: { likes: 1 } },
                     { upsert: true }
                 ).catch(err => console.error("❌ [SearchLog] Error guardando click de like:", err.message));
             }
         }
 
         await wallpaper.save();
+
+        if (!alreadyLiked) quietly(recordSearchOutcome(req.query.searchId, 'liked'));
 
         // ✅ RESPUESTA SIEMPRE EN JSON
         res.json({ 
@@ -1276,6 +1281,8 @@ exports.registerDownload = async (req, res) => {
         if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
         // ── REGISTRO DE DESCARGA DESDE BÚSQUEDA ──
+        await recordDownload(wallpaper._id).catch(error => console.error('[analytics]', error.message));
+        quietly(recordSearchOutcome(req.query.searchId, 'downloaded'));
         const { q } = req.query;
         if (q && q.trim().length >= 2) {
             const searchTerms = q.trim().toLowerCase();
@@ -1308,7 +1315,8 @@ exports.registerDownload = async (req, res) => {
         }
 
         // CASO B: Rastrear por dispositivo (Para medir usuarios invitados y registrados por igual)
-        if (deviceId) {
+        if (validDeviceId(deviceId)) {
+            await recordActivity(deviceId).catch(error => console.error('[analytics]', error.message));
             await Visitor.findOneAndUpdate(
                 { deviceId },
                 { 

@@ -8,4 +8,5 @@ const VisitorSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+VisitorSchema.index({ createdAt: 1 });
 module.exports = mongoose.model('Visitor', VisitorSchema);
