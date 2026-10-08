@@ -484,10 +484,10 @@ const SYNONYMS = {
 /**
  * Limpia, normaliza y unifica etiquetas usando NLP (Compromise).
  * @param {unknown[]} tagsArray
- * @param {{ maxTags?: number, minLength?: number, maxLength?: number }} options
+ * @param {{ maxTags?: number, minLength?: number }} options
  * @returns {string[]}
  */
-const cleanTags = (tagsArray, { maxTags = 20, minLength = 2, maxLength = 40 } = {}) => {
+const cleanTags = (tagsArray, { maxTags = 20, minLength = 2 } = {}) => {
   if (!Array.isArray(tagsArray) || tagsArray.length === 0) return [];
 
   const seen = new Set();
@@ -521,7 +521,6 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2, maxLength = 40 } = 
     // 5. Filtros combinados en una sola pasada
     .filter(t =>
       t.length >= minLength &&
-      t.length <= maxLength &&
       !/^\d+$/.test(t) &&
       !BLACKLIST_TAGS.has(t) &&
       !VAGUE_SINGLES.has(t)

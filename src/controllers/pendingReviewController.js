@@ -12,8 +12,8 @@ exports.editPendingWallpaper = async (req, res) => {
     const changes = {};
     if ('tags' in body) {
         if (!Array.isArray(body.tags) || body.tags.length > 100 ||
-            body.tags.some(tag => typeof tag !== 'string' || tag.trim().length > 100)) {
-            return res.status(400).json({ msg: 'Usa hasta 100 etiquetas de hasta 100 caracteres.' });
+            body.tags.some(tag => typeof tag !== 'string')) {
+            return res.status(400).json({ msg: 'Usa hasta 100 etiquetas de texto.' });
         }
         changes.tags = [...new Set(body.tags.map(tag => tag.trim().replace(/^#+/, '').trim().toLowerCase()).filter(Boolean))];
     }

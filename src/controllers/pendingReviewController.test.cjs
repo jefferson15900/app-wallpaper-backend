@@ -54,7 +54,7 @@ test('pending edits require admin, validate metadata and never change approval o
         assert.equal((await edit({ tags: [] }, null)).status, 401);
         assert.equal((await edit({ tags: [] }, member)).status, 403);
         const invalid = [{}, null, [], { status: 'approved' }, { imageUrl: 'replacement' },
-            { title: 'unsupported' }, { artist: member }, { tags: [{ $ne: '' }] }, { tags: ['x'.repeat(101)] },
+            { title: 'unsupported' }, { artist: member }, { tags: [{ $ne: '' }] },
             { tags: Array(101).fill('x') }, { price: -1 }, { price: '1' }, { price: null }, { isPremium: 'true' }];
         for (const body of invalid) assert.equal((await edit(body)).status, 400, JSON.stringify(body));
         assert.equal((await edit({ tags: [] }, admin, 'invalid')).status, 400);
@@ -65,6 +65,10 @@ test('pending edits require admin, validate metadata and never change approval o
         assert.deepEqual(saved.tags, ['anime', 'paisaje']);
         assert.equal(saved.price, 2.5); assert.equal(saved.isPremium, true);
         assert.equal(saved.status, 'pending'); assert.equal(saved.imageUrl, 'original.jpg');
+        const longTag = 'paisaje '.repeat(30).trim();
+        const longResult = await edit({ tags: [' #' + longTag.toUpperCase()] });
+        assert.equal(longResult.status, 200);
+        assert.deepEqual((await longResult.json()).tags, [longTag]);
         assert.equal((await edit({ tags: [] })).status, 200);
         assert.deepEqual(record.tags, []);
         assert.equal(record.price, 2.5); // A partial edit preserves other data.
