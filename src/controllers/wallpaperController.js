@@ -262,7 +262,7 @@ const cleanSearchQuery = (query) => {
     const words = normalized.split(/\s+/).filter(Boolean);
     
     const isLive = words.some(w => LIVE_INTENT_WORDS.has(w));
-    const cleanedWords = words.filter(w => !STOP_WORDS.has(w));
+    const cleanedWords = words.filter(w => !STOP_WORDS.has(w) && !LIVE_INTENT_WORDS.has(w));
     
     const text = cleanedWords.length > 0 ? cleanedWords.join(' ') : normalized;
     return { text, isLive };
@@ -312,7 +312,7 @@ exports.searchWallpapers = async (req, res) => {
         const limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
         const skip  = (page - 1) * limit;
 
-        if (!q?.trim()) return res.json([]);
+        if (typeof q !== 'string' || !q.trim()) return res.json([]);
         
         // 1. Limpieza de stop words e inferencia de formato "live"
         const { text: cleanQuery, isLive } = cleanSearchQuery(q);
@@ -358,10 +358,15 @@ exports.searchWallpapers = async (req, res) => {
             canonicalSynonyms.push(...csEsp);
         }
 
-        const exactTerms = [...new Set([rawSearch, canonicalEnglish, canonicalSpanish].filter(Boolean))];
+        // Translate combined queries too ("naruto azul" -> "naruto blue").
+        const queryWords = rawSearch.split(/\s+/).filter(Boolean);
+        const canonicalQuery = queryWords.length > 1
+            ? (await Promise.all(queryWords.map(word => resolveToCanonical(word)))).join(' ')
+            : canonicalEnglish;
+        const exactTerms = [...new Set([rawSearch, canonicalEnglish, canonicalSpanish, canonicalQuery].filter(Boolean))];
 
         const expandedTerms = new Set(
-            [rawSearch, singularSearchEnglish, singularSearchSpanish, canonicalEnglish, canonicalSpanish].filter(Boolean)
+            [rawSearch, singularSearchEnglish, singularSearchSpanish, canonicalEnglish, canonicalSpanish, canonicalQuery].filter(Boolean)
         );
         [...allSynonyms, ...canonicalSynonyms].forEach(t => {
             if (t.original) expandedTerms.add(t.original);
@@ -390,8 +395,9 @@ exports.searchWallpapers = async (req, res) => {
             if (ids.length) matchQuery._id = { $nin: ids };
         }
 
-        // Helper para construir el pipeline de Atlas Search con lógica flex (OR/should), boost y matchRatio
-        const buildSearchPipeline = (useFuzzy, minRatio = 0) => {
+        // Atlas validates equivalences and typos before pagination; scoring cannot
+        // admit a wallpaper that only matches a generic word such as "anime".
+        const buildSearchPipeline = (useFuzzy) => {
             const shouldClauses = [];
             const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
@@ -402,13 +408,21 @@ exports.searchWallpapers = async (req, res) => {
                     .map(w => w.toLowerCase().trim())
             );
 
-            const originalWordsArray = [...originalWords];
-
             const wordFuzzy = (word) => {
                 if (!useFuzzy) return null;
                 const maxEdits = word.length >= 5 ? 2 : 1;
                 return { maxEdits, prefixLength: 1 };
             };
+
+            const requiredAlternatives = (termsArray.length ? termsArray : [rawSearch]).map(term => ({
+                compound: {
+                    must: term.split(/\s+/).filter(Boolean).map(word => {
+                        const fuzzyConf = wordFuzzy(word);
+                        return { text: { query: word, path: 'tags', matchCriteria: 'all',
+                            ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}) } };
+                    }),
+                },
+            }));
 
             for (const term of termsArray) {
                 const variants = [term];
@@ -485,6 +499,7 @@ exports.searchWallpapers = async (req, res) => {
                     $search: {
                         index: "default",
                         compound: {
+                            filter: [{ compound: { should: requiredAlternatives, minimumShouldMatch: 1 } }],
                             should: shouldClauses,
                             minimumShouldMatch: 1
                         }
@@ -492,56 +507,6 @@ exports.searchWallpapers = async (req, res) => {
                 },
                 { $addFields: { score: { $meta: 'searchScore' } } },
                 { $match: matchQuery },
-                {
-                    $addFields: {
-                        matchRatio: {
-                            $divide: [
-                                {
-                                    $size: {
-                                        $filter: {
-                                            input: originalWordsArray,
-                                            as: "word",
-                                            cond: {
-                                                $gt: [
-                                                    {
-                                                        $size: {
-                                                            $filter: {
-                                                                input: { $ifNull: ["$tags", []] },
-                                                                as: "tag",
-                                                                cond: {
-                                                                    $or: [
-                                                                        {
-                                                                            $ne: [
-                                                                                { $indexOfCP: [ { $toLower: "$$tag" }, "$$word" ] },
-                                                                                -1
-                                                                            ]
-                                                                        },
-                                                                        {
-                                                                            $ne: [
-                                                                                { $indexOfCP: [
-                                                                                    { $replaceAll: { input: { $toLower: "$$tag" }, find: " ", replacement: "" } },
-                                                                                    "$$word"
-                                                                                ]},
-                                                                                -1
-                                                                            ]
-                                                                        }
-                                                                    ]
-                                                                }
-                                                            }
-                                                        }
-                                                    },
-                                                    0
-                                                ]
-                                            }
-                                        }
-                                    }
-                                },
-                                Math.max(1, originalWordsArray.length)
-                            ]
-                        }
-                    }
-                },
-                ...(minRatio > 0 ? [{ $match: { matchRatio: { $gte: minRatio } } }] : []),
                 {
                     // Aplicar boost de coincidencia exacta de etiquetas en la base de datos
                     $addFields: {
@@ -612,7 +577,6 @@ exports.searchWallpapers = async (req, res) => {
                         score          : 0,
                         randomizedScore: 0,
                         exactTagMatchBoost: 0,
-                        matchRatio     : 0,
                         // Mantenemos finalBaseScore temporalmente para el pruning en JS
                         'artist.password' : 0,
                         'artist.email'    : 0,
@@ -622,35 +586,11 @@ exports.searchWallpapers = async (req, res) => {
             ];
         };
 
-        // ── EJECUCIÓN EN TRES FASES (RELEVANCIA Y DENSIDAD) ─────────────────
-        const queryWords = rawSearch.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
-        
-        let strictRatio = 0.6; // Para 3 o más palabras (ej: miles morales -> al menos 2 palabras o 67%)
-        if (queryWords.length === 2) {
-            strictRatio = 0.9; // Para 2 palabras (ej: anime girl -> ambas palabras o 100%)
-        } else if (queryWords.length === 1) {
-            strictRatio = 0.9;
-        }
-
-        let looseRatio = 0.3; // Fallback
-        if (queryWords.length === 2) {
-            looseRatio = 0.4;
-        }
-
-        // Fase 1: Búsqueda exacta (sin fuzzy) + Ratio estricto
-        let pipeline = buildSearchPipeline(false, strictRatio);
-        let results = await Wallpaper.aggregate(pipeline);
-
-        // Fase 2: Si no hay resultados, bajamos el ratio de coincidencia (Fase exacta con ratio suelto)
+        // Exact matches/aliases first, then fuzzy with the same required concepts.
+        // Never relax to a partial query: "anime narutoo" must still match Naruto.
+        let results = await Wallpaper.aggregate(buildSearchPipeline(false));
         if (results.length === 0) {
-            pipeline = buildSearchPipeline(false, looseRatio);
-            results = await Wallpaper.aggregate(pipeline);
-        }
-
-        // Fase 3: Si aún no hay resultados, ejecutamos búsqueda con fallback difuso (con fuzzy y ratio suelto)
-        if (results.length === 0) {
-            pipeline = buildSearchPipeline(true, looseRatio);
-            results = await Wallpaper.aggregate(pipeline);
+            results = await Wallpaper.aggregate(buildSearchPipeline(true));
         }
 
         // ── PRUNING DE RESULTADOS DINÁMICO (Umbral de relevancia del 30%) ──
