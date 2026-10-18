@@ -79,10 +79,11 @@ test('pending edits require admin, validate metadata and never change approval o
         assert.deepEqual(record.tags, []);
         assert.equal(record.price, 2.5); // A partial edit preserves other data.
         record.images = [{ assetId: 'asset-one', imageUrl: 'original.jpg' }];
-        const classified = await edit({ assetMetadata: [{ assetId: 'asset-one', metadata: { colors: ['azul'], environments: ['lluvia'] } }] });
+        const classified = await edit({ assetMetadata: [{ assetId: 'asset-one', metadata: { colors: ['azul'], environments: ['lluvia'], franchises: ['Pokémon'] } }] });
         assert.equal(classified.status, 200);
         assert.ok((await classified.json()).tags.includes('rain'));
         assert.deepEqual(record.images[0].metadata.colors, ['blue']);
+        assert.deepEqual(record.images[0].metadata.franchises, ['pokemon']);
         assert.equal((await edit({ assetMetadata: [{ assetId: 'foreign', metadata: {} }] })).status, 400);
         assert.equal((await edit({ tags: [] }, admin, 'd'.repeat(24))).status, 404);
         record.status = 'approved';

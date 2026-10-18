@@ -1,6 +1,6 @@
-const METADATA_FIELDS = ['subjects', 'styles', 'colors', 'environments', 'characters', 'extraTags'];
-const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores', environments: 'ambientes', characters: 'personajes', extraTags: 'etiquetas adicionales' };
-const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', etiquetasAdicionales: 'extraTags' };
+const METADATA_FIELDS = ['subjects', 'styles', 'colors', 'environments', 'characters', 'franchises', 'extraTags'];
+const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores', environments: 'ambientes', characters: 'personajes', franchises: 'series o franquicias', extraTags: 'etiquetas adicionales' };
+const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags' };
 // Explicit equivalents only: free tags are never guessed into a category.
 const ALIASES = {
     styles: { anime: [], cartoon: ['caricatura'], cyberpunk: [], fantasy: ['fantasia'], 'sci-fi': ['ciencia ficcion'], abstract: ['abstracto'], minimalist: ['minimalista'], gaming: ['videojuegos'], 'pixel art': ['pixelart'], illustration: ['ilustracion'], photography: ['fotografia'], '3d': [], motivational: ['motivacional'], typography: ['tipografia'] },

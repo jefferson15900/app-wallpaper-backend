@@ -6,7 +6,8 @@ const { createHash, randomUUID } = require('node:crypto');
 const { parseArgs } = require('node:util');
 const { isDeepStrictEqual } = require('node:util');
 const mongoose = require('mongoose');
-const { MIGRATION_VERSION, SNAPSHOT_FIELDS, planLegacyWallpaper, snapshotFilter, rollbackUpdate } = require('../src/utils/legacyWallpaperMetadata');
+let { MIGRATION_VERSION, SNAPSHOT_FIELDS, planLegacyWallpaper } = require('../src/utils/legacyWallpaperMetadata');
+const { snapshotFilter, rollbackUpdate } = require('../src/utils/legacyWallpaperMetadata');
 const { EJSON } = mongoose.mongo.BSON;
 const PROJECT = path.resolve(__dirname, '..');
 require('dotenv').config({ path: path.join(PROJECT, '.env'), quiet: true });
@@ -39,18 +40,27 @@ async function dryRun(collection, target, output) {
     const descriptor = fs.openSync(plan, 'wx');
     const summary = { version: MIGRATION_VERSION, runId: randomUUID(), target, createdAt: new Date().toISOString(),
         scanned: 0, eligible: 0, scopes: { image: 0, publication: 0 }, skipped: {}, assignments: {}, reviewTags: {}, sourceTagsPreserved: 0,
+        withoutTags: 0, withFranchises: 0, franchiseValues: {},
     };
     const samples = [];
     const projection = Object.fromEntries(['_id', ...SNAPSHOT_FIELDS].map(field => [field, 1]));
     try {
         for await (const record of collection.find({}, { projection }).batchSize(100)) {
             summary.scanned++;
+            if (!Array.isArray(record.tags) || !record.tags.length) { summary.withoutTags++; }
+            const franchises = new Set([record.metadata, ...(record.images || []).map(image => image.metadata)]
+                .flatMap(metadata => metadata?.franchises || []));
+            if (franchises.size) { summary.withFranchises++; }
+            for (const title of franchises) { summary.franchiseValues[title] = (summary.franchiseValues[title] || 0) + 1; }
             const entry = planLegacyWallpaper(record, summary.runId);
+            if (entry.skip) {
+                for (const term of entry.reviewTags || []) { summary.reviewTags[term] = (summary.reviewTags[term] || 0) + 1; }
+            }
             if (entry.skip) { summary.skipped[entry.skip] = (summary.skipped[entry.skip] || 0) + 1; continue; }
             fs.writeSync(descriptor, EJSON.stringify(entry) + '\n');
             summary.eligible++;
             summary.scopes[entry.scope]++;
-            summary.sourceTagsPreserved += record.tags.length;
+            summary.sourceTagsPreserved += record.tags?.length || 0;
             for (const [field, terms] of Object.entries(entry.assignments)) { summary.assignments[field] = (summary.assignments[field] || 0) + terms.length; }
             for (const term of entry.reviewTags) { summary.reviewTags[term] = (summary.reviewTags[term] || 0) + 1; }
             if (samples.length < 12) { samples.push({ id: String(record._id), scope: entry.scope, tags: record.tags, metadata: entry.assignments }); }
@@ -61,7 +71,7 @@ async function dryRun(collection, target, output) {
     summary.samples = samples;
     saveJson(path.join(directory, 'summary.json'), summary);
     const review = Object.entries(summary.reviewTags).sort((a, b) => b[1] - a[1]);
-    const report = [ '# Simulación de migración de etiquetas', '',
+    const report = [ `# Simulación de migración: ${MIGRATION_VERSION}`, '',
         `Publicaciones leídas: **${summary.scanned}**. Preparadas: **${summary.eligible}**.`,
         `Clasificación por imagen: **${summary.scopes.image}**. Campos generales de carruseles: **${summary.scopes.publication}**.`,
         `Etiquetas originales preservadas en manualTags/respaldo: **${summary.sourceTagsPreserved}**.`,
@@ -115,7 +125,7 @@ async function applyPlan(collection, target, planPath) {
     }
     try {
         for await (const entry of entries(plan)) {
-            if (entry.after?.metadataMigration?.runId !== summary.runId || !entry.id) { fail('El plan contiene una entrada no válida.'); }
+            if ((entry.runId ?? entry.after?.metadataMigration?.runId) !== summary.runId || !entry.id) { fail('El plan contiene una entrada no válida.'); }
             batch.push(entry);
             if (batch.length === 100) { await flush(); }
         }
@@ -143,7 +153,7 @@ async function rollback(collection, target, backup) {
         batch = [];
     }
     for await (const entry of entries(filename)) {
-        if (entry.after?.metadataMigration?.runId !== summary.runId) { fail('El respaldo contiene una entrada de otra migración.'); }
+        if ((entry.runId ?? entry.after?.metadataMigration?.runId) !== summary.runId) { fail('El respaldo contiene una entrada de otra migración.'); }
         batch.push(entry);
         if (batch.length === 100) { await flush(); }
     }
@@ -152,7 +162,8 @@ async function rollback(collection, target, backup) {
 }
 
 async function main() {
-    const { values } = parseArgs({ options: { 'dry-run': { type: 'boolean' }, apply: { type: 'boolean' }, plan: { type: 'string' }, rollback: { type: 'string' }, out: { type: 'string' } } });
+    const { values } = parseArgs({ options: { franchises: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, apply: { type: 'boolean' }, plan: { type: 'string' }, rollback: { type: 'string' }, out: { type: 'string' } } });
+    if (values.franchises) { ({ MIGRATION_VERSION, SNAPSHOT_FIELDS, planLegacyWallpaper } = require('../src/utils/franchiseWallpaperMetadata')); }
     if (values.apply && (!values.plan || values.rollback || values['dry-run']) || values.rollback && values['dry-run']) { fail('Usa --dry-run, --apply --plan ARCHIVO o --rollback RESPALDO.'); }
     if (!process.env.MONGO_URI) { fail('Falta MONGO_URI en el entorno o .env del backend.'); }
     const connection = mongoose.createConnection(process.env.MONGO_URI, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 15000, connectTimeoutMS: 15000 });

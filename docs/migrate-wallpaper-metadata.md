@@ -41,3 +41,29 @@ node --test src/utils/legacyWallpaperMetadata.test.cjs src/utils/wallpaperMetada
 ```
 
 Esta migración no genera atributos que no estaban etiquetados ni reconstruye detalles perdidos por prompts anteriores. Los términos en `extraTags` siguen teniendo su valor, aunque todavía no se conozca una categoría más específica.
+
+## Completar Serie o franquicia
+
+La segunda migración (`franchises-v1`) mueve títulos reconocidos desde `metadata.extraTags` al campo `franchises` de ese mismo objeto. Conserva la clasificación por imagen o general del carrusel, personajes, datos de IA, etiquetas originales, URLs e identificadores. Añade el nombre inglés a la búsqueda sin eliminar ningún valor previo. No distribuye datos generales entre imágenes ni deduce una obra a partir de nombres ambiguos como Lucy, Power, Naruto o Spider-Man. Tampoco reemplaza un campo `franchises: []` explícito.
+
+```powershell
+node scripts/migrate-wallpaper-metadata.cjs --franchises --dry-run
+node scripts/migrate-wallpaper-metadata.cjs --franchises --apply --plan reports/metadata-migration/RUN/plan.jsonl
+node scripts/migrate-wallpaper-metadata.cjs --franchises --rollback reports/metadata-migration/RUN/backup-applied.jsonl
+node --test src/utils/franchiseWallpaperMetadata.test.cjs src/utils/legacyWallpaperMetadata.test.cjs
+```
+
+Comparte el respaldo previo a escritura, huella del destino, hash del plan, guardas de concurrencia y verificación de la migración anterior. Conserva también su marcador histórico `metadataMigration`; el identificador de esta segunda ejecución queda en el plan y el respaldo. Repetir la simulación omite los títulos ya trasladados.
+
+Las equivalencias están en `src/utils/franchiseWallpaperMetadata.js`. Se consultaron fuentes oficiales para las abreviaturas y títulos menos claros:
+
+- [NTE / Neverness to Everness, Perfect World](https://nte.perfectworld.com/en/article/news/gamenews/20260428/261950.html).
+- [Arknights: Endfield, Gryphline](https://endfield.gryphline.com/en-us/news/9574).
+- [That Time I Got Reincarnated as a Slime, Kodansha](https://licensing.kodansha.com/title/that-time-i-got-reincarnated-as-a-slime/).
+- [Goddess of Victory: NIKKE, sitio oficial](https://nikke-en.com/download.html).
+- [Umamusume: Pretty Derby, Cygames](https://support.umamusume.com/).
+- [Frieren: Beyond Journey’s End, VIZ](https://www.viz.com/frieren-beyond-journeys-end).
+- [Dr. STONE, VIZ](https://www.viz.com/dr-stone).
+- [OSHI NO KO, sitio oficial del anime](https://ichigoproduction.com/).
+- [Stranger Things, Netflix](https://www.netflix.com/title/80057281).
+- [Courage the Cowardly Dog, Cartoon Network](https://www.cartoonnetwork.com/legal/ratings.html) y [Coraje, el perro cobarde, Apple TV](https://tv.apple.com/us/show/coraje-el-perro-cobarde/umc.cmc.52kiq5vixkr92qxs8ieojmbjl?l=es).

@@ -4,7 +4,9 @@ Implementado el 18 de octubre de 2026. No ejecuta una migración del catálogo n
 
 ## Contrato
 
-`metadata` es un objeto parcial con listas de texto: `subjects`, `styles`, `colors`, `environments`, `characters` y `extraTags`. También se aceptan las claves españolas `sujetos`, `estilos`, `colores`, `ambientes`, `personajes` y `etiquetasAdicionales` al importar JSON. No se aceptan claves desconocidas ni dos nombres del mismo campo en un objeto.
+`metadata` es un objeto parcial con listas de texto: `subjects`, `styles`, `colors`, `environments`, `characters`, `franchises` y `extraTags`. También se aceptan las claves españolas `sujetos`, `estilos`, `colores`, `ambientes`, `personajes`, `franquicias` (o `series`) y `etiquetasAdicionales` al importar JSON. No se aceptan claves desconocidas ni dos nombres del mismo campo en un objeto.
+
+`franchises` corresponde al campo opcional «Serie o franquicia» del formulario y del editor. Distingue un personaje (`meowth`) de su franquicia (`pokemon`). Permite hasta 8 nombres; se normalizan sin generar etiquetas españolas duplicadas. La adición del campo no mueve automáticamente términos del catálogo ya migrado desde `extraTags`.
 
 Hasta 8 términos por campo y 20 en `extraTags`, 80 caracteres por término, 10 archivos por envío. Los valores se normalizan a minúsculas sin acentos; las equivalencias conocidas se convierten a inglés. Los términos desconocidos se conservan dentro del campo elegido, sin inventar una traducción ni clasificar las etiquetas antiguas.
 
@@ -15,6 +17,7 @@ Hasta 8 términos por campo y 20 en `extraTags`, 80 caracteres por término, 10 
   "colors": ["blue", "purple"],
   "environments": ["night", "rain"],
   "characters": [],
+  "franchises": [],
   "extraTags": []
 }
 ```
@@ -27,6 +30,8 @@ No se necesita cambiar el índice Atlas para esta etapa porque continúa buscand
 
 ## APIs
 
+- `GET /api/wallpapers/metadata/suggestions?field=characters&q=me`: autocompletado por cada uno de los siete campos. Solo lee los metadatos efectivos del catálogo aprobado (archivo > generales > IA; una lista manual vacía bloquea la IA). Devuelve hasta 12 valores normalizados, sin duplicados, con equivalencias conocidas en español y valores canónicos en inglés. Ordena prefijos primero y después frecuencia. Caché compartida de 60 segundos por campo, hasta 10.000 términos por campo; no usa IA ni modifica datos. La app espera 300 ms al escribir, descarta respuestas anteriores y permite entrada manual si falla o no hay coincidencias. Disponible en subida y edición.
+
 - `GET /api/wallpapers/metadata/schema`: versión, campos, límites y confirmación de IA optativa. La app lo comprueba antes de enviar archivos con el contrato nuevo; se almacena en memoria mientras vive el proceso de la app.
 - `POST /api/wallpapers/upload`: mantiene `tags`, `useAI`, `manualAIResult` y archivos `image`. Añade `metadata` como JSON general opcional y `assetMetadata` como arreglo JSON de un objeto por archivo, en el mismo orden. No admite mezclar imágenes y videos.
 - `PUT /api/admin/pending/:id`: edición administrativa de pendientes. Admite `metadata` y `assetMetadata: [{assetId, metadata}]`, además de etiquetas, precio y destacado. Cada objeto sustituye los metadatos manuales del archivo indicado; los archivos no incluidos se conservan. Se validan pertenencia y duplicados. Los cambios usan revisión para evitar sobrescribir una respuesta concurrente de IA; se mantiene el filtro atómico de estado pendiente.
@@ -38,7 +43,7 @@ La fusión administrativa materializa los metadatos generales de cada origen en 
 
 Apagada por defecto en el formulario y en el backend. Solo `useAI="true"` solicita análisis al subir. La interfaz indica el número de archivos. El JSON manual evita las llamadas de IA y mantiene compatibilidad con el arreglo antiguo de pares `{en, es}`; el objeto estructurado manual solo corresponde a un envío de una imagen.
 
-Se usa un modelo configurado por `WALLPAPER_AI_MODEL`, con valor predeterminado `gemini-2.5-flash`, y la clave existente `GOOGLE_AI_KEY`. Se solicita JSON con los seis campos, máximo 1.024 tokens de salida y thinkingBudget 0 para la familia 2.5 Flash. Se valida el resultado en el servidor. No hay fallback a Pro ni reintentos automáticos de inferencia. La disponibilidad del modelo y el consumo facturado deben comprobarse con una prueba voluntaria antes de habilitar IA en producción.
+Se usa un modelo configurado por `WALLPAPER_AI_MODEL`, con valor predeterminado `gemini-2.5-flash`, y la clave existente `GOOGLE_AI_KEY`. Se solicita JSON con los siete campos, máximo 1.024 tokens de salida y thinkingBudget 0 para la familia 2.5 Flash. Se valida el resultado en el servidor. No hay fallback a Pro ni reintentos automáticos de inferencia. La disponibilidad del modelo y el consumo facturado deben comprobarse con una prueba voluntaria antes de habilitar IA en producción.
 
 Se analiza una copia Cloudinary HTTPS JPEG limitada a 768 px de ancho, con descarga de máximo 10 MB. La transformación puede consumir créditos de Cloudinary. El nombre o el texto de una imagen no se tratan como instrucciones del modelo.
 

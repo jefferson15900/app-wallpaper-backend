@@ -56,6 +56,23 @@ test('schema accepts structured assets and leaves legacy records without fabrica
     await assert.rejects(record.validate());
 });
 
+test('series and franchises are optional, separate from characters and searchable as English terms', async () => {
+    const metadata = normalizeMetadata({ personajes: ['Meowth'], franquicias: ['Pokémon', 'pokemon'] });
+    assert.deepEqual(metadata, { characters: ['meowth'], franchises: ['pokemon'] });
+    assert.deepEqual(searchTagsFor({ manualTags: [], images: [{ assetId: 'asset', metadata }] }), ['meowth', 'pokemon']);
+    assert.equal(matchedAssetId({ images: [{ assetId: 'asset', metadata }] }, 'pokemon'), 'asset');
+    assert.deepEqual(normalizeMetadata({ series: ['One Piece'] }), { franchises: ['one piece'] });
+    assert.throws(() => normalizeMetadata({ franchises: ['pokemon'], franquicias: ['pokemon'] }));
+    assert.throws(() => normalizeMetadata({ franchises: Array(9).fill('pokemon') }));
+    const record = new Wallpaper({ imageUrl: 'x', public_id: 'p', artist: 'a'.repeat(24), metadata,
+        images: [{ imageUrl: 'x', metadata, aiMetadata: { franchises: ['pokemon'] } }],
+    });
+    await record.validate();
+    assert.deepEqual(record.toObject().metadata.franchises, ['pokemon']);
+    assert.deepEqual(record.toObject().images[0].metadata.franchises, ['pokemon']);
+    assert.deepEqual(record.toObject().images[0].aiMetadata.franchises, ['pokemon']);
+});
+
 function load(relative, overrides) {
     const file = path.resolve(__dirname, relative);
     const localRequire = createRequire(file);
@@ -168,7 +185,7 @@ test('image analysis uses one bounded request and cannot fall back to a more exp
     const service = load('../services/aiService.js', { '@google/generative-ai': { GoogleGenerativeAI: function () {
         this.getGenerativeModel = options => { configuration = options; return { generateContent: async () => {
             calls++; if (fail) throw new Error('model unavailable');
-            return { response: { text: () => JSON.stringify({ subjects: ['city'], styles: [], colors: ['blue'], environments: ['rain'], characters: [], extraTags: [] }) } };
+            return { response: { text: () => JSON.stringify({ subjects: ['city'], styles: [], colors: ['blue'], environments: ['rain'], characters: [], franchises: [], extraTags: [] }) } };
         } }; };
     } } });
     try {
