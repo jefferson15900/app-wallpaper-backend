@@ -1,6 +1,6 @@
 const TagMap = require('../models/TagMap');
-const { SYNONYMS } = require('../config/tags');
-const { resolveMetadataAlias } = require('./wallpaperMetadata');
+const { LOCAL_TAG_ALIASES, resolveLocalTag } = require('../config/tags');
+const { normalizeTerm } = require('./wallpaperMetadata');
 
 /**
  * 🎯 RESOLVER TÉRMINO ÚNICO
@@ -10,25 +10,7 @@ const { resolveMetadataAlias } = require('./wallpaperMetadata');
  * @param {string} word - La palabra a traducir.
  * @returns {Promise<string>} - La palabra canónica o la original si no hay mapeo.
  */
-const resolveToCanonical = async (word) => {
-    if (!word) return '';
-    const term = word.toLowerCase().trim();
-    const metadataCanonical = resolveMetadataAlias(term);
-    if (metadataCanonical) { return metadataCanonical; }
-
-    // 🚀 Optimización local: buscar primero en los sinónimos estáticos
-    if (SYNONYMS && SYNONYMS[term]) {
-        return SYNONYMS[term];
-    }
-
-    try {
-        const mapping = await TagMap.findOne({ original: term }).lean();
-        return mapping?.canonical ?? term;
-    } catch (error) {
-        console.error("❌ Error en resolveToCanonical:", error);
-        return term;
-    }
-};
+const resolveToCanonical = async (word) => (await resolveTagsArray([word]))[0] ?? '';
 
 /**
  * 🎯 RESOLVER ARRAY DE ETIQUETAS
@@ -40,35 +22,95 @@ const resolveToCanonical = async (word) => {
  */
 const resolveTagsArray = async (tagsArray) => {
     if (!Array.isArray(tagsArray) || tagsArray.length === 0) return [];
-
-    // Limpiamos los strings de entrada y resolvemos contra los sinónimos estáticos
-    const terms = tagsArray
-        .filter(t => t && typeof t === 'string')
-        .map(t => {
-            const clean = t.toLowerCase().trim();
-            return resolveMetadataAlias(clean) ?? SYNONYMS[clean] ?? clean;
-        });
-
-    try {
-        // 🚀 OPTIMIZACIÓN: Una sola consulta a la DB para todos los tags a la vez
-        const mappings = await TagMap.find({ original: { $in: terms } })
-            .select('original canonical')
-            .lean();
-
-        // Construimos un diccionario en memoria { original -> canonical }
-        const dict = Object.fromEntries(
-            mappings.map(m => [m.original, m.canonical])
-        );
-
-        // Resolvemos cada tag usando el diccionario. Si no existe, dejamos el término localmente resuelto.
-        const resolved = terms.map(t => resolveMetadataAlias(t) ?? dict[t] ?? t);
-
-        // Eliminamos duplicados que surjan tras la traducción con un Set
-        return [...new Set(resolved)];
-    } catch (error) {
-        console.error("❌ Error en resolveTagsArray:", error);
-        return [...new Set(terms)]; // Fallback seguro
-    }
+    const terms = [...new Set(tagsArray.filter(term => typeof term === 'string').map(normalizeTerm).filter(Boolean))];
+    const unknown = terms.filter(term => !LOCAL_TAG_ALIASES.has(term));
+    // Una sola consulta a la DB; los conceptos explícitos de metadatos tienen prioridad.
+    const mappings = unknown.length ? mappingDictionary(await findMappings({ original: { $in: unknown } })) : new Map();
+    return [...new Set(terms.map(term => mappedTerm(term, mappings) ?? term))];
 };
 
-module.exports = { resolveToCanonical, resolveTagsArray };
+const localAlternatives = new Map();
+for (const [alias, value] of LOCAL_TAG_ALIASES) {
+    const canonical = resolveLocalTag(value);
+    if (!localAlternatives.has(canonical)) { localAlternatives.set(canonical, new Set([canonical])); }
+    localAlternatives.get(canonical).add(alias);
+}
+
+async function findMappings(filter) {
+    try { return await TagMap.find(filter).lean(); }
+    catch (error) {
+        console.error('❌ Error al consultar alias de búsqueda:', error.message);
+        return [];
+    }
+}
+
+function mappingDictionary(rows) {
+    return new Map(rows.map(row => [normalizeTerm(row.original), normalizeTerm(row.canonical)]));
+}
+
+function mappedTerm(term, mappings) {
+    if (LOCAL_TAG_ALIASES.has(term)) { return resolveLocalTag(term); }
+    const mapping = mappings.get(term);
+    return mapping ? resolveLocalTag(mapping) : undefined;
+}
+
+function pluralCandidates(term) {
+    if (term.length <= 3 || term.includes(' ')) { return []; }
+    const candidates = [];
+    if (term.endsWith('ies')) { candidates.push(term.slice(0, -3) + 'y'); }
+    if (term.endsWith('ces')) { candidates.push(term.slice(0, -3) + 'z'); }
+    if (term.endsWith('es')) { candidates.push(term.slice(0, -2)); }
+    if (term.endsWith('s')) { candidates.push(term.slice(0, -1)); }
+    return candidates;
+}
+
+/**
+ * Match longest known phrases before removing filler words. Each resulting
+ * concept remains mandatory, with translations/legacy spellings as alternatives.
+ * Unknown plurals stay intact unless their singular is in the vocabulary.
+ */
+async function resolveSearchConcepts(query, ignoredWords = new Set()) {
+    const words = normalizeTerm(query).split(/\s+/).filter(Boolean);
+    const spans = words.map((_, start) => {
+        const result = [];
+        for (let end = start + 1; end <= words.length; end++) {
+            const term = words.slice(start, end).join(' ');
+            // Stored metadata and learned aliases are bounded to 80 characters.
+            if (term.length > 80 && end > start + 1) { break; }
+            result.push({ term, end });
+        }
+        return result.reverse();
+    });
+    const candidates = new Set(spans.flat().map(span => span.term));
+    words.forEach(word => pluralCandidates(word).forEach(term => candidates.add(term)));
+    const mappings = mappingDictionary(await findMappings({ original: { $in: [...candidates] } }));
+    const concepts = [];
+    for (let start = 0; start < words.length;) {
+        const phrase = spans[start].find(span => (span.end > start + 1 || !ignoredWords.has(span.term)) && mappedTerm(span.term, mappings));
+        if (phrase) {
+            concepts.push({ original: phrase.term, canonical: mappedTerm(phrase.term, mappings) });
+            start = phrase.end;
+            continue;
+        }
+        const word = words[start++];
+        if (ignoredWords.has(word)) { continue; }
+        const singular = pluralCandidates(word).map(term => mappedTerm(term, mappings)).find(Boolean);
+        concepts.push({ original: word, canonical: singular ?? word });
+    }
+    if (!concepts.length) { return []; }
+    const canonicals = [...new Set(concepts.map(concept => concept.canonical))];
+    const reverseMappings = await findMappings({ canonical: { $in: canonicals } });
+    return concepts.map(concept => {
+        const alternatives = new Set([concept.original, concept.canonical, ...(localAlternatives.get(concept.canonical) || [])]);
+        for (const row of reverseMappings) {
+            const original = normalizeTerm(row.original);
+            if (resolveLocalTag(row.canonical) === concept.canonical &&
+                (!LOCAL_TAG_ALIASES.has(original) || resolveLocalTag(original) === concept.canonical)) {
+                alternatives.add(original);
+            }
+        }
+        return { ...concept, alternatives: [...alternatives] };
+    });
+}
+
+module.exports = { resolveToCanonical, resolveTagsArray, resolveSearchConcepts };

@@ -3,9 +3,9 @@ const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores',
 const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags' };
 // Explicit equivalents only: free tags are never guessed into a category.
 const ALIASES = {
-    styles: { anime: [], cartoon: ['caricatura'], cyberpunk: [], fantasy: ['fantasia'], 'sci-fi': ['ciencia ficcion'], abstract: ['abstracto'], minimalist: ['minimalista'], gaming: ['videojuegos'], 'pixel art': ['pixelart'], illustration: ['ilustracion'], photography: ['fotografia'], '3d': [], motivational: ['motivacional'], typography: ['tipografia'] },
+    styles: { anime: [], cartoon: ['caricatura'], cyberpunk: [], fantasy: ['fantasia'], 'sci-fi': ['ciencia ficcion', 'sci fi', 'scifi', 'science fiction'], abstract: ['abstracto'], minimalist: ['minimalista', 'minimalism', 'minimalismo'], gaming: ['videojuegos'], 'pixel art': ['pixelart'], illustration: ['ilustracion'], photography: ['fotografia'], '3d': [], motivational: ['motivacional'], typography: ['tipografia'] },
     colors: { blue: ['azul'], red: ['rojo'], green: ['verde'], purple: ['morado', 'violeta'], pink: ['rosa', 'rosado'], yellow: ['amarillo'], orange: ['naranja'], black: ['negro'], white: ['blanco'], gray: ['gris', 'grey'], brown: ['marron', 'cafe'], gold: ['dorado'], turquoise: ['turquesa'] },
-    subjects: { city: ['ciudad'], car: ['coche', 'auto', 'carro'], girl: ['chica'], boy: ['chico'], animal: [], dog: ['perro'], cat: ['gato'], dragon: [], robot: [], planet: ['planeta'], spaceship: ['nave espacial'], flower: ['flor'], astronaut: ['astronauta'] },
+    subjects: { city: ['ciudad'], car: ['coche', 'auto', 'carro'], girl: ['chica'], boy: ['chico'], animal: [], dog: ['perro'], cat: ['gato'], dragon: [], robot: [], planet: ['planeta'], spaceship: ['nave espacial'], flower: ['flor', 'flores', 'flowers'], astronaut: ['astronauta'] },
     environments: { night: ['noche'], day: ['dia'], rain: ['lluvia'], snow: ['nieve'], sunset: ['atardecer'], forest: ['bosque'], ocean: ['oceano', 'mar'], mountain: ['montana'], desert: ['desierto'], space: ['espacio'], beach: ['playa'], street: ['calle'] },
 };
 

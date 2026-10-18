@@ -1,4 +1,5 @@
 const nlp = require('compromise');
+const { normalizeTerm, resolveMetadataAlias, ALIASES } = require('../utils/wallpaperMetadata');
 
 // Listado de etiquetas que la IA o los usuarios ponen pero no aportan valor real
 const BLACKLIST_TAGS = new Set([
@@ -478,8 +479,32 @@ const SYNONYMS = {
   'ryomen sukuna': 'sukuna',
   'kakashi hatake': 'kakashi',
   'miles morale': 'miles morales', 'hombre araña': 'spiderman',
+  'spider man': 'spiderman', 'spider-man': 'spiderman',
+  'ironman': 'iron man', 'iron-man': 'iron man',
 
 };
+
+// Metadata is authoritative: a planet is not space, and snow is not ice.
+const LOCAL_TAG_ALIASES = new Map(Object.entries(SYNONYMS).map(([alias, canonical]) => [normalizeTerm(alias), normalizeTerm(canonical)]));
+for (const dictionary of Object.values(ALIASES)) {
+  for (const [canonical, aliases] of Object.entries(dictionary)) {
+    for (const alias of [canonical, ...aliases]) { LOCAL_TAG_ALIASES.set(normalizeTerm(alias), canonical); }
+  }
+}
+
+function resolveLocalTag(value) {
+  let term = normalizeTerm(value);
+  const seen = new Set();
+  while (!seen.has(term)) {
+    seen.add(term);
+    const metadata = resolveMetadataAlias(term);
+    if (metadata) { return metadata; }
+    const next = LOCAL_TAG_ALIASES.get(term);
+    if (!next || next === term) { return term; }
+    term = next;
+  }
+  return term;
+}
 
 /**
  * Limpia, normaliza y unifica etiquetas usando NLP (Compromise).
@@ -508,6 +533,7 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2 } = {}) => {
 
     // 3. Normalización NLP: singular (con protección contra resultados vacíos/distorsionados)
     .map(t => {
+      if (LOCAL_TAG_ALIASES.has(normalizeTerm(t))) return resolveLocalTag(t);
       if (t.includes(' ')) return t; // Evita truncar etiquetas multi-palabra
       const singular = nlp(t).nouns().toSingular().text().trim();
       // Solo aceptar el resultado NLP si tiene sentido (no vacío y longitud similar)
@@ -516,7 +542,7 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2 } = {}) => {
 
     // 4. Resolución de sinónimos ANTES de filtrar
     //    (un alias puede mapear a un tag válido que sí pasa la blacklist)
-    .map(t => SYNONYMS[t] ?? t)
+    .map(t => resolveLocalTag(t))
 
     // 5. Filtros combinados en una sola pasada
     .filter(t =>
@@ -537,4 +563,4 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2 } = {}) => {
     .slice(0, maxTags);
 };
 
-module.exports = { cleanTags, SYNONYMS };
+module.exports = { cleanTags, SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag };

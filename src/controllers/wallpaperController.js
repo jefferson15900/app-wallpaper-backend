@@ -8,10 +8,10 @@ const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { randomUUID } = require('node:crypto');
-const { parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError } = require('../utils/wallpaperMetadata');
+const { parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
-const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
+const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
@@ -261,30 +261,12 @@ const LIVE_INTENT_WORDS = new Set([
 
 const cleanSearchQuery = (query) => {
     if (!query) return { text: '', isLive: false };
-    const normalized = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const normalized = normalizeTerm(query);
     const words = normalized.split(/\s+/).filter(Boolean);
     
     const isLive = words.some(w => LIVE_INTENT_WORDS.has(w));
-    const cleanedWords = words.filter(w => !STOP_WORDS.has(w) && !LIVE_INTENT_WORDS.has(w));
-    
-    const text = cleanedWords.length > 0 ? cleanedWords.join(' ') : normalized;
-    return { text, isLive };
-};
-
-const singularizeSpanish = (word) => {
-    if (!word || word.length <= 3) return word;
-    if (word.endsWith('es')) {
-        const stem = word.slice(0, -2);
-        const consonantes = 'bcdfghjklmnpqrstvwxyz';
-        if (consonantes.includes(stem[stem.length - 1])) {
-            return stem;
-        }
-        return word.slice(0, -1);
-    }
-    if (word.endsWith('s') && !word.endsWith('is') && !word.endsWith('us')) {
-        return word.slice(0, -1);
-    }
-    return word;
+    // Keep filler words until phrase resolution (e.g. "luz de luna").
+    return { text: normalized, isLive };
 };
 
 const expandSpacedTags = async (term) => {
@@ -317,7 +299,7 @@ exports.searchWallpapers = async (req, res) => {
 
         if (typeof q !== 'string' || !q.trim()) return res.json([]);
         
-        // 1. Limpieza de stop words e inferencia de formato "live"
+        // 1. Normalización e inferencia de formato "live"; las frases se resuelven antes de quitar stop words.
         const { text: cleanQuery, isLive } = cleanSearchQuery(q);
         if (!cleanQuery) return res.json([]);
 
@@ -327,7 +309,10 @@ exports.searchWallpapers = async (req, res) => {
             finalType = 'video';
         }
 
-        const rawSearch = cleanQuery;
+        const concepts = await resolveSearchConcepts(cleanQuery, new Set([...STOP_WORDS, ...LIVE_INTENT_WORDS]));
+        if (!concepts.length) { return res.json([]); }
+        const rawSearch = concepts.map(concept => concept.original).join(' ');
+        const canonicalQuery = concepts.map(concept => concept.canonical).join(' ');
 
         // Seed: debe ser finito y estar en rango [0, 1)
         const parsedSeed = parseFloat(seed);
@@ -335,54 +320,14 @@ exports.searchWallpapers = async (req, res) => {
             ? parsedSeed
             : Math.random();
 
-        // 2. Singularización (Inglés + Español)
-        const singularSearchEnglish = (() => {
-            if (rawSearch.includes(' ')) return rawSearch; // Evita truncar búsquedas multi-palabra
-            const s = nlp(rawSearch).nouns().toSingular().text().trim();
-            return s?.length >= 2 ? s : rawSearch;
-        })();
-        
-        const singularSearchSpanish = singularizeSpanish(rawSearch);
-
-        // 3. Resolución de sinónimos y traducción
-        const [canonicalEnglish, canonicalSpanish, allSynonyms] = await Promise.all([
-            resolveToCanonical(singularSearchEnglish),
-            resolveToCanonical(singularSearchSpanish),
-            TagMap.find({ original: { $in: [rawSearch, singularSearchEnglish, singularSearchSpanish] } }).lean(),
-        ]);
-
-        const canonicalSynonyms = [];
-        if (canonicalEnglish) {
-            const csEng = await TagMap.find({ canonical: canonicalEnglish }).lean();
-            canonicalSynonyms.push(...csEng);
-        }
-        if (canonicalSpanish && canonicalSpanish !== canonicalEnglish) {
-            const csEsp = await TagMap.find({ canonical: canonicalSpanish }).lean();
-            canonicalSynonyms.push(...csEsp);
-        }
-
-        // Translate combined queries too ("naruto azul" -> "naruto blue").
-        const queryWords = rawSearch.split(/\s+/).filter(Boolean);
-        const canonicalQuery = queryWords.length > 1
-            ? (await Promise.all(queryWords.map(word => resolveToCanonical(word)))).join(' ')
-            : canonicalEnglish;
-        const exactTerms = [...new Set([rawSearch, canonicalEnglish, canonicalSpanish, canonicalQuery].filter(Boolean))];
-
-        const expandedTerms = new Set(
-            [rawSearch, singularSearchEnglish, singularSearchSpanish, canonicalEnglish, canonicalSpanish, canonicalQuery].filter(Boolean)
-        );
-        [...allSynonyms, ...canonicalSynonyms].forEach(t => {
-            if (t.original) expandedTerms.add(t.original);
-            if (t.canonical) expandedTerms.add(t.canonical);
+        // Resolve spacing per concept, so adding an alias never drops a color/subject.
+        const spacedTagsArrays = await Promise.all(concepts.map(concept => expandSpacedTags(concept.original)));
+        concepts.forEach((concept, index) => {
+            concept.alternatives = [...new Set([...concept.alternatives, ...spacedTagsArrays[index]]
+                .flatMap(term => [term, term.replace(/[\s-]+/g, '')]))];
         });
-
-        // 4. Tolerancia de Espaciado (ej: "ironman" -> "iron man")
-        // Buscamos si hay términos pegados que deban ser separados consultando TagSuggestion
-        const spacedTagPromises = [...expandedTerms].map(term => expandSpacedTags(term));
-        const spacedTagsArrays = await Promise.all(spacedTagPromises);
-        spacedTagsArrays.forEach(tags => {
-            tags.forEach(tag => expandedTerms.add(tag));
-        });
+        const exactTerms = [...new Set([rawSearch, canonicalQuery])];
+        const expandedTerms = new Set([rawSearch, canonicalQuery, ...concepts.flatMap(concept => concept.alternatives)]);
 
         // ── Filtros base ──────────────────────────────────────────────────────
         const matchQuery = { status: 'approved' };
@@ -412,18 +357,23 @@ exports.searchWallpapers = async (req, res) => {
             );
 
             const wordFuzzy = (word) => {
-                if (!useFuzzy) return null;
-                const maxEdits = word.length >= 5 ? 2 : 1;
-                return { maxEdits, prefixLength: 1 };
+                if (!useFuzzy || word.length <= 3) return null;
+                const maxEdits = word.length >= 8 ? 2 : 1;
+                return { maxEdits, prefixLength: 0 };
             };
 
-            const requiredAlternatives = (termsArray.length ? termsArray : [rawSearch]).map(term => ({
+            const requiredConcepts = concepts.map(concept => ({
                 compound: {
-                    must: term.split(/\s+/).filter(Boolean).map(word => {
-                        const fuzzyConf = wordFuzzy(word);
-                        return { text: { query: word, path: 'tags', matchCriteria: 'all',
-                            ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}) } };
-                    }),
+                    should: concept.alternatives.map(term => ({
+                        compound: {
+                            must: term.split(/\s+/).filter(Boolean).map(word => {
+                                const fuzzyConf = wordFuzzy(word);
+                                return { text: { query: word, path: 'tags', matchCriteria: 'all',
+                                    ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}) } };
+                            }),
+                        },
+                    })),
+                    minimumShouldMatch: 1,
                 },
             }));
 
@@ -502,7 +452,7 @@ exports.searchWallpapers = async (req, res) => {
                     $search: {
                         index: "default",
                         compound: {
-                            filter: [{ compound: { should: requiredAlternatives, minimumShouldMatch: 1 } }],
+                            filter: requiredConcepts,
                             should: shouldClauses,
                             minimumShouldMatch: 1
                         }
@@ -609,12 +559,12 @@ exports.searchWallpapers = async (req, res) => {
         // Only the first page represents a search; an empty next page is not unmet demand.
         if (page === 1) {
             await recordSearch(req.query.searchId, rawSearch, results.length).catch(error => console.error('[analytics]', error.message));
-            quietly(saveSearchLogAsync(singularSearchSpanish || rawSearch, results.length));
+            quietly(saveSearchLogAsync(canonicalQuery, results.length));
         }
 
         return res.json(results.map(item => {
             const cleanItem = { ...item, price: item.price ?? 0 };
-            const matched = matchedAssetId(item, cleanQuery);
+            const matched = matchedAssetId(item, canonicalQuery);
             if (matched) { cleanItem.matchedAssetId = matched; }
             delete cleanItem.finalBaseScore;
             return cleanItem;
@@ -782,8 +732,8 @@ exports.uploadWallpaper = async (req, res) => {
                         .filter(t => t.en && t.es && t.en !== t.es)
                         .map(({ en, es }) => ({
                             updateOne: {
-                                filter: { original: es.toLowerCase().trim() },
-                                update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
+                                filter: { original: normalizeTerm(es) },
+                                update: { $set: { canonical: normalizeTerm(en), language: 'es' } },
                                 upsert: true
                             }
                         }));

@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const nlp = require('compromise');
-const { SYNONYMS } = require('../config/tags');
 
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const tokens = text => normalize(text).match(/[a-z0-9]+/g) || [];
@@ -81,7 +80,7 @@ function harness(records, mappings = []) {
     };
     const resolver = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/../utils/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? TagMap : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : { SYNONYMS }, resolver, resolver.exports);
+        name => name === '../models/TagMap' ? TagMap : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
     const controller = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/wallpaperController.js`, 'utf8')}\n})`)(name => {
         if (name === 'compromise') return nlp;
@@ -112,12 +111,15 @@ function harness(records, mappings = []) {
         if (name === '../utils/wallpaperMetadata') return require('../utils/wallpaperMetadata');
         return {};
     }, controller, controller.exports);
+    const responses = [];
     return {
         pipelines,
+        responses,
         async search(q, query = {}) {
             const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; return this; } };
             await controller.exports.searchWallpapers({ query: { q, seed: '0.5', ...query } }, res);
             assert.equal(res.code, 200);
+            responses.push(res.data);
             return res.data.map(record => record._id);
         },
     };
@@ -190,4 +192,67 @@ test('semantic filtering precedes pagination and preserves approval filters', as
     const h = harness([wall('other', ['anime']), wall('first', ['naruto']),
         wall('pending', ['naruto'], 'image', 'pending'), wall('second', ['naruto'])]);
     assert.deepEqual(await h.search('narutoo', { page: '2', limit: '1' }), ['second']);
+});
+
+test('character phrases inside a longer query preserve the requested color', async () => {
+    const h = harness([wall('blue-spider', ['spiderman', 'blue']), wall('red-spider', ['spiderman', 'red']),
+        wall('blue-person', ['hombre', 'blue']), wall('blue-spider-alias', ['hombre araña', 'blue'])]);
+    assert.deepEqual(await h.search('fondos de HOMBRE ARAÑA azul'), ['blue-spider', 'blue-spider-alias']);
+});
+
+test('learned phrase aliases work inside combined queries without dropping other concepts', async () => {
+    const h = harness([wall('blue', ['space', 'blue']), wall('red', ['space', 'red']), wall('color', ['blue'])],
+        [{ original: 'espacio exterior', canonical: 'space' }]);
+    assert.deepEqual(await h.search('espacio exterior azul'), ['blue']);
+});
+
+test('phrases containing filler words are recognized before cleanup', async () => {
+    const h = harness([wall('blue-moon', ['moon', 'blue']), wall('red-moon', ['moon', 'red'])]);
+    assert.deepEqual(await h.search('fondo de luz de luna azul'), ['blue-moon']);
+});
+
+test('metadata and legacy flower spellings share one query concept', async () => {
+    const h = harness([wall('metadata', ['flower', 'blue']), wall('legacy', ['flowers', 'blue']), wall('red', ['flower', 'red'])]);
+    assert.deepEqual(await h.search('flores azules'), ['metadata', 'legacy']);
+    assert.deepEqual(await h.search('flower blue'), ['metadata', 'legacy']);
+});
+
+test('metadata concepts cannot be broadened by legacy or learned synonym collisions', async () => {
+    const h = harness([wall('snow', ['snow']), wall('ice', ['ice']), wall('planet', ['planet']),
+        wall('space', ['space']), wall('street', ['street']), wall('city', ['city'])],
+        [{ original: 'nieve', canonical: 'ice' }, { original: 'planeta', canonical: 'space' }]);
+    assert.deepEqual(await h.search('nieve'), ['snow']);
+    assert.deepEqual(await h.search('planeta'), ['planet']);
+    assert.deepEqual(await h.search('calle'), ['street']);
+});
+
+test('unknown names ending in s are not truncated into unrelated tags', async () => {
+    const h = harness([wall('day', ['lunes']), wall('unrelated', ['lun'])]);
+    assert.deepEqual(await h.search('lunes'), ['day']);
+});
+
+test('fuzzy corrects a first-letter error while preserving the color', async () => {
+    const h = harness([wall('blue', ['naruto', 'blue']), wall('red', ['naruto', 'red']), wall('boruto', ['boruto', 'blue'])]);
+    assert.deepEqual(await h.search('xaruto azul'), ['blue']);
+});
+
+test('spacing alternatives work in either direction within a combined query', async () => {
+    const h = harness([wall('joined', ['spiderman', 'blue']), wall('spaced', ['spider man', 'blue']), wall('red', ['spider man', 'red'])]);
+    assert.deepEqual(await h.search('spiderman azul'), ['joined', 'spaced']);
+    assert.deepEqual(await h.search('spider man azul'), ['joined', 'spaced']);
+});
+
+test('translated character phrases identify the matching carousel image', async () => {
+    const h = harness([{ ...wall('carousel', ['spiderman', 'blue', 'red']), images: [
+        { assetId: 'red', metadata: { characters: ['spiderman'], colors: ['red'] } },
+        { assetId: 'blue', metadata: { characters: ['spiderman'], colors: ['blue'] } },
+    ] }]);
+    assert.deepEqual(await h.search('hombre araña azul'), ['carousel']);
+    assert.equal(h.responses.at(-1)[0].matchedAssetId, 'blue');
+});
+
+test('queries containing only filler words do not execute an Atlas search', async () => {
+    const h = harness([wall('noise', ['fondo'])]);
+    assert.deepEqual(await h.search('fondos de pantalla'), []);
+    assert.equal(h.pipelines.length, 0);
 });
