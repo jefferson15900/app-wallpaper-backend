@@ -7,6 +7,7 @@ const wallpaperController = require('../controllers/wallpaperController');
 const isAdmin = require('../middleware/adminMiddleware');
 const { METADATA_FIELDS } = require('../utils/wallpaperMetadata');
 const { searchMetadataSuggestions } = require('../controllers/metadataSuggestionsController');
+const { searchSuggestions, popularSearchTags } = require('../controllers/searchSuggestionsController');
 // VARIABLES PARA CACHÉ #HASHTAGS
 let trendingTagsCache = [];
 let lastTagsUpdate = null;
@@ -14,6 +15,8 @@ let lastTagsUpdate = null;
 // 1. RUTAS DE BÚSQUEDA Y FEED (Públicas y específicas)
 // Deben ir arriba para que no se confundan con un ID
 router.get('/search', wallpaperController.searchWallpapers);
+router.get('/search/suggestions', searchSuggestions);
+router.get('/search/popular', popularSearchTags);
 router.get('/metadata/schema', (req, res) => res.json({ version: 1,
     fields: METADATA_FIELDS,
     limits: { valuesPerField: 8, extraTags: 20, valueLength: 80, assets: 10 }, aiOptIn: true,

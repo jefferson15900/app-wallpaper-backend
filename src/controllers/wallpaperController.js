@@ -13,6 +13,7 @@ const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMeta
 const { cleanTags } = require('../config/tags');
 const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
 const { searchKey, readSearchCursor, nextSearchCursor } = require('../utils/searchPagination');
+const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts, searchWordFuzzy } = require('../utils/searchQuery');
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
@@ -250,26 +251,6 @@ exports.getDiscoveryFeed = async (req, res) => {
 // ==========================================
 // 🔍 UTILERÍAS DE BÚSQUEDA INTELIGENTE
 // ==========================================
-const STOP_WORDS = new Set([
-    'wallpaper', 'wallpapers', 'fondo', 'fondos', 'pantalla', 'pantallas', 
-    'screensaver', 'screen', 'screens', 'background', 'backgrounds', 'de', 'para',
-    'la', 'el', 'en', 'con'
-]);
-
-const LIVE_INTENT_WORDS = new Set([
-    'live', 'video', 'gif', 'animated', 'animado', 'movimiento', 'dinamico', 'dinamicos', 'dinámica', 'dinamica'
-]);
-
-const cleanSearchQuery = (query) => {
-    if (!query) return { text: '', isLive: false };
-    const normalized = normalizeTerm(query);
-    const words = normalized.split(/\s+/).filter(Boolean);
-    
-    const isLive = words.some(w => LIVE_INTENT_WORDS.has(w));
-    // Keep filler words until phrase resolution (e.g. "luz de luna").
-    return { text: normalized, isLive };
-};
-
 const expandSpacedTags = async (term) => {
     if (!term || term.includes(' ') || term.length < 4) return [];
     try {
@@ -290,8 +271,12 @@ const expandSpacedTags = async (term) => {
 // 🔍 FUNCIÓN 2: BÚSQUEDA PURA (TEXTO)
 // ==========================================
 exports.searchWallpapers = async (req, res) => {
+    const searchStartedAt = Date.now();
     try {
         const { q, exclude, type, premium, seed } = req.query;
+        if (type !== undefined && !['all', 'image', 'video'].includes(type)) {
+            return res.status(400).json({ msg: 'Elige todos, imágenes o videos.' });
+        }
 
         // ── Validación de parámetros ──────────────────────────────────────────
         const page  = Math.max(1, parseInt(req.query.page)  || 1);
@@ -314,7 +299,7 @@ exports.searchWallpapers = async (req, res) => {
         const key = searchKey(cleanQuery, finalType, premium, exclude);
         const cursor = readSearchCursor(req.query.cursor, key);
 
-        const concepts = await resolveSearchConcepts(cleanQuery, new Set([...STOP_WORDS, ...LIVE_INTENT_WORDS]));
+        const concepts = await resolveSearchConcepts(cleanQuery, IGNORED_SEARCH_WORDS);
         if (!concepts.length) { return emptyResults(); }
         const rawSearch = concepts.map(concept => concept.original).join(' ');
         const canonicalQuery = concepts.map(concept => concept.canonical).join(' ');
@@ -361,26 +346,8 @@ exports.searchWallpapers = async (req, res) => {
                     .map(w => w.toLowerCase().trim())
             );
 
-            const wordFuzzy = (word) => {
-                if (!useFuzzy || word.length <= 3) return null;
-                const maxEdits = word.length >= 8 ? 2 : 1;
-                return { maxEdits, prefixLength: 0 };
-            };
-
-            const requiredConcepts = concepts.map(concept => ({
-                compound: {
-                    should: concept.alternatives.map(term => ({
-                        compound: {
-                            must: term.split(/\s+/).filter(Boolean).map(word => {
-                                const fuzzyConf = wordFuzzy(word);
-                                return { text: { query: word, path: 'tags', matchCriteria: 'all',
-                                    ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}) } };
-                            }),
-                        },
-                    })),
-                    minimumShouldMatch: 1,
-                },
-            }));
+            const wordFuzzy = word => searchWordFuzzy(word, useFuzzy);
+            const requiredConcepts = requiredSearchConcepts(concepts, useFuzzy);
 
             for (const term of termsArray) {
                 const variants = [term];
@@ -571,7 +538,12 @@ exports.searchWallpapers = async (req, res) => {
 
         // Only the first page represents a search; an empty next page is not unmet demand.
         if (!cursor && (paginated || page === 1)) {
-            await recordSearch(req.query.searchId, rawSearch, results.length).catch(error => console.error('[analytics]', error.message));
+            await recordSearch(req.query.searchId, rawSearch, results.length, {
+                // Bump this identifier whenever retrieval or ranking changes.
+                searchVersion: 'metadata-text-v2-variety15', searchMode: mode,
+                mediaType: finalType || 'all',
+                serverDurationMs: Math.max(0, Date.now() - searchStartedAt),
+            }).catch(error => console.error('[analytics]', error.message));
             quietly(saveSearchLogAsync(canonicalQuery, results.length));
         }
 

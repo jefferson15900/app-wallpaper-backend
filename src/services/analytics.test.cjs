@@ -82,6 +82,43 @@ test('search recording keeps initial results and outcomes use flags without inse
     assert.equal(h.searches.length, 3);
 });
 
+test('version and server duration belong to the initial search, without rewriting old measurements', async () => {
+    const h = serviceHarness();
+    await h.service.recordSearch('search_123456789', 'naruto', 16, { searchVersion: 'metadata-text-v2-variety15', searchMode: 'exact', serverDurationMs: 45 });
+    const update = h.searches[0][1];
+    assert.equal(update.$setOnInsert.searchVersion, 'metadata-text-v2-variety15');
+    assert.equal(update.$setOnInsert.resultsScope, 'first_page');
+    assert.equal(update.$setOnInsert.serverDurationMs, 45);
+    assert.equal(update.$set, undefined);
+});
+
+test('exposure batches are bounded and deduplicated; client timing cannot overwrite the first sample', async () => {
+    const h = serviceHarness();
+    assert.equal(await h.service.recordSearchMetrics('search_123456789', { positions: [1, 1, 3], clientDurationMs: 120 }), true);
+    assert.deepEqual(Array.from(h.searches[0][1].$addToSet.shownPositions.$each), [1, 3]);
+    assert.equal(h.searches[0][2], undefined);
+    assert.equal(h.searches[1][0].clientDurationMs.$exists, false);
+    assert.equal(h.searches[1][1].$set.clientDurationMs, 120);
+    const before = h.searches.length;
+    for (const invalid of [{ positions: [0] }, { positions: [101] }, { positions: ['1'] }, { positions: Array(51).fill(1) },
+        { clientDurationMs: -1 }, { clientDurationMs: Infinity }, { clientDurationMs: 120001 }, []]) {
+        assert.equal(await h.service.recordSearchMetrics('search_123456789', invalid), false);
+    }
+    assert.equal(await h.service.recordSearchMetrics({}, { positions: [1] }), false);
+    assert.equal(h.searches.length, before);
+});
+
+test('opened positions use sets and the best rank, without inventing an impression or a search', async () => {
+    const h = serviceHarness();
+    await h.service.recordSearchOutcome('search_123456789', 'opened', 4);
+    assert.equal(h.searches[0][1].$addToSet.openedPositions, 4);
+    assert.equal(h.searches[0][1].$min.bestOpenedPosition, 4);
+    assert.equal(h.searches[0][1].$addToSet.shownPositions, undefined);
+    assert.equal(h.searches[0][2], undefined);
+    await h.service.recordSearchOutcome('search_123456789', 'opened', 101);
+    assert.equal(h.searches[1][1].$addToSet, undefined);
+});
+
 function dashboardHarness({ startedAt = '2026-09-01T12:00:00Z', empty = false } = {}) {
     const now = '2026-10-06T17:00:00Z';
     class ClockDate extends Date { constructor(value) { super(value === undefined ? now : value); } }
@@ -92,7 +129,11 @@ function dashboardHarness({ startedAt = '2026-09-01T12:00:00Z', empty = false } 
         Visitor: { countDocuments: async () => 10, aggregate: aggregate('Visitor', [[], empty ? [] : [{ size: 2, returned: 1 }]]) },
         Wallpaper: { countDocuments: async () => 8, aggregate: aggregate('Wallpaper', [[{ count: 120 }], [{ count: 30 }], []]) },
         DailyActivity: { collection: { name: 'dailyactivities' }, aggregate: aggregate('DailyActivity', [[{ count: 4 }], [{ count: 2 }], [{ count: 1 }], [{ _id: '2026-10-05', count: 3 }]]) },
-        SearchSession: { aggregate: aggregate('SearchSession', [[], [], [], [{ _id: 'current', count: 1 }], empty ? [] : [{ searches: 4, opens: 2, downloads: 1 }]]) },
+        SearchSession: { aggregate: aggregate('SearchSession', [[], [], [], [{ _id: 'current', count: 1 }], empty ? [] : [{ searches: 4, opens: 2, downloads: 1 }], empty ? [] : [
+            { _id: 'new', searches: 4, opens: 2, downloads: 1, noResults: 0, serverAvgMs: 30, serverSamples: 4, clientAvgMs: 80, clientSamples: 2,
+                shownPositions: 8, openedShownPositions: 2, bestOpenedPositionAvg: 2, positionSamples: 2 },
+            { _id: 'legacy', searches: 1, opens: 0, downloads: 0, noResults: 1, serverSamples: 0, clientSamples: 0, shownPositions: 0, openedShownPositions: 0, positionSamples: 0 },
+        ]]) },
         DownloadEvent: { aggregate: aggregate('DownloadEvent', [[], [{ _id: 'current', count: 10 }, { _id: 'previous', count: 5 }], [{ _id: 'removed', downloads: 4 }]]) },
         AnalyticsState: { findById: () => ({ lean: async () => ({ startedAt }) }) },
     };
@@ -131,6 +172,17 @@ test('dashboard reports independent conversion, preserved removed content and co
     assert.ok(retention[0].$match.createdAt); assert.equal(JSON.stringify(retention).includes('lastDownloadAt'), false);
     assert.equal(result.body.series.length, 7);
     assert.equal(result.body.series[6].date, '2026-10-05');
+    const quality = result.body.searchQuality;
+    assert.equal(quality.positionLimit, 100);
+    assert.equal(quality.versions[0].resultOpenRate, 25);
+    assert.equal(quality.versions[0].serverAvgMs, 30);
+    assert.equal(quality.versions[0].clientSamples, 2);
+    assert.equal(quality.versions[1].serverAvgMs, null);
+    assert.equal(quality.versions[1].clientAvgMs, null);
+    assert.equal(quality.versions[1].resultOpenRate, null);
+    assert.equal(quality.versions[1].bestOpenedPositionAvg, null);
+    const measurement = h.traces.filter(trace => trace.name === 'SearchSession').at(-1).pipeline;
+    assert.ok(JSON.stringify(measurement).includes('$setIntersection'));
 });
 
 test('new instrumentation never fills unmeasured days or empty cohorts with misleading rates', async () => {

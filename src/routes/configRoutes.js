@@ -3,7 +3,7 @@ const router = express.Router();
 const { IGNORED_TAGS, SCORING_RULES } = require('../config/scoring');
 const nlp = require('compromise');
 const SearchLog = require('../models/SearchLog');
-const { recordSearchOutcome } = require('../services/analyticsService');
+const { recordSearchOutcome, recordSearchMetrics } = require('../services/analyticsService');
 
 // @route   GET /api/config/scoring
 // @desc    Entrega la configuración oficial del algoritmo de ADN
@@ -45,6 +45,16 @@ router.post('/track-search', async (req, res) => {
     }
 });
 
+router.post('/track-search-metrics', async (req, res) => {
+    try {
+        const accepted = await recordSearchMetrics(req.body?.searchId, req.body);
+        return res.sendStatus(accepted ? 204 : 400);
+    } catch (error) {
+        console.error('[search metrics]', error.message);
+        return res.sendStatus(503);
+    }
+});
+
 router.post('/track-search-click', async (req, res) => {
     const { query, searchId } = req.body || {};
     let rawTerm = typeof query === 'string' ? query.toLowerCase().trim().slice(0, 150) : '';
@@ -52,7 +62,7 @@ router.post('/track-search-click', async (req, res) => {
     if (!rawTerm || rawTerm.length < 2) return res.sendStatus(200);
 
     try {
-        await recordSearchOutcome(searchId, 'opened');
+        await recordSearchOutcome(searchId, 'opened', req.body.position);
         const singular = rawTerm.includes(' ') ? rawTerm : nlp(rawTerm).nouns().toSingular().text().trim();
         const term = singular || rawTerm;
         const today = new Date();

@@ -100,6 +100,7 @@ function harness(records, mappings = [], ranked = false) {
         if (name === 'mongoose') return mongoose;
         if (name === '../utils/tagResolver') return resolver.exports;
         if (name === '../utils/searchPagination') return require('../utils/searchPagination');
+        if (name === '../utils/searchQuery') return require('../utils/searchQuery');
         if (name === '../models/TagMap') return TagMap;
         if (name === '../models/TagSuggestion') return {
             find: filter => ({ limit() { return this; }, lean: async () => [...new Set(records.flatMap(r => r.tags))]
@@ -400,4 +401,13 @@ test('empty queries return the requested envelope while legacy consumers still r
     assert.deepEqual((await h.request('', { pagination: 'cursor' })).data, { items: [], hasMore: false, nextCursor: null });
     assert.deepEqual((await h.request('fondos de pantalla', { pagination: 'cursor' })).data, { items: [], hasMore: false, nextCursor: null });
     assert.deepEqual((await h.request('')).data, []);
+});
+
+test('explicit media filters apply to retrieval, live intent and analytics', async () => {
+    const h = harness([wall('image', ['naruto']), wall('video', ['naruto'], 'video')]);
+    assert.deepEqual(await h.search('naruto', { type: 'video' }), ['video']);
+    assert.equal(h.searches.at(-1)[3].mediaType, 'video');
+    assert.deepEqual(await h.search('naruto animado', { type: 'image' }), ['image']);
+    assert.deepEqual(await h.search('naruto animado', { type: 'all' }), ['video']);
+    assert.equal((await h.request('naruto', { type: 'unknown' })).code, 400);
 });

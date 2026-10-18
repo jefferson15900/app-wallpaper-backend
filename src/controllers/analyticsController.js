@@ -38,7 +38,7 @@ exports.dashboard = async (req, res) => {
         const [active, previousActive, activeToday, newDevices, previousNewDevices, newAccounts,
             totalDevices, totalAccounts, approved, pending, galleryDownloads, galleryLikes,
             downloadDays, activityDays, searchDays, newDeviceDays, searches, opportunities,
-            downloadCounts, noResultCounts, funnelRows, rankings, tags, retentionRows] = await Promise.all([
+            downloadCounts, noResultCounts, funnelRows, rankings, tags, retentionRows, searchVersions] = await Promise.all([
             uniqueDevices(start, end), uniqueDevices(previousStart, start), uniqueDevices(end, new Date(end.getTime() + DAY)),
             Visitor.countDocuments({ createdAt: range(start, end) }), Visitor.countDocuments({ createdAt: range(previousStart, start) }),
             User.countDocuments({ createdAt: range(start, end) }), Visitor.countDocuments(), User.countDocuments(),
@@ -77,6 +77,21 @@ exports.dashboard = async (req, res) => {
                 { $lookup: { from: DailyActivity.collection.name, let: { device: '$deviceId', returnDay: '$returnDay' }, pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$deviceId', '$$device'] }, { $eq: ['$day', '$$returnDay'] }] } } }, { $limit: 1 }], as: 'returnActivity' } },
                 { $group: { _id: null, size: { $sum: 1 }, returned: { $sum: { $cond: [{ $gt: [{ $size: '$returnActivity' }, 0] }, 1, 0] } } } },
             ]),
+            SearchSession.aggregate([
+                { $match: { createdAt: range(start, end) } },
+                { $group: {
+                    _id: { $ifNull: ['$searchVersion', 'legacy'] }, searches: { $sum: 1 },
+                    opens: { $sum: { $cond: ['$opened', 1, 0] } }, downloads: { $sum: { $cond: ['$downloaded', 1, 0] } },
+                    noResults: { $sum: { $cond: [{ $eq: ['$resultsCount', 0] }, 1, 0] } },
+                    serverAvgMs: { $avg: '$serverDurationMs' }, serverSamples: { $sum: { $cond: [{ $isNumber: '$serverDurationMs' }, 1, 0] } },
+                    clientAvgMs: { $avg: '$clientDurationMs' }, clientSamples: { $sum: { $cond: [{ $isNumber: '$clientDurationMs' }, 1, 0] } },
+                    shownPositions: { $sum: { $size: { $ifNull: ['$shownPositions', []] } } },
+                    openedShownPositions: { $sum: { $size: { $setIntersection: [{ $ifNull: ['$shownPositions', []] }, { $ifNull: ['$openedPositions', []] }] } } },
+                    bestOpenedPositionAvg: { $avg: '$bestOpenedPosition' },
+                    positionSamples: { $sum: { $cond: [{ $isNumber: '$bestOpenedPosition' }, 1, 0] } },
+                } },
+                { $sort: { searches: -1, _id: 1 } }, { $limit: 10 },
+            ]),
         ]);
         const countOf = (rows, key) => rows.find(row => row._id === key)?.count || 0;
         const downloads = countOf(downloadCounts, 'current');
@@ -110,6 +125,14 @@ exports.dashboard = async (req, res) => {
             opportunities: opportunities.map(row => ({ term: row._id, count: row.count, lastSearchedAt: row.lastSearchedAt })),
             contentGaps: opportunities.map(row => ({ term: row._id, count: row.count })),
             funnel: { searches: funnel.searches, opens: funnel.opens, downloads: funnel.downloads, openRate: rate(funnel.opens), downloadRate: rate(funnel.downloads) },
+            searchQuality: { positionLimit: 100, versions: searchVersions.map(row => ({ ...row, version: row._id,
+                serverAvgMs: row.serverSamples ? row.serverAvgMs : null,
+                clientAvgMs: row.clientSamples ? row.clientAvgMs : null,
+                bestOpenedPositionAvg: row.positionSamples ? row.bestOpenedPositionAvg : null,
+                resultOpenRate: row.shownPositions ? Math.round(row.openedShownPositions / row.shownPositions * 1000) / 10 : null,
+                openRate: row.searches ? Math.round(row.opens / row.searches * 1000) / 10 : null,
+                downloadRate: row.searches ? Math.round(row.downloads / row.searches * 1000) / 10 : null,
+            })) },
         });
     } catch (error) {
         console.error('[dashboard]', error);
