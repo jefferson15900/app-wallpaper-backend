@@ -1,5 +1,6 @@
 const TagMap = require('../models/TagMap');
 const { SYNONYMS } = require('../config/tags');
+const { resolveMetadataAlias } = require('./wallpaperMetadata');
 
 /**
  * 🎯 RESOLVER TÉRMINO ÚNICO
@@ -12,6 +13,8 @@ const { SYNONYMS } = require('../config/tags');
 const resolveToCanonical = async (word) => {
     if (!word) return '';
     const term = word.toLowerCase().trim();
+    const metadataCanonical = resolveMetadataAlias(term);
+    if (metadataCanonical) { return metadataCanonical; }
 
     // 🚀 Optimización local: buscar primero en los sinónimos estáticos
     if (SYNONYMS && SYNONYMS[term]) {
@@ -43,7 +46,7 @@ const resolveTagsArray = async (tagsArray) => {
         .filter(t => t && typeof t === 'string')
         .map(t => {
             const clean = t.toLowerCase().trim();
-            return SYNONYMS[clean] ?? clean;
+            return resolveMetadataAlias(clean) ?? SYNONYMS[clean] ?? clean;
         });
 
     try {
@@ -58,7 +61,7 @@ const resolveTagsArray = async (tagsArray) => {
         );
 
         // Resolvemos cada tag usando el diccionario. Si no existe, dejamos el término localmente resuelto.
-        const resolved = terms.map(t => dict[t] ?? t);
+        const resolved = terms.map(t => resolveMetadataAlias(t) ?? dict[t] ?? t);
 
         // Eliminamos duplicados que surjan tras la traducción con un Set
         return [...new Set(resolved)];

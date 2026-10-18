@@ -775,8 +775,8 @@ exports.uploadWallpaper = async (req, res) => {
                         throw metadataError('Cada etiqueta JSON debe tener en y es de hasta 80 caracteres.');
                     }
                     const manualEn = parsed.map(t => t.en.toLowerCase().trim());
-                    const manualEs = parsed.map(t => t.es.toLowerCase().trim());
-                    rawTags = [...new Set([...rawTags, ...manualEn, ...manualEs])];
+                    // Spanish translations belong in the query dictionary, not the visible tags.
+                    rawTags = [...new Set([...rawTags, ...manualEn])];
 
                     const tagMapOps = parsed
                         .filter(t => t.en && t.es && t.en !== t.es)

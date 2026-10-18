@@ -28,7 +28,8 @@ test('manual values including an explicit empty list override AI; second image s
         { assetId: 'two', metadata: { subjects: ['car'], colors: ['red'], environments: ['rain'] }, aiMetadata: { colors: ['blue'] } },
     ] };
     const tags = searchTagsFor(wallpaper);
-    assert.ok(tags.includes('car') && tags.includes('coche') && tags.includes('lluvia'));
+    assert.ok(tags.includes('car') && tags.includes('rain'));
+    assert.ok(!tags.includes('coche') && !tags.includes('lluvia'));
     assert.ok(!tags.includes('blue') && !tags.includes('outdated'));
     assert.equal(matchedAssetId(wallpaper, 'coche rojo'), 'two');
     assert.equal(matchedAssetId(wallpaper, 'planet red'), undefined);
@@ -36,6 +37,12 @@ test('manual values including an explicit empty list override AI; second image s
     assert.ok(!searchTagsFor({ ...wallpaper, ...changes }).includes('red'));
     assert.deepEqual(searchTagsFor({ metadata: { colors: ['blue'] }, images: [{ metadata: { colors: [] } }] }), []);
     assert.ok(!searchTagsFor({ metadata: { colors: ['blue'] }, images: [{ metadata: { colors: ['red'] } }] }).includes('blue'));
+});
+
+test('metadata projection stores only English canonical terms, without Spanish duplicates', () => {
+    const metadata = normalizeMetadata({ subjects: ['ciudad'], environments: ['noche'], colors: ['azul'], extraTags: ['noche', 'ciudad'] });
+    assert.deepEqual(searchTagsFor({ manualTags: ['city', 'ciudad'], metadata }), ['city', 'blue', 'night']);
+    assert.deepEqual(searchTagsFor({ manualTags: ['ciudad'], ...removeMetadataTag({ manualTags: ['ciudad'] }, 'city') }), []);
 });
 
 test('schema accepts structured assets and leaves legacy records without fabricated metadata', async () => {

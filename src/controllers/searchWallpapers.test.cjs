@@ -81,7 +81,7 @@ function harness(records, mappings = []) {
     };
     const resolver = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/../utils/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? TagMap : { SYNONYMS }, resolver, resolver.exports);
+        name => name === '../models/TagMap' ? TagMap : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : { SYNONYMS }, resolver, resolver.exports);
     const controller = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/wallpaperController.js`, 'utf8')}\n})`)(name => {
         if (name === 'compromise') return nlp;
@@ -176,8 +176,14 @@ test('live intent filters the media type without requiring a live tag', async ()
 });
 
 test('rain is a distinct searchable environment and does not broaden into water', async () => {
-    const h = harness([wall('rain', ['city', 'ciudad', 'rain', 'lluvia']), wall('water', ['city', 'water'])]);
+    const h = harness([wall('rain', ['city', 'rain']), wall('water', ['city', 'water'])]);
     assert.deepEqual(await h.search('ciudad lluvia'), ['rain']);
+});
+
+test('Spanish metadata queries find English-only tags without needing Spanish tags in the catalog', async () => {
+    const h = harness([wall('night', ['city', 'night']), wall('day', ['city', 'day'])]);
+    assert.deepEqual(await h.search('ciudad noche'), ['night']);
+    assert.deepEqual(await h.search('city night'), ['night']);
 });
 
 test('semantic filtering precedes pagination and preserves approval filters', async () => {

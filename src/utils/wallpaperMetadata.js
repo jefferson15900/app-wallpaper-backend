@@ -23,6 +23,15 @@ function canonicalTerm(field, value) {
     return entry ? entry[0] : term;
 }
 
+function resolveMetadataAlias(value) {
+    const term = normalizeTerm(value);
+    for (const dictionary of Object.values(ALIASES)) {
+        const entry = Object.entries(dictionary).find(([canonical, aliases]) => canonical === term || aliases.includes(term));
+        if (entry) { return entry[0]; }
+    }
+    return undefined;
+}
+
 function normalizeMetadata(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
         throw metadataError('Los metadatos deben ser un objeto con listas de texto.');
@@ -54,9 +63,7 @@ function effectiveMetadata(image, general = {}) {
 }
 
 function metadataTags(metadata) {
-    return METADATA_FIELDS.flatMap(field => (metadata?.[field] || []).flatMap(value => [value,
-        ...(ALIASES[field] && Object.hasOwn(ALIASES[field], value) ? ALIASES[field][value] : []),
-    ]));
+    return METADATA_FIELDS.flatMap(field => (metadata?.[field] || []).map(value => canonicalTerm(field, value)));
 }
 
 function searchTagsFor(wallpaper) {
@@ -64,11 +71,11 @@ function searchTagsFor(wallpaper) {
     const metadataTerms = wallpaper.images?.length
         ? wallpaper.images.flatMap(image => metadataTags(effectiveMetadata(image, wallpaper.metadata)))
         : metadataTags(wallpaper.metadata);
-    return [...new Set([...manual, ...metadataTerms])];
+    return [...new Set([...manual, ...metadataTerms].map(value => resolveMetadataAlias(value) ?? value))];
 }
 
 function matchedAssetId(wallpaper, query) {
-    const words = normalizeTerm(query).split(/\s+/).filter(Boolean);
+    const words = normalizeTerm(resolveMetadataAlias(query) ?? query).split(/\s+/).filter(Boolean).map(word => resolveMetadataAlias(word) ?? word);
     return wallpaper.images?.find(image => image.assetId && words.every(word => {
         const terms = metadataTags(effectiveMetadata(image, wallpaper.metadata)).flatMap(term => normalizeTerm(term).split(/\s+/));
         return terms.includes(word);
@@ -79,7 +86,7 @@ function removeMetadataTag(wallpaper, tag) {
     const removeFrom = (metadata = {}) => Object.fromEntries(Object.entries(metadata).map(([field, values]) => [field,
         values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
     ]));
-    return { manualTags: (wallpaper.manualTags ?? wallpaper.tags ?? []).filter(value => normalizeTerm(value) !== normalizeTerm(tag)),
+    return { manualTags: (wallpaper.manualTags ?? wallpaper.tags ?? []).filter(value => (resolveMetadataAlias(value) ?? normalizeTerm(value)) !== (resolveMetadataAlias(tag) ?? normalizeTerm(tag))),
         metadata: removeFrom(wallpaper.metadata), images: (wallpaper.images || []).map(image => ({ ...image,
             metadata: removeFrom(image.metadata), aiMetadata: removeFrom(image.aiMetadata),
         })),
@@ -99,4 +106,4 @@ function parseAssetMetadata(value, count) {
     return parsed.map(normalizeMetadata);
 }
 
-module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError };
+module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError, resolveMetadataAlias };
