@@ -109,6 +109,7 @@ function harness(records, mappings = []) {
             }
             return result.map(record => ({ ...record, finalBaseScore: 10 }));
         } };
+        if (name === '../utils/wallpaperMetadata') return require('../utils/wallpaperMetadata');
         return {};
     }, controller, controller.exports);
     return {
@@ -172,6 +173,11 @@ test('spacing aliases still work', async () => {
 test('live intent filters the media type without requiring a live tag', async () => {
     const h = harness([wall('live-naruto', ['naruto'], 'video'), wall('image-naruto', ['naruto'])]);
     assert.deepEqual(await h.search('naruto live'), ['live-naruto']);
+});
+
+test('rain is a distinct searchable environment and does not broaden into water', async () => {
+    const h = harness([wall('rain', ['city', 'ciudad', 'rain', 'lluvia']), wall('water', ['city', 'water'])]);
+    assert.deepEqual(await h.search('ciudad lluvia'), ['rain']);
 });
 
 test('semantic filtering precedes pagination and preserves approval filters', async () => {

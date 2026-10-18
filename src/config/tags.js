@@ -300,7 +300,7 @@ const SYNONYMS = {
   // ══════════════════════════════════════════════
   // 💧 AGUA (general)
   // ══════════════════════════════════════════════
-  'agua': 'water', 'lluvia': 'water', 'rain': 'water',
+  'agua': 'water', 'lluvia': 'rain', 'rain': 'rain',
   'waterfall': 'water', 'cascada': 'water', 'river': 'water',
   'río': 'water', 'rio': 'water', 'lake': 'water', 'lago': 'water',
   'pond': 'water', 'estanque': 'water', 'stream': 'water',

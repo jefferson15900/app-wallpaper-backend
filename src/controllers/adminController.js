@@ -3,7 +3,8 @@ const Wallpaper = require('../models/Wallpaper');
 const Feedback = require('../models/Feedback');
 const { Expo } = require('expo-server-sdk');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
-const { getAITags } = require('../services/aiService');
+const { updateMetadata } = require('../services/wallpaperMetadataService');
+const { isId } = require('../utils/updateValidation');
 const TagMap = require('../models/TagMap');
 const SearchLog = require('../models/SearchLog'); 
 const VerificationRequest = require('../models/VerificationRequest');
@@ -291,69 +292,22 @@ exports.reportAction = async (req, res) => {
 
 // REINTENTAR ETIQUETADO POR IA (SOLO ADMIN) - VERSIÓN INTELIGENTE
 exports.retryAITagging = async (req, res) => {
+    if (!isId(req.params.id)) { return res.status(400).json({ msg: 'Wallpaper no válido.' }); }
     try {
-        // 1. Buscar el wallpaper en la base de datos
-        const wallpaper = await Wallpaper.findById(req.params.id);
-        if (!wallpaper) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-
-        // Aseguramos que la URL use HTTPS para evitar problemas con la API de Google
-        const secureUrl = wallpaper.imageUrl.replace('http://', 'https://');
-        // 2. Llamar al servicio de IA (Gemini)
-        // Se espera un formato: [{ en: "city", es: "ciudad" }, ...]
-        const aiTags = await getAITags(secureUrl);
-
-        if (!aiTags || aiTags.length === 0) {
-            return res.status(503).json({ 
-                msg: 'La IA no pudo analizar la imagen. Espera 30 segundos y reintenta.' 
-            });
-        }
-
-        // 3. Procesar y separar etiquetas por idioma
-        const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-        const esTags = aiTags
-            .map(t => t.es.toLowerCase().trim())
-            .filter(es => !enTags.includes(es)); // Evitar duplicar si la palabra es igual en ambos idiomas
-
-        // 4. Mezclar con las etiquetas que ya tenía el wallpaper (sin repetir)
-        const currentTags = wallpaper.tags || [];
-        const finalTags = [...new Set([...currentTags, ...enTags, ...esTags])];
-
-        // 5. ACTUALIZAR DICCIONARIO (TagMap)
-        // Esto permite que el sistema "aprenda" la traducción para futuras búsquedas
-        const tagMapOps = aiTags
-            .filter(t => t.en !== t.es) // Solo mapeamos si son palabras distintas (ej: ciudad -> city)
-            .map(({ en, es }) => ({
-                updateOne: {
-                    filter: { original: es.toLowerCase().trim() },
-                    update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
-                    upsert: true
-                }
-            }));
-
-        if (tagMapOps.length > 0) {
-            // Operación masiva para no saturar la DB
-            await TagMap.bulkWrite(tagMapOps, { ordered: false });
-        }
-
-        // 6. Guardar cambios en el Wallpaper
-        wallpaper.tags = finalTags;
-        wallpaper.isAITagged = true;
-        await wallpaper.save();
-
-        
-        res.json({ 
-            msg: 'IA procesada con éxito ✨', 
-            tags: finalTags, 
-            isAITagged: true 
+        // Exactly one selected image per explicit action; never an entire carousel.
+        const wallpaper = await updateMetadata(req.params.id, current => {
+            if (current.type === 'video') { throw Object.assign(new Error('Clasifica los videos manualmente.'), { statusCode: 400 }); }
+            const requested = req.body?.assetId;
+            const image = requested ? current.images?.find(asset => asset.assetId === requested) : current.images?.[0];
+            if (!image?.assetId) { throw Object.assign(new Error('Esta imagen aún no tiene assetId. La migración del catálogo se hará por separado.'), { statusCode: 400 }); }
+            if (['pending', 'processing'].includes(image.analysis?.status)) { throw Object.assign(new Error('Esta imagen ya tiene un análisis en curso.'), { statusCode: 409 }); }
+            return { images: current.images.map(asset => asset.assetId === image.assetId ? { ...asset, analysis: { status: 'pending' } } : asset) };
         });
-
-    } catch (err) {
-        console.error("❌ Error crítico en retryAITagging:", err.message);
-        res.status(500).json({ msg: 'Error interno al conectar con el servidor de IA' });
+        return res.json({ msg: 'Análisis de una imagen en cola. Actualiza la lista para ver el resultado.', tags: wallpaper.tags, isAITagged: wallpaper.isAITagged, queued: true });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({ msg: error.statusCode ? error.message : 'No se pudo solicitar el análisis.' });
     }
 };
-
-
 
 // ============================================================
 // HELPERS

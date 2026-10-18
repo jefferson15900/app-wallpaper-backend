@@ -43,7 +43,9 @@ function harness() {
             if (name === '../config/cloudinary') return { cloudinaryPrimary: cloudinary, cloudinarySecondary: cloudinary };
             if (name === '../config/tags') return { cleanTags: tags => tags };
             if (name === '../utils/tagResolver') return { resolveTagsArray: async tags => tags };
-            if (name === '../services/aiQueue') return { addJob: () => { aiJobs++; } };
+            if (name === '../services/aiQueue') return { addJobs: () => { aiJobs++; } };
+            if (name === 'node:crypto') return { randomUUID };
+            if (name === '../utils/wallpaperMetadata') return require('../utils/wallpaperMetadata');
             return {};
         };
         const run = vm.runInThisContext(`(function(require, module, exports, console) { ${readFileSync(filename, 'utf8')}\n})`, { filename });
@@ -77,6 +79,36 @@ function harness() {
         unverify: () => { verified = false; },
     };
 }
+
+test('uploads save per-image metadata, preserve original tags and require explicit AI opt-in', async () => {
+    const h = harness();
+    const req = h.request();
+    delete req.body.useAI;
+    req.files.push({ ...req.files[0], filename: 'second', path: 'second.jpg' });
+    req.body.assetMetadata = JSON.stringify([{ styles: ['anime'] }, { subjects: ['coche'], colors: ['rojo'], environments: ['lluvia'] }]);
+    const res = await h.submit(req);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.data.images.length, 2);
+    assert.notEqual(res.data.images[0].assetId, res.data.images[1].assetId);
+    assert.deepEqual(res.data.images[1].metadata.colors, ['red']);
+    assert.ok(res.data.tags.includes('car') && res.data.tags.includes('rain'));
+    assert.deepEqual(res.data.manualTags, ['anime', 'oscuro']);
+    assert.equal(res.data.images[0].analysis.status, 'not_requested');
+    assert.equal(h.aiJobs(), 0);
+    const opted = h.request(); opted.body.useAI = 'true';
+    assert.equal((await h.submit(opted)).data.images[0].analysis.status, 'pending');
+    assert.equal(h.aiJobs(), 1);
+});
+
+test('invalid asset metadata and mixed media are rejected before saving and cleaned remotely', async () => {
+    const h = harness();
+    const req = h.request(); req.body.assetMetadata = '[{},{}]';
+    assert.equal((await h.submit(req)).statusCode, 400);
+    const mixed = h.request(); mixed.files.push({ ...mixed.files[0], mimetype: 'video/mp4', filename: 'video' });
+    assert.equal((await h.submit(mixed)).statusCode, 400);
+    assert.equal(h.records.length, 0);
+    assert.equal(h.removed.length, 3);
+});
 
 test('individual requests create independently reviewable pending wallpapers with shared tags', async () => {
     const h = harness();

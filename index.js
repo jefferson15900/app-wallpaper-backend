@@ -35,8 +35,10 @@ app.get('/delete-account', (req, res) => {
 
 // 4. CONEXIÓN A DB Y RUTAS DE API
 let stopUpdateRetention;
+let stopImageAnalysis;
 connectDB().then(async () => {
     stopUpdateRetention = startUpdateRetention();
+    stopImageAnalysis = require('./src/services/aiQueue').start();
     await initializeAnalytics();
 }).catch(error => console.error('Error initializing analytics:', error.message));
 app.use('/api/auth', require('./src/routes/authRoutes')); 
@@ -61,6 +63,7 @@ const server = app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${POR
 // CIERRE LIMPIO
 const shutdown = (signal) => {
     if (stopUpdateRetention) stopUpdateRetention();
+    if (stopImageAnalysis) stopImageAnalysis();
     server.close(() => { process.exit(0); });
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));

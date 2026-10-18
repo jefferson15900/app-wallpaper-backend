@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
+const { randomUUID } = require('node:crypto');
+const { parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError } = require('../utils/wallpaperMetadata');
+const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
 const { resolveToCanonical, resolveTagsArray } = require('../utils/tagResolver');
 const Visitor = require('../models/Visitor');
@@ -611,6 +614,8 @@ exports.searchWallpapers = async (req, res) => {
 
         return res.json(results.map(item => {
             const cleanItem = { ...item, price: item.price ?? 0 };
+            const matched = matchedAssetId(item, cleanQuery);
+            if (matched) { cleanItem.matchedAssetId = matched; }
             delete cleanItem.finalBaseScore;
             return cleanItem;
         }));
@@ -747,6 +752,16 @@ exports.uploadWallpaper = async (req, res) => {
 
         // 2. Extraer datos del body
         const { tags, price, manualAIResult, useAI } = req.body; 
+        if (files.some(file => file.mimetype.startsWith('video') !== isVideo)) {
+            throw metadataError('Sube imágenes y videos en publicaciones separadas.');
+        }
+        if (tags !== undefined && (typeof tags !== 'string' || tags.length > 10000)) {
+            throw metadataError('Las etiquetas deben ser texto separado por comas.');
+        }
+        if (useAI !== undefined && !['true', 'false'].includes(useAI)) { throw metadataError('La opción de IA no es válida.'); }
+        if (manualAIResult !== undefined && (typeof manualAIResult !== 'string' || manualAIResult.length > 16000)) { throw metadataError('El JSON manual no es válido o es demasiado largo.'); }
+        const metadata = req.body.metadata === undefined ? {} : parseMetadata(req.body.metadata);
+        const assetMetadata = parseAssetMetadata(req.body.assetMetadata, files.length);
         let rawTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         let isAITagged = false;
 
@@ -756,6 +771,9 @@ exports.uploadWallpaper = async (req, res) => {
                 const parsed = JSON.parse(manualAIResult);
                 
                 if (Array.isArray(parsed)) {
+                    if (parsed.length > 20 || parsed.some(t => !t || typeof t.en !== 'string' || typeof t.es !== 'string' || !t.en.trim() || !t.es.trim() || t.en.length > 80 || t.es.length > 80 || /[\x00-\x1f]/.test(t.en + t.es))) {
+                        throw metadataError('Cada etiqueta JSON debe tener en y es de hasta 80 caracteres.');
+                    }
                     const manualEn = parsed.map(t => t.en.toLowerCase().trim());
                     const manualEs = parsed.map(t => t.es.toLowerCase().trim());
                     rawTags = [...new Set([...rawTags, ...manualEn, ...manualEs])];
@@ -775,9 +793,13 @@ exports.uploadWallpaper = async (req, res) => {
                     }
 
                     isAITagged = true;
+                } else {
+                    if (files.length !== 1) { throw metadataError('El JSON estructurado corresponde a una imagen. En carruseles usa los campos de cada imagen.'); }
+                    assetMetadata[0] = { ...parseMetadata(parsed), ...assetMetadata[0] };
+                    isAITagged = true;
                 }
             } catch (jsonErr) { 
-                console.error('❌ Error parseando manualAIResult:', jsonErr.message);
+                throw jsonErr.statusCode ? jsonErr : metadataError('El JSON manual no es válido.');
             }
         }
 
@@ -787,14 +809,21 @@ exports.uploadWallpaper = async (req, res) => {
 
         // 4. Crear registro en DB
         const firstFile = files[0];
-        const imagesList = files.map(file => ({
+        const requestAI = !isVideo && !isAITagged && useAI === 'true';
+        const imagesList = files.map((file, index) => ({
+            assetId: randomUUID(),
             imageUrl: file.path,
-            public_id: file.filename
+            public_id: file.filename,
+            metadata: assetMetadata[index],
+            analysis: { status: requestAI ? 'pending' : 'not_requested' },
         }));
 
         const newWallpaper = new Wallpaper({
             ...(req.uploadRequestId ? { uploadRequestId: req.uploadRequestId } : {}),
-            tags:      finalTags,
+            tags:      searchTagsFor({ manualTags: finalTags, metadata, images: imagesList }),
+            manualTags: finalTags,
+            metadata,
+            metadataVersion: 1,
             imageUrl:  firstFile.path,
             public_id: firstFile.filename,
             images:    imagesList,
@@ -812,12 +841,8 @@ exports.uploadWallpaper = async (req, res) => {
         res.json(newWallpaper);
 
         // 🤖 LÓGICA DE DECISIÓN DE IA
-        if (!isVideo && !isAITagged && useAI !== 'false') {
-            aiQueue.addJob({
-                wallpaperId: newWallpaper._id,
-                imageUrl:    firstFile.path,
-                baseTags:    finalTags
-            });
+        if (requestAI) {
+            await aiQueue.addJobs(newWallpaper);
         }
 
     } catch (err) {
@@ -839,7 +864,7 @@ exports.uploadWallpaper = async (req, res) => {
             const existing = await Wallpaper.findOne({ artist: req.user.id, uploadRequestId: req.uploadRequestId }).lean();
             if (existing) return res.json(existing);
         }
-        res.status(500).json({ msg: 'Error interno en la subida' });
+        res.status(err.statusCode || 500).json({ msg: err.statusCode === 400 ? err.message : 'Error interno en la subida' });
     }
 };
 
@@ -1337,11 +1362,11 @@ exports.adminRemoveTag = async (req, res) => {
             return res.status(400).json({ msg: 'ID inválido' });
         }
 
-        const result = await Wallpaper.findByIdAndUpdate(
-            id,
-            { $pull: { tags: tagToRemove.trim().toLowerCase() } },
-            { new: true }
-        );
+        const existing = await Wallpaper.findById(id).lean();
+        if (!existing) { return res.status(404).json({ msg: 'Wallpaper no encontrado' }); }
+        const result = existing.metadataVersion === 1
+            ? await updateMetadata(id, current => removeMetadataTag(current, tagToRemove))
+            : await Wallpaper.findByIdAndUpdate(id, { $pull: { tags: tagToRemove.trim().toLowerCase() } }, { new: true });
 
         if (!result) return res.status(404).json({ msg: 'Wallpaper no encontrado' });
 
@@ -1413,11 +1438,9 @@ exports.adminAddTag = async (req, res) => {
         }
 
         // Agregar tag al array
-        const result = await Wallpaper.findByIdAndUpdate(
-            id,
-            { $addToSet: { tags: finalTag } },
-            { new: true }
-        );
+        const result = wallpaper.metadataVersion === 1
+            ? await updateMetadata(id, current => ({ manualTags: [...new Set([...(current.manualTags || []), finalTag])] }))
+            : await Wallpaper.findByIdAndUpdate(id, { $addToSet: { tags: finalTag } }, { new: true });
 
         // Incrementar el contador en TagSuggestion
         await TagSuggestion.updateOne(
@@ -1609,67 +1632,10 @@ exports.mergeWallpapers = async (req, res) => {
             return res.status(400).json({ msg: 'IDs inválidos' });
         }
 
-        const [primary, secondary] = await Promise.all([
-            Wallpaper.findById(primaryId),
-            Wallpaper.findById(secondaryId)
-        ]);
-
-        if (!primary) return res.status(404).json({ msg: 'Wallpaper principal no encontrado' });
-        if (!secondary) return res.status(404).json({ msg: 'Wallpaper secundario no encontrado' });
-
-        // 1. Inicializar imágenes del principal si no están pobladas
-        let primaryImages = primary.images && primary.images.length > 0
-            ? primary.images
-            : [{ imageUrl: primary.imageUrl, public_id: primary.public_id }];
-
-        // 2. Obtener imágenes del secundario
-        let secondaryImages = secondary.images && secondary.images.length > 0
-            ? secondary.images
-            : [{ imageUrl: secondary.imageUrl, public_id: secondary.public_id }];
-
-        // 3. Fusionar las listas de imágenes evitando duplicar por public_id o imageUrl
-        const mergedImages = [...primaryImages];
-        for (const secImg of secondaryImages) {
-            const exists = mergedImages.some(img => 
-                (img.public_id && img.public_id === secImg.public_id) || 
-                (img.imageUrl && img.imageUrl === secImg.imageUrl)
-            );
-            if (!exists) {
-                mergedImages.push(secImg);
-            }
-        }
-
-        primary.images = mergedImages;
-
-        // 4. Fusionar etiquetas (tags)
-        const combinedTags = [...(primary.tags || []), ...(secondary.tags || [])];
-        primary.tags = [...new Set(combinedTags.map(t => t.trim().toLowerCase()))];
-
-        // 5. Sumar descargas
-        primary.downloads = (primary.downloads || 0) + (secondary.downloads || 0);
-
-        // 6. Fusionar Likes
-        const primaryLikesStr = (primary.likes || []).map(id => id.toString());
-        const secondaryLikesStr = (secondary.likes || []).map(id => id.toString());
-        const uniqueLikesStr = [...new Set([...primaryLikesStr, ...secondaryLikesStr])];
-        primary.likes = uniqueLikesStr.map(id => new mongoose.Types.ObjectId(id));
-
-        // 7. Guardar cambios en el principal
-        await primary.save();
-
-        // 8. Eliminar el secundario (de la base de datos únicamente, sin borrar de Cloudinary)
-        await Wallpaper.findByIdAndDelete(secondaryId);
-
-        // 9. Decrementar contador del artista del secundario
-        await User.findByIdAndUpdate(secondary.artist, { $inc: { wallpaperCount: -1 } });
-
-        return res.json({ 
-            msg: 'Wallpapers fusionados con éxito', 
-            wallpaper: primary 
-        });
-
+        const merged = await mergeWithMetadata(primaryId, secondaryId);
+        return res.json({ msg: 'Wallpapers fusionados con éxito', wallpaper: merged });
     } catch (err) {
         console.error('❌ Error en mergeWallpapers:', err);
-        return res.status(500).json({ msg: 'Error al fusionar wallpapers' });
+        return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : 'Error al fusionar wallpapers' });
     }
 };

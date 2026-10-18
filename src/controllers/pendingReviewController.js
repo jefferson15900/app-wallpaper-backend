@@ -1,10 +1,11 @@
 const Wallpaper = require('../models/Wallpaper');
 const { isId } = require('../utils/updateValidation');
+const { updateMetadata, manualMetadataChanges } = require('../services/wallpaperMetadataService');
 
 exports.editPendingWallpaper = async (req, res) => {
     if (!isId(req.params.id)) return res.status(400).json({ msg: 'Wallpaper no válido.' });
     const body = req.body;
-    const allowed = ['tags', 'price', 'isPremium'];
+    const allowed = ['tags', 'price', 'isPremium', 'metadata', 'assetMetadata'];
     if (!body || typeof body !== 'object' || Array.isArray(body) ||
         Object.keys(body).some(key => !allowed.includes(key)) || !Object.keys(body).length) {
         return res.status(400).json({ msg: 'Los datos de edición no son válidos.' });
@@ -28,6 +29,13 @@ exports.editPendingWallpaper = async (req, res) => {
         changes.isPremium = body.isPremium;
     }
     try {
+        if ('tags' in body || 'metadata' in body || 'assetMetadata' in body) {
+            const wallpaper = await updateMetadata(req.params.id, current => ({
+                ...changes, ...manualMetadataChanges(current, { ...body, ...changes }),
+            }), true);
+            await wallpaper.populate('artist', 'username email');
+            return res.json(wallpaper);
+        }
         // Atomic pending filter prevents edits after another moderator approves/rejects.
         const wallpaper = await Wallpaper.findOneAndUpdate(
             { _id: req.params.id, status: 'pending' }, { $set: changes }, { new: true, runValidators: true }
@@ -40,6 +48,6 @@ exports.editPendingWallpaper = async (req, res) => {
         return res.json(wallpaper);
     } catch (error) {
         console.error('Error al editar wallpaper pendiente:', error);
-        return res.status(500).json({ msg: 'No se pudieron guardar los cambios. Intenta de nuevo.' });
+        return res.status(error.statusCode || 500).json({ msg: error.statusCode ? error.message : 'No se pudieron guardar los cambios. Intenta de nuevo.' });
     }
 };

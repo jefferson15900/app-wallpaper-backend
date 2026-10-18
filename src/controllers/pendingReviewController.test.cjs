@@ -12,10 +12,11 @@ const Wallpaper = require('../models/Wallpaper');
 
 test('pending edits require admin, validate metadata and never change approval or files', async () => {
     const original = { user: User.findById, tracking: User.findByIdAndUpdate,
-        update: Wallpaper.findOneAndUpdate, exists: Wallpaper.exists, secret: process.env.JWT_SECRET };
+        update: Wallpaper.findOneAndUpdate, find: Wallpaper.findById, exists: Wallpaper.exists, secret: process.env.JWT_SECRET };
     const admin = 'a'.repeat(24), member = 'b'.repeat(24), id = 'c'.repeat(24);
     const record = { _id: id, tags: ['old'], price: 0, isPremium: false, status: 'pending', imageUrl: 'original.jpg', artist: { username: 'artist' } };
     let writes = 0;
+    Wallpaper.findById = requested => ({ lean: async () => requested === id ? { ...record } : null });
     process.env.JWT_SECRET = 'isolated-review-edit-test';
     User.findById = async userId => ({ role: userId === admin ? 'admin' : 'user' });
     User.findByIdAndUpdate = async () => ({});
@@ -23,11 +24,16 @@ test('pending edits require admin, validate metadata and never change approval o
         writes++;
         assert.equal(filter.status, 'pending');
         assert.deepEqual(options, { new: true, runValidators: true });
-        return { populate: async () => {
+        const saved = (async () => {
             if (filter._id !== record._id || record.status !== 'pending') return null;
             Object.assign(record, update.$set);
+            if (update.$inc?.metadataRevision) record.metadataRevision = (record.metadataRevision || 0) + update.$inc.metadataRevision;
+            Object.defineProperty(record, 'populate', { configurable: true, enumerable: false, value: async () => record });
             return { ...record };
-        } };
+        })();
+        const query = saved.then(value => value ? Object.assign(value, { populate: async () => value }) : null);
+        query.populate = async () => saved;
+        return query;
     };
     Wallpaper.exists = async filter => filter._id === id;
     // Mount the shipped admin route with real auth/admin middleware, isolating unrelated handlers/services.
@@ -72,6 +78,12 @@ test('pending edits require admin, validate metadata and never change approval o
         assert.equal((await edit({ tags: [] })).status, 200);
         assert.deepEqual(record.tags, []);
         assert.equal(record.price, 2.5); // A partial edit preserves other data.
+        record.images = [{ assetId: 'asset-one', imageUrl: 'original.jpg' }];
+        const classified = await edit({ assetMetadata: [{ assetId: 'asset-one', metadata: { colors: ['azul'], environments: ['lluvia'] } }] });
+        assert.equal(classified.status, 200);
+        assert.ok((await classified.json()).tags.includes('rain'));
+        assert.deepEqual(record.images[0].metadata.colors, ['blue']);
+        assert.equal((await edit({ assetMetadata: [{ assetId: 'foreign', metadata: {} }] })).status, 400);
         assert.equal((await edit({ tags: [] }, admin, 'd'.repeat(24))).status, 404);
         record.status = 'approved';
         assert.equal((await edit({ price: 99 })).status, 409);
@@ -83,7 +95,7 @@ test('pending edits require admin, validate metadata and never change approval o
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
         User.findById = original.user; User.findByIdAndUpdate = original.tracking;
-        Wallpaper.findOneAndUpdate = original.update; Wallpaper.exists = original.exists;
+        Wallpaper.findOneAndUpdate = original.update; Wallpaper.findById = original.find; Wallpaper.exists = original.exists;
         if (original.secret === undefined) delete process.env.JWT_SECRET;
         else process.env.JWT_SECRET = original.secret;
     }

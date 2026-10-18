@@ -1,78 +1,56 @@
-const { getAITags } = require('./aiService');
+const { randomUUID } = require('node:crypto');
 const Wallpaper = require('../models/Wallpaper');
-const TagMap = require('../models/TagMap');
-const { cleanTags } = require('../config/tags');
-class AIQueue {
-constructor() {
-this.queue = [];
-this.isProcessing = false;
-}
-code
-Code
-addJob(job) {
-    this.queue.push(job);
-    this.processNext();
-}
+const { analyzeImage } = require('./aiService');
+const { updateMetadata } = require('./wallpaperMetadataService');
 
-async processNext() {
-    if (this.isProcessing || this.queue.length === 0) return;
+let timer;
+let running = false;
 
-    this.isProcessing = true;
-    const { wallpaperId, imageUrl, baseTags } = this.queue.shift();
- 
+async function processNext() {
+    if (running) { return; }
+    running = true;
     try {
-        // aiTags = [{ en: "city", es: "ciudad" }, ...]
-        const aiTags = await getAITags(imageUrl);
-
-        if (!aiTags || aiTags.length === 0) {
-            return;
-        }
-
-        // ── Extraer strings de cada idioma ───────────────────────────
-        const enTags = aiTags.map(t => t.en.toLowerCase().trim());
-        const esTags = aiTags
-            .map(t => t.es.toLowerCase().trim())
-            .filter(es => !enTags.includes(es));
-
-        // ── Limpiar y combinar ──────────────────────────────────────── 
-          const cleanedEn = cleanTags([...baseTags, ...enTags]);
-          const finalTags = [...new Set(cleanedEn)]; // ← solo EN
-
-        // ── Alimentar TagMap ──────────────────────────────────────────
-        const tagMapOps = aiTags
-            .filter(t => t.en !== t.es)
-            .map(({ en, es }) => ({
-                updateOne: {
-                    filter: { original: es.toLowerCase().trim() },
-                    update: { $set: { canonical: en.toLowerCase().trim(), language: 'es' } },
-                    upsert: true
-                }
-            }));
-
-        if (tagMapOps.length > 0) {
-            const result = await TagMap.bulkWrite(tagMapOps, { ordered: false });
-
-            // 🔍 Verificación: confirmar que se guardó en DB
-            const saved = await TagMap.find({
-                original: { $in: aiTags.map(t => t.es) }
-            }).lean();
-
-        } else {
-        }
-
-        // ── Guardar en Wallpaper ──────────────────────────────────────
-        await Wallpaper.findByIdAndUpdate(wallpaperId, {
-            $set: { tags: finalTags, isAITagged: true }
+        // An interrupted request may already have been billed. Require manual retry.
+        const now = new Date();
+        await Wallpaper.updateMany({ images: { $elemMatch: { 'analysis.status': 'processing', 'analysis.leaseUntil': { $lt: now } } } }, {
+            $set: { 'images.$[image].analysis.status': 'failed', 'images.$[image].analysis.error': 'El análisis fue interrumpido. Reintenta manualmente si lo deseas.' }, $inc: { metadataRevision: 1 },
+        }, { arrayFilters: [{ 'image.analysis.status': 'processing', 'image.analysis.leaseUntil': { $lt: now } }] });
+        const runId = randomUUID();
+        const wallpaper = await Wallpaper.findOneAndUpdate({ type: 'image', images: { $elemMatch: { assetId: { $exists: true }, 'analysis.status': 'pending' } } }, {
+            $set: { 'images.$.analysis.status': 'processing', 'images.$.analysis.runId': runId,
+                'images.$.analysis.startedAt': now, 'images.$.analysis.leaseUntil': new Date(now.getTime() + 10 * 60000) },
+            $inc: { metadataRevision: 1 },
+        }, { new: true }).lean();
+        if (!wallpaper) { return; }
+        const image = wallpaper.images.find(image => image.analysis?.runId === runId);
+        if (!image) { return; }
+        let result;
+        let failure;
+        try { result = await analyzeImage(image.imageUrl); }
+        catch (error) { failure = error; }
+        await updateMetadata(wallpaper._id, current => {
+            const images = current.images.map(asset => {
+                if (asset.assetId !== image.assetId || asset.analysis?.runId !== runId || asset.analysis.status !== 'processing') { return asset; }
+                return { ...asset, ...(result ? { aiMetadata: result.metadata } : {}), analysis: {
+                    status: result ? 'succeeded' : 'failed', model: result?.model,
+                    version: result?.version, analyzedAt: new Date(),
+                    error: failure ? 'No se pudo analizar. Los datos manuales siguen disponibles.' : undefined,
+                } };
+            });
+            return { images, isAITagged: images.some(asset => asset.analysis?.status === 'succeeded') };
         });
-
+        if (failure) { console.warn('[IA wallpaper] Análisis fallido; no se reintentará automáticamente.'); }
     } catch (error) {
-        console.error(`❌ [COLA IA] Error en ${wallpaperId}:`, error.message);
-    } finally {
-        setTimeout(() => {
-            this.isProcessing = false;
-            this.processNext();
-        }, 3000);
-    }
+        console.error('[IA wallpaper] No se pudo procesar el trabajo:', error.message);
+    } finally { running = false; }
 }
+
+function start() {
+    if (!timer) { timer = setInterval(processNext, 5000); timer.unref(); void processNext(); }
+    return () => { clearInterval(timer); timer = undefined; };
 }
-module.exports = new AIQueue();
+
+// Jobs live in images[].analysis and are saved with the upload, not in memory.
+function addJobs() { if (timer) { void processNext(); } }
+
+module.exports = { start, addJobs, processNext };

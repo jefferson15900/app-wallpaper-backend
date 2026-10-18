@@ -12,6 +12,10 @@ let lastTagsUpdate = null;
 // 1. RUTAS DE BÚSQUEDA Y FEED (Públicas y específicas)
 // Deben ir arriba para que no se confundan con un ID
 router.get('/search', wallpaperController.searchWallpapers);
+router.get('/metadata/schema', (req, res) => res.json({ version: 1,
+    fields: ['subjects', 'styles', 'colors', 'environments', 'characters', 'extraTags'],
+    limits: { valuesPerField: 8, extraTags: 20, valueLength: 80, assets: 10 }, aiOptIn: true,
+}));
 router.get('/tags/search', wallpaperController.searchTags);
 router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
