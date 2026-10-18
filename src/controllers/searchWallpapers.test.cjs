@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const nlp = require('compromise');
+const mongoose = require('mongoose');
 
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const tokens = text => normalize(text).match(/[a-z0-9]+/g) || [];
@@ -53,12 +54,23 @@ function evaluate(x, doc, variables = {}) {
     if (Array.isArray(x)) return x.map(value => evaluate(value, doc, variables));
     if (!x || typeof x !== 'object') return x;
     const [operator, input] = Object.entries(x)[0];
+    if (operator === '$meta') return doc.fixtureScore ?? 10;
+    if (operator === '$cond') return evaluate(input.if, doc, variables) ? evaluate(input.then, doc, variables) : evaluate(input.else, doc, variables);
+    if (operator === '$map') return evaluate(input.input, doc, variables)
+        .map(value => evaluate(input.in, doc, { ...variables, [input.as]: value }));
+    if (operator === '$trim') return evaluate(input.input, doc, variables).trim();
     if (operator === '$filter') return evaluate(input.input, doc, variables)
         .filter(value => evaluate(input.cond, doc, { ...variables, [input.as]: value }));
     if (operator === '$replaceAll') return evaluate(input.input, doc, variables).split(input.find).join(input.replacement);
     const args = evaluate(input, doc, variables);
     switch (operator) {
         case '$size': return args.length;
+        case '$setIntersection': return [...new Set(args[0])].filter(value => args[1].includes(value));
+        case '$add': return args.reduce((sum, value) => sum + value, 0);
+        case '$multiply': return args.reduce((value, factor) => value * factor, 1);
+        case '$mod': return args[0] % args[1];
+        case '$toDate': return new mongoose.Types.ObjectId(args).getTimestamp();
+        case '$toLong': return Number(args);
         case '$divide': return args[0] / args[1];
         case '$gt': return args[0] > args[1];
         case '$ne': return args[0] !== args[1];
@@ -70,8 +82,9 @@ function evaluate(x, doc, variables = {}) {
     }
 }
 
-function harness(records, mappings = []) {
+function harness(records, mappings = [], ranked = false) {
     const pipelines = [];
+    const rankings = [], searches = [];
     const queryMatches = (record, filter) => Object.entries(filter).every(([key, value]) =>
         value && typeof value === 'object' && '$in' in value ? value.$in.includes(record[key]) : record[key] === value);
     const TagMap = {
@@ -84,7 +97,9 @@ function harness(records, mappings = []) {
     const controller = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/wallpaperController.js`, 'utf8')}\n})`)(name => {
         if (name === 'compromise') return nlp;
+        if (name === 'mongoose') return mongoose;
         if (name === '../utils/tagResolver') return resolver.exports;
+        if (name === '../utils/searchPagination') return require('../utils/searchPagination');
         if (name === '../models/TagMap') return TagMap;
         if (name === '../models/TagSuggestion') return {
             find: filter => ({ limit() { return this; }, lean: async () => [...new Set(records.flatMap(r => r.tags))]
@@ -92,35 +107,56 @@ function harness(records, mappings = []) {
         };
         if (name === '../models/SearchLog') return { findOneAndUpdate: async () => {} };
         if (name === '../services/analyticsService') return {
-            recordSearch: async () => {}, quietly: promise => promise.catch(() => {}),
+            recordSearch: async (...args) => { searches.push(args); }, quietly: promise => promise.catch(() => {}),
         };
         if (name === '../models/Wallpaper') return { aggregate: async pipeline => {
             pipelines.push(pipeline);
-            let result = records.filter(record => matches(pipeline[0].$search, record.tags));
+            let result = records.filter(record => matches(pipeline[0].$search, record.tags)).map(record => ({ ...record }));
             for (const stage of pipeline.slice(1)) {
+                if (ranked && stage.$addFields) {
+                    result = result.map(record => ({ ...record, ...Object.fromEntries(Object.entries(stage.$addFields)
+                        .map(([key, expression]) => [key, evaluate(expression, record)])) }));
+                }
                 if (stage.$addFields?.matchRatio) result = result.map(record => ({ ...record,
                     matchRatio: evaluate(stage.$addFields.matchRatio, record) }));
                 if (stage.$match?.matchRatio) result = result.filter(r => r.matchRatio >= stage.$match.matchRatio.$gte);
                 if (stage.$match?.status) result = result.filter(r => r.status === stage.$match.status &&
-                    (!stage.$match.type || r.type === stage.$match.type));
+                    (!stage.$match.type || r.type === stage.$match.type) && (!stage.$match.price || r.price > 0));
+                if (ranked && stage.$match?.['artist.isActive']) result = result.filter(r => r.artistActive !== false);
+                if (ranked && stage.$match?.$or) result = result.filter(record => stage.$match.$or.some(filter =>
+                    Object.entries(filter).every(([key, expected]) => expected && typeof expected === 'object' && '$lt' in expected
+                        ? record[key] < (key === '_id' ? String(expected.$lt) : expected.$lt) : record[key] === expected)));
+                if (ranked && stage.$sort) result.sort((a, b) => {
+                    for (const [field, direction] of Object.entries(stage.$sort)) {
+                        if (a[field] !== b[field]) return (a[field] < b[field] ? -1 : 1) * direction;
+                    }
+                    return 0;
+                });
                 if (stage.$skip !== undefined) result = result.slice(stage.$skip);
                 if (stage.$limit !== undefined) result = result.slice(0, stage.$limit);
+                if (ranked && stage.$project) {
+                    rankings.push(result.map(record => ({ ...record })));
+                    result = result.map(record => Object.fromEntries(Object.entries(record).filter(([key]) => stage.$project[key] !== 0)));
+                }
             }
-            return result.map(record => ({ ...record, finalBaseScore: 10 }));
+            return ranked ? result : result.map(record => ({ ...record, finalBaseScore: 10 }));
         } };
         if (name === '../utils/wallpaperMetadata') return require('../utils/wallpaperMetadata');
         return {};
     }, controller, controller.exports);
     const responses = [];
+    async function request(q, query = {}) {
+        const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; return this; } };
+        await controller.exports.searchWallpapers({ query: { q, seed: '0.5', ...query } }, res);
+        responses.push(res.data);
+        return res;
+    }
     return {
-        pipelines,
-        responses,
+        pipelines, responses, rankings, searches, request,
         async search(q, query = {}) {
-            const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; return this; } };
-            await controller.exports.searchWallpapers({ query: { q, seed: '0.5', ...query } }, res);
+            const res = await request(q, query);
             assert.equal(res.code, 200);
-            responses.push(res.data);
-            return res.data.map(record => record._id);
+            return (res.data.items ?? res.data).map(record => record._id);
         },
     };
 }
@@ -255,4 +291,113 @@ test('queries containing only filler words do not execute an Atlas search', asyn
     const h = harness([wall('noise', ['fondo'])]);
     assert.deepEqual(await h.search('fondos de pantalla'), []);
     assert.equal(h.pipelines.length, 0);
+});
+
+const rankedWall = (index, tags = ['naruto'], fixtureScore = 10, seconds = 0) => ({
+    ...wall((1700000000 + seconds).toString(16) + index.toString(16).padStart(16, '0'), tags), fixtureScore,
+});
+
+test('cursor pagination exhausts tied scores exactly once with a stable id order', async () => {
+    const records = Array.from({ length: 39 }, (_, index) => rankedWall(index + 1));
+    const h = harness(records, [], true);
+    const ids = [];
+    let cursor;
+    do {
+        const res = await h.request('naruto', { pagination: 'cursor', limit: '7', cursor });
+        assert.equal(res.code, 200);
+        assert.equal(res.data.hasMore, Boolean(res.data.nextCursor));
+        assert.ok(res.data.items.every(item => !('randomizedScore' in item) && !('finalBaseScore' in item)));
+        ids.push(...res.data.items.map(item => item._id));
+        cursor = res.data.nextCursor;
+    } while (cursor);
+    assert.deepEqual(ids, records.map(record => record._id).reverse());
+    assert.equal(new Set(ids).size, records.length);
+    assert.equal(h.searches.length, 1);
+    assert.equal(h.searches[0][2], 7);
+});
+
+test('variety keeps the existing fifteen percent bound and the cursor freezes its seed', async () => {
+    const records = Array.from({ length: 24 }, (_, i) => rankedWall(i + 1, ['naruto'], 10, i * 61));
+    const h = harness(records, [], true);
+    const expected = await h.search('naruto', { limit: '48', seed: '0.1' });
+    assert.ok(h.rankings.at(-1).every(item => item.randomizedScore >= item.finalBaseScore && item.randomizedScore < item.finalBaseScore * 1.15));
+    const first = await h.request('naruto', { pagination: 'cursor', limit: '5', seed: '0.1' });
+    const second = await h.request('naruto', { pagination: 'cursor', limit: '5', cursor: first.data.nextCursor, seed: '0.9' });
+    assert.deepEqual([...first.data.items, ...second.data.items].map(item => item._id), expected.slice(0, 10));
+    const otherSeed = await h.search('naruto', { limit: '48', seed: '0.9' });
+    assert.notDeepEqual(expected, otherSeed);
+});
+
+test('valid lower scored matches are not discarded after the page limit', async () => {
+    const h = harness([rankedWall(1, ['naruto'], 100), rankedWall(2, ['naruto'], 1), rankedWall(3, ['naruto'], 1)], [], true);
+    const first = await h.request('naruto', { pagination: 'cursor', limit: '2' });
+    assert.equal(first.data.items.length, 2);
+    assert.equal(first.data.hasMore, true);
+    const second = await h.request('naruto', { cursor: first.data.nextCursor, limit: '2' });
+    assert.equal(second.data.items.length, 1);
+    assert.equal(second.data.hasMore, false);
+});
+
+test('removing or inserting a preceding result does not shift the next page', async () => {
+    const records = [rankedWall(1), rankedWall(2), rankedWall(3), rankedWall(4)];
+    const h = harness(records, [], true);
+    const first = await h.request('naruto', { pagination: 'cursor', limit: '2' });
+    records.pop();
+    records.push(rankedWall(5));
+    const second = await h.request('naruto', { cursor: first.data.nextCursor, limit: '2' });
+    assert.deepEqual(second.data.items.map(item => item._id), [records[1]._id, records[0]._id]);
+    assert.equal(second.data.hasMore, false);
+});
+
+test('an exhausted exact search cannot switch to fuzzy on a subsequent cursor or legacy page', async () => {
+    const records = [rankedWall(1), rankedWall(2), rankedWall(3, ['narutoo'])];
+    const h = harness(records, [], true);
+    const first = await h.request('naruto', { pagination: 'cursor', limit: '1' });
+    records.shift(); // The only exact result after the cursor is removed.
+    const after = h.pipelines.length;
+    const second = await h.request('naruto', { cursor: first.data.nextCursor, limit: '1' });
+    assert.deepEqual(second.data, { items: [], hasMore: false, nextCursor: null });
+    assert.ok(h.pipelines.slice(after).every(pipeline => !JSON.stringify(pipeline[0]).includes('fuzzy')));
+    assert.deepEqual(await h.search('naruto', { page: '3', limit: '1' }), []);
+    assert.ok(!JSON.stringify(h.pipelines.at(-1)[0]).includes('fuzzy'));
+});
+
+test('a fuzzy search keeps its mode while advancing and reports the final page explicitly', async () => {
+    const h = harness([rankedWall(1), rankedWall(2), rankedWall(3)], [], true);
+    const first = await h.request('narutoo', { pagination: 'cursor', limit: '2' });
+    assert.equal(first.data.hasMore, true);
+    const before = h.pipelines.length;
+    const second = await h.request('narutoo', { cursor: first.data.nextCursor, limit: '2' });
+    assert.equal(second.data.items.length, 1);
+    assert.equal(second.data.nextCursor, null);
+    assert.equal(h.pipelines.length, before + 1);
+    assert.ok(JSON.stringify(h.pipelines.at(-1)[0]).includes('fuzzy'));
+});
+
+test('malformed cursors and continuations for different queries or filters are rejected before searching', async () => {
+    const h = harness([rankedWall(1), rankedWall(2)], [], true);
+    const first = await h.request('naruto', { pagination: 'cursor', limit: '1' });
+    const cursor = first.data.nextCursor;
+    const before = h.pipelines.length;
+    for (const query of [{ cursor: 'broken' }, { cursor, type: 'video' }, { cursor, premium: 'true' },
+        { cursor: Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url')), score: { $gt: 0 } })).toString('base64url') }]) {
+        assert.equal((await h.request('naruto', query)).code, 400);
+    }
+    assert.equal((await h.request('goku', { cursor })).code, 400);
+    assert.equal(h.pipelines.length, before);
+});
+
+test('unavailable artists and premium filters are applied before deriving continuation', async () => {
+    const h = harness([{ ...rankedWall(1), price: 2 }, { ...rankedWall(2), price: 0 },
+        { ...rankedWall(3), price: 2, artistActive: false }], [], true);
+    const response = await h.request('naruto', { pagination: 'cursor', limit: '1', premium: 'true' });
+    assert.deepEqual(response.data.items.map(item => item._id), [rankedWall(1)._id]);
+    assert.equal(response.data.hasMore, false);
+});
+
+test('empty queries return the requested envelope while legacy consumers still receive arrays', async () => {
+    const h = harness([]);
+    assert.deepEqual((await h.request('', { pagination: 'cursor' })).data, { items: [], hasMore: false, nextCursor: null });
+    assert.deepEqual((await h.request('fondos de pantalla', { pagination: 'cursor' })).data, { items: [], hasMore: false, nextCursor: null });
+    assert.deepEqual((await h.request('')).data, []);
 });

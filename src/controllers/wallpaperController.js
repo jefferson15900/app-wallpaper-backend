@@ -12,6 +12,7 @@ const { parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, remove
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
 const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
+const { searchKey, readSearchCursor, nextSearchCursor } = require('../utils/searchPagination');
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
@@ -296,27 +297,31 @@ exports.searchWallpapers = async (req, res) => {
         const page  = Math.max(1, parseInt(req.query.page)  || 1);
         const limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
         const skip  = (page - 1) * limit;
+        const paginated = req.query.pagination === 'cursor' || req.query.cursor !== undefined;
+        const emptyResults = () => res.json(paginated ? { items: [], hasMore: false, nextCursor: null } : []);
 
-        if (typeof q !== 'string' || !q.trim()) return res.json([]);
+        if (typeof q !== 'string' || !q.trim()) return emptyResults();
         
         // 1. Normalización e inferencia de formato "live"; las frases se resuelven antes de quitar stop words.
         const { text: cleanQuery, isLive } = cleanSearchQuery(q);
-        if (!cleanQuery) return res.json([]);
+        if (!cleanQuery) return emptyResults();
 
         // Si la inferencia detecta live y el tipo no está definido o es 'all', forzamos type = 'video'
         let finalType = type;
         if (isLive && (!type || type === 'all')) {
             finalType = 'video';
         }
+        const key = searchKey(cleanQuery, finalType, premium, exclude);
+        const cursor = readSearchCursor(req.query.cursor, key);
 
         const concepts = await resolveSearchConcepts(cleanQuery, new Set([...STOP_WORDS, ...LIVE_INTENT_WORDS]));
-        if (!concepts.length) { return res.json([]); }
+        if (!concepts.length) { return emptyResults(); }
         const rawSearch = concepts.map(concept => concept.original).join(' ');
         const canonicalQuery = concepts.map(concept => concept.canonical).join(' ');
 
         // Seed: debe ser finito y estar en rango [0, 1)
         const parsedSeed = parseFloat(seed);
-        const randomSeed = Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1
+        const randomSeed = cursor ? cursor.seed : Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1
             ? parsedSeed
             : Math.random();
 
@@ -345,7 +350,7 @@ exports.searchWallpapers = async (req, res) => {
 
         // Atlas validates equivalences and typos before pagination; scoring cannot
         // admit a wallpaper that only matches a generic word such as "anime".
-        const buildSearchPipeline = (useFuzzy) => {
+        const buildSearchPipeline = (useFuzzy, { offset = paginated ? 0 : skip, take = paginated ? limit + 1 : limit } = {}) => {
             const shouldClauses = [];
             const termsArray = [...expandedTerms].filter(t => t && t.length >= 2);
 
@@ -522,15 +527,20 @@ exports.searchWallpapers = async (req, res) => {
                         }
                     }
                 },
-                { $sort : { randomizedScore: -1 } },
-                { $skip : skip },
-                { $limit: limit },
+                // Keep the existing ~15% variety, with a unique tie-breaker.
+                ...(cursor ? [{ $match: { $or: [
+                    { randomizedScore: { $lt: cursor.score } },
+                    { randomizedScore: cursor.score, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+                ] } }] : []),
+                { $sort : { randomizedScore: -1, _id: -1 } },
+                { $skip : offset },
+                { $limit: take },
                 {
                     $project: {
                         score          : 0,
-                        randomizedScore: 0,
                         exactTagMatchBoost: 0,
-                        // Mantenemos finalBaseScore temporalmente para el pruning en JS
+                        finalBaseScore: 0,
+                        // randomizedScore stays internal until the next cursor is built.
                         'artist.password' : 0,
                         'artist.email'    : 0,
                         'artist.pushToken': 0,
@@ -541,36 +551,42 @@ exports.searchWallpapers = async (req, res) => {
 
         // Exact matches/aliases first, then fuzzy with the same required concepts.
         // Never relax to a partial query: "anime narutoo" must still match Naruto.
-        let results = await Wallpaper.aggregate(buildSearchPipeline(false));
-        if (results.length === 0) {
-            results = await Wallpaper.aggregate(buildSearchPipeline(true));
-        }
-
-        // ── PRUNING DE RESULTADOS DINÁMICO (Umbral de relevancia del 30%) ──
-        if (results.length > 0) {
-            const maxScore = results[0].finalBaseScore || 0;
-            // Solo aplicamos umbral si hay un término con score significativamente alto
-            if (maxScore > 4) {
-                const threshold = maxScore * 0.3;
-                results = results.filter(r => (r.finalBaseScore || 0) >= threshold);
+        let mode = cursor?.mode ?? 'exact';
+        let results = await Wallpaper.aggregate(buildSearchPipeline(mode === 'fuzzy'));
+        if (!cursor && mode === 'exact' && results.length === 0) {
+            // Legacy page clients must also keep the first page's search mode.
+            const hasExactResults = !paginated && page > 1 &&
+                (await Wallpaper.aggregate(buildSearchPipeline(false, { offset: 0, take: 1 }))).length > 0;
+            if (!hasExactResults) {
+                mode = 'fuzzy';
+                results = await Wallpaper.aggregate(buildSearchPipeline(true));
             }
         }
 
+        // Required concepts already filter relevance in Atlas. Never prune a page
+        // after its limit: doing so hides valid matches and breaks continuation.
+        const hasMore = paginated && results.length > limit;
+        if (paginated) { results = results.slice(0, limit); }
+        const nextCursor = hasMore ? nextSearchCursor(results[results.length - 1], key, randomSeed, mode) : null;
+
         // Only the first page represents a search; an empty next page is not unmet demand.
-        if (page === 1) {
+        if (!cursor && (paginated || page === 1)) {
             await recordSearch(req.query.searchId, rawSearch, results.length).catch(error => console.error('[analytics]', error.message));
             quietly(saveSearchLogAsync(canonicalQuery, results.length));
         }
 
-        return res.json(results.map(item => {
+        const items = results.map(item => {
             const cleanItem = { ...item, price: item.price ?? 0 };
             const matched = matchedAssetId(item, canonicalQuery);
             if (matched) { cleanItem.matchedAssetId = matched; }
             delete cleanItem.finalBaseScore;
+            delete cleanItem.randomizedScore;
             return cleanItem;
-        }));
+        });
+        return res.json(paginated ? { items, hasMore, nextCursor } : items);
          
     } catch (err) {
+        if (err.statusCode === 400) { return res.status(400).json({ msg: err.message }); }
         console.error('❌ Error en búsqueda:', err);
         return res.status(500).json({ msg: 'Error interno en el buscador' });
     } 
