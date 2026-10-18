@@ -1,11 +1,11 @@
 const METADATA_FIELDS = ['subjects', 'styles', 'colors', 'environments', 'characters', 'franchises', 'extraTags'];
 const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores', environments: 'ambientes', characters: 'personajes', franchises: 'series o franquicias', extraTags: 'etiquetas adicionales' };
-const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags' };
+const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags', descripcion: 'description', descripción: 'description' };
 // Explicit equivalents only: free tags are never guessed into a category.
 const ALIASES = {
     styles: { anime: [], cartoon: ['caricatura'], cyberpunk: [], fantasy: ['fantasia'], 'sci-fi': ['ciencia ficcion', 'sci fi', 'scifi', 'science fiction'], abstract: ['abstracto'], minimalist: ['minimalista', 'minimalism', 'minimalismo'], gaming: ['videojuegos'], 'pixel art': ['pixelart'], illustration: ['ilustracion'], photography: ['fotografia'], '3d': [], motivational: ['motivacional'], typography: ['tipografia'] },
-    colors: { blue: ['azul'], red: ['rojo'], green: ['verde'], purple: ['morado', 'violeta'], pink: ['rosa', 'rosado'], yellow: ['amarillo'], orange: ['naranja'], black: ['negro'], white: ['blanco'], gray: ['gris', 'grey'], brown: ['marron', 'cafe'], gold: ['dorado'], turquoise: ['turquesa'] },
-    subjects: { city: ['ciudad'], car: ['coche', 'auto', 'carro'], girl: ['chica'], boy: ['chico'], animal: [], dog: ['perro'], cat: ['gato'], dragon: [], robot: [], planet: ['planeta'], spaceship: ['nave espacial'], flower: ['flor', 'flores', 'flowers'], astronaut: ['astronauta'] },
+    colors: { blue: ['azul'], red: ['rojo', 'roja'], green: ['verde'], purple: ['morado', 'violeta'], pink: ['rosa', 'rosado'], yellow: ['amarillo'], orange: ['naranja'], black: ['negro'], white: ['blanco'], gray: ['gris', 'grey'], brown: ['marron', 'cafe'], gold: ['dorado'], turquoise: ['turquesa'] },
+    subjects: { city: ['ciudad'], car: ['coche', 'auto', 'carro'], girl: ['chica'], boy: ['chico'], man: ['hombre'], woman: ['mujer'], animal: [], dog: ['perro'], cat: ['gato'], dragon: [], robot: [], planet: ['planeta'], spaceship: ['nave espacial'], flower: ['flor', 'flores', 'flowers'], astronaut: ['astronauta'] },
     environments: { night: ['noche'], day: ['dia'], rain: ['lluvia'], snow: ['nieve'], sunset: ['atardecer'], forest: ['bosque'], ocean: ['oceano', 'mar'], mountain: ['montana'], desert: ['desierto'], space: ['espacio'], beach: ['playa'], street: ['calle'] },
 };
 
@@ -39,8 +39,17 @@ function normalizeMetadata(input) {
     const result = {};
     for (const [inputKey, values] of Object.entries(input)) {
         const field = SPANISH_FIELDS[inputKey] || inputKey;
-        if (!METADATA_FIELDS.includes(field) || Object.hasOwn(result, field)) {
+        if ((!METADATA_FIELDS.includes(field) && field !== 'description') || Object.hasOwn(result, field)) {
             throw metadataError(`Campo de metadatos no válido: ${inputKey}.`);
+        }
+        if (field === 'description') {
+            if (typeof values !== 'string') { throw metadataError('La descripción debe ser texto.'); }
+            const description = values.replace(/\s+/g, ' ').trim();
+            if (description.length > 240 || /[\x00-\x1f]/.test(description)) {
+                throw metadataError('Usa una descripción de hasta 240 caracteres.');
+            }
+            result.description = description;
+            continue;
         }
         const limit = field === 'extraTags' ? 20 : 8;
         if (!Array.isArray(values) || values.length > limit || values.some(value => typeof value !== 'string' || value.length > 80 || /[\x00-\x1f]/.test(value))) {
@@ -74,17 +83,25 @@ function searchTagsFor(wallpaper) {
     return [...new Set([...manual, ...metadataTerms].map(value => resolveMetadataAlias(value) ?? value))];
 }
 
+function searchDescriptionsFor(wallpaper) {
+    const metadata = wallpaper.images?.length
+        ? wallpaper.images.map(image => effectiveMetadata(image, wallpaper.metadata)) : [wallpaper.metadata];
+    return [...new Set(metadata.map(value => value?.description).filter(value => typeof value === 'string' && value.trim()))];
+}
+
 function matchedAssetId(wallpaper, query) {
-    const words = normalizeTerm(resolveMetadataAlias(query) ?? query).split(/\s+/).filter(Boolean).map(word => resolveMetadataAlias(word) ?? word);
+    const tokenize = value => normalizeTerm(value).match(/[\p{L}\p{N}]+/gu) || [];
+    const words = tokenize(resolveMetadataAlias(query) ?? query).map(word => resolveMetadataAlias(word) ?? word);
     return wallpaper.images?.find(image => image.assetId && words.every(word => {
-        const terms = metadataTags(effectiveMetadata(image, wallpaper.metadata)).flatMap(term => normalizeTerm(term).split(/\s+/));
+        const metadata = effectiveMetadata(image, wallpaper.metadata);
+        const terms = [...metadataTags(metadata), metadata.description || ''].flatMap(tokenize);
         return terms.includes(word);
     }))?.assetId;
 }
 
 function removeMetadataTag(wallpaper, tag) {
     const removeFrom = (metadata = {}) => Object.fromEntries(Object.entries(metadata).map(([field, values]) => [field,
-        values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
+        field === 'description' ? values : values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
     ]));
     return { manualTags: (wallpaper.manualTags ?? wallpaper.tags ?? []).filter(value => (resolveMetadataAlias(value) ?? normalizeTerm(value)) !== (resolveMetadataAlias(tag) ?? normalizeTerm(tag))),
         metadata: removeFrom(wallpaper.metadata), images: (wallpaper.images || []).map(image => ({ ...image,
@@ -106,4 +123,4 @@ function parseAssetMetadata(value, count) {
     return parsed.map(normalizeMetadata);
 }
 
-module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError, resolveMetadataAlias };
+module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, metadataError, resolveMetadataAlias };

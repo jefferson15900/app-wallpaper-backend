@@ -85,12 +85,15 @@ test('uploads save per-image metadata, preserve original tags and require explic
     const req = h.request();
     delete req.body.useAI;
     req.files.push({ ...req.files[0], filename: 'second', path: 'second.jpg' });
-    req.body.assetMetadata = JSON.stringify([{ styles: ['anime'] }, { subjects: ['coche'], colors: ['rojo'], environments: ['lluvia'] }]);
+    req.body.assetMetadata = JSON.stringify([{ styles: ['anime'] }, { subjects: ['coche'], colors: ['rojo'], environments: ['lluvia'], description: 'A red car stands in the rain.' }]);
     const res = await h.submit(req);
     assert.equal(res.statusCode, 200);
     assert.equal(res.data.images.length, 2);
     assert.notEqual(res.data.images[0].assetId, res.data.images[1].assetId);
     assert.deepEqual(res.data.images[1].metadata.colors, ['red']);
+    assert.equal(res.data.images[1].metadata.description, 'A red car stands in the rain.');
+    assert.deepEqual(h.records[0].searchDescriptions, ['A red car stands in the rain.']);
+    assert.ok(!res.data.tags.includes('A red car stands in the rain.'));
     assert.ok(res.data.tags.includes('car') && res.data.tags.includes('rain'));
     assert.deepEqual(res.data.manualTags, ['anime', 'oscuro']);
     assert.equal(res.data.images[0].analysis.status, 'not_requested');

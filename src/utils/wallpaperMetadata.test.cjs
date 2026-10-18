@@ -5,7 +5,7 @@ const { readFileSync } = require('node:fs');
 const { createRequire } = require('node:module');
 const path = require('node:path');
 const vm = require('node:vm');
-const { normalizeMetadata, parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, removeMetadataTag } = require('./wallpaperMetadata');
+const { normalizeMetadata, parseMetadata, parseAssetMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag } = require('./wallpaperMetadata');
 const Wallpaper = require('../models/Wallpaper');
 
 test('structured metadata normalizes explicit bilingual fields without guessing free tags', () => {
@@ -45,13 +45,33 @@ test('metadata projection stores only English canonical terms, without Spanish d
     assert.deepEqual(searchTagsFor({ manualTags: ['ciudad'], ...removeMetadataTag({ manualTags: ['ciudad'] }, 'city') }), []);
 });
 
+test('brief descriptions validate independently from tags and accept an explicit manual clearing', () => {
+    assert.deepEqual(normalizeMetadata({ descripción: '  A girl\nstands in the rain.  ' }), { description: 'A girl stands in the rain.' });
+    assert.deepEqual(normalizeMetadata({ description: '' }), { description: '' });
+    assert.equal(normalizeMetadata({ description: 'x'.repeat(240) }).description.length, 240);
+    for (const input of [{ description: [] }, { description: 'x'.repeat(241) }, { description: 'a\u0000b' },
+        { description: 'one', descripcion: 'two' }]) assert.throws(() => normalizeMetadata(input));
+    const wallpaper = { metadata: { description: 'General scene.' }, images: [
+        { assetId: 'one', aiMetadata: { description: 'A girl in the city.' }, metadata: { description: '' } },
+        { assetId: 'two', metadata: { description: 'A girl stands in the rain, on a city street.' } },
+    ] };
+    assert.deepEqual(searchDescriptionsFor(wallpaper), ['A girl stands in the rain, on a city street.']);
+    assert.deepEqual(searchTagsFor(wallpaper), []);
+    assert.equal(matchedAssetId(wallpaper, 'girl rain city'), 'two');
+    assert.equal(matchedAssetId(wallpaper, 'general'), undefined);
+    assert.deepEqual(searchDescriptionsFor({ ...wallpaper, ...removeMetadataTag(wallpaper, 'girl') }), searchDescriptionsFor(wallpaper));
+    assert.deepEqual(searchDescriptionsFor({ images: [{ aiMetadata: { description: 'AI scene.' } }] }), ['AI scene.']);
+});
+
 test('schema accepts structured assets and leaves legacy records without fabricated metadata', async () => {
     const legacy = new Wallpaper({ tags: ['anime'], imageUrl: 'x', public_id: 'p', artist: 'a'.repeat(24) }).toObject();
     assert.equal(legacy.metadata, undefined);
     assert.equal(legacy.metadataVersion, undefined);
-    const record = new Wallpaper({ ...legacy, metadataVersion: 1, images: [{ assetId: 'asset', imageUrl: 'x', public_id: 'p', metadata: { colors: ['blue'] }, analysis: { status: 'pending' } }] });
+    const record = new Wallpaper({ ...legacy, metadataVersion: 1, searchDescriptions: ['A blue scene.'], images: [{ assetId: 'asset', imageUrl: 'x', public_id: 'p', metadata: { colors: ['blue'], description: 'A blue scene.' }, analysis: { status: 'pending' } }] });
     await record.validate();
     assert.deepEqual(record.toObject().images[0].metadata.colors, ['blue']);
+    assert.equal(record.toObject().images[0].metadata.description, 'A blue scene.');
+    assert.deepEqual(record.toObject().searchDescriptions, ['A blue scene.']);
     record.images[0].analysis.status = 'invented';
     await assert.rejects(record.validate());
 });
@@ -83,7 +103,7 @@ function load(relative, overrides) {
 }
 
 test('metadata writes retry a concurrent change and preserve the newest manual values', async () => {
-    let current = { _id: 'id', status: 'pending', metadataRevision: 0, manualTags: ['old'], images: [{ assetId: 'asset', metadata: { colors: ['red'] } }] };
+    let current = { _id: 'id', status: 'pending', metadataRevision: 0, manualTags: ['old'], images: [{ assetId: 'asset', metadata: { colors: ['red'], description: 'Manual scene.' } }] };
     let calls = 0;
     const model = {
         findById: () => ({ lean: async () => structuredClone(current) }),
@@ -96,9 +116,10 @@ test('metadata writes retry a concurrent change and preserve the newest manual v
         },
     };
     const service = load('../services/wallpaperMetadataService.js', { '../models/Wallpaper': model });
-    const result = await service.updateMetadata('id', snapshot => ({ images: snapshot.images.map(image => ({ ...image, aiMetadata: { subjects: ['city'], colors: ['blue'] } })) }));
+    const result = await service.updateMetadata('id', snapshot => ({ images: snapshot.images.map(image => ({ ...image, aiMetadata: { subjects: ['city'], colors: ['blue'], description: 'AI scene.' } })) }));
     assert.equal(calls, 2);
     assert.ok(result.tags.includes('green') && result.tags.includes('city') && !result.tags.includes('blue'));
+    assert.deepEqual(result.searchDescriptions, ['Manual scene.']);
     const reviewed = service.manualMetadataChanges(result, { assetMetadata: [{ assetId: 'asset', metadata: { colors: [] } }] });
     assert.deepEqual(reviewed.images[0].metadata.colors, []);
     assert.throws(() => service.manualMetadataChanges(result, { assetMetadata: [{ assetId: 'foreign', metadata: {} }] }));
@@ -142,8 +163,8 @@ test('metadata-only edits capture legacy tags once so old derived colors can be 
 
 test('merging materializes each source general metadata without leaking it to other images', () => {
     const { mergedMetadataChanges } = require('../services/wallpaperMetadataService');
-    const primary = { metadata: { colors: ['blue'] }, manualTags: ['one'], tags: ['blue'], images: [{ assetId: 'a', imageUrl: 'a' }], likes: ['u'], downloads: 2 };
-    const secondary = { metadata: { colors: ['red'] }, manualTags: ['two'], tags: ['red'], images: [{ assetId: 'b', imageUrl: 'b' }], likes: ['u', 'v'], downloads: 3 };
+    const primary = { metadata: { colors: ['blue'], description: 'Blue scene.' }, manualTags: ['one'], tags: ['blue'], images: [{ assetId: 'a', imageUrl: 'a' }], likes: ['u'], downloads: 2 };
+    const secondary = { metadata: { colors: ['red'], description: 'Red scene.' }, manualTags: ['two'], tags: ['red'], images: [{ assetId: 'b', imageUrl: 'b' }], likes: ['u', 'v'], downloads: 3 };
     const changes = mergedMetadataChanges(primary, secondary);
     assert.equal(changes.metadata, undefined);
     assert.deepEqual(changes.images[0].metadata.colors, ['blue']);
@@ -151,6 +172,7 @@ test('merging materializes each source general metadata without leaking it to ot
     assert.deepEqual(changes.manualTags, ['one', 'two']);
     assert.deepEqual(changes.likes, ['u', 'v']);
     assert.equal(changes.downloads, 5);
+    assert.deepEqual(changes.searchDescriptions, ['Blue scene.', 'Red scene.']);
     assert.equal(matchedAssetId({ ...primary, ...changes }, 'rojo'), 'b');
 });
 
@@ -185,12 +207,15 @@ test('image analysis uses one bounded request and cannot fall back to a more exp
     const service = load('../services/aiService.js', { '@google/generative-ai': { GoogleGenerativeAI: function () {
         this.getGenerativeModel = options => { configuration = options; return { generateContent: async () => {
             calls++; if (fail) throw new Error('model unavailable');
-            return { response: { text: () => JSON.stringify({ subjects: ['city'], styles: [], colors: ['blue'], environments: ['rain'], characters: [], franchises: [], extraTags: [] }) } };
+            return { response: { text: () => JSON.stringify({ subjects: ['city'], styles: [], colors: ['blue'], environments: ['rain'], characters: [], franchises: [], extraTags: [], description: 'A girl stands in the rain on a city street.' }) } };
         } }; };
     } } });
     try {
         const result = await service.analyzeImage('https://res.cloudinary.com/test/image/upload/v1/asset.jpg');
         assert.deepEqual(result.metadata.environments, ['rain']);
+        assert.equal(result.metadata.description, 'A girl stands in the rain on a city street.');
+        assert.equal(result.version, 2);
+        assert.equal(calls, 1);
         assert.equal(configuration.model, 'gemini-2.5-flash');
         assert.equal(configuration.generationConfig.maxOutputTokens, 1024);
         fail = true;

@@ -1,7 +1,7 @@
 const Wallpaper = require('../models/Wallpaper');
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const { normalizeMetadata, searchTagsFor, metadataError } = require('../utils/wallpaperMetadata');
+const { normalizeMetadata, searchTagsFor, searchDescriptionsFor, metadataError } = require('../utils/wallpaperMetadata');
 
 // Compare-and-swap keeps late AI output from overwriting newer manual edits.
 async function updateMetadata(wallpaperId, transform, pendingOnly = false) {
@@ -17,7 +17,7 @@ async function updateMetadata(wallpaperId, transform, pendingOnly = false) {
             ? { metadataRevision: { $exists: false } } : { metadataRevision: wallpaper.metadataRevision };
         const saved = await Wallpaper.findOneAndUpdate({ _id: wallpaperId, ...revisionFilter,
             ...(pendingOnly ? { status: 'pending' } : {}),
-        }, { $set: { ...changes, manualTags: next.manualTags, tags: searchTagsFor(next), metadataVersion: 1 }, $inc: { metadataRevision: 1 } }, { new: true, runValidators: true });
+        }, { $set: { ...changes, manualTags: next.manualTags, tags: searchTagsFor(next), searchDescriptions: searchDescriptionsFor(next), metadataVersion: 1 }, $inc: { metadataRevision: 1 } }, { new: true, runValidators: true });
         if (saved) { return saved; }
     }
     throw Object.assign(new Error('El contenido cambió mientras se guardaba. Intenta de nuevo.'), { statusCode: 409 });
@@ -62,6 +62,7 @@ function mergedMetadataChanges(primary, secondary) {
         isAITagged: !!(primary.isAITagged || secondary.isAITagged),
     };
     changes.tags = searchTagsFor({ ...primary, ...changes });
+    changes.searchDescriptions = searchDescriptionsFor({ ...primary, ...changes });
     return changes;
 }
 

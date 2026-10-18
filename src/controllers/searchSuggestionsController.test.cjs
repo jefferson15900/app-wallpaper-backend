@@ -17,13 +17,15 @@ function distance(a, b) {
     return row[b.length];
 }
 
-function matches(clause, tags) {
+function matches(clause, tags, descriptions = []) {
     if (clause.compound) {
         const { filter = [], must = [], should = [], minimumShouldMatch = 0 } = clause.compound;
-        return [...filter, ...must].every(child => matches(child, tags)) && should.filter(child => matches(child, tags)).length >= minimumShouldMatch;
+        return [...filter, ...must].every(child => matches(child, tags, descriptions)) && should.filter(child => matches(child, tags, descriptions)).length >= minimumShouldMatch;
     }
-    const { query, fuzzy } = clause.text;
-    return tokens(query).every(word => tags.flatMap(tokens).some(tag => word === tag || fuzzy && distance(word, tag) <= fuzzy.maxEdits));
+    const { query, fuzzy, path } = clause.text;
+    const paths = [path].flat();
+    const values = [...(paths.includes('tags') ? tags : []), ...(paths.includes('searchDescriptions') ? descriptions : [])];
+    return tokens(query).every(word => values.flatMap(tokens).some(tag => word === tag || fuzzy && distance(word, tag) <= fuzzy.maxEdits));
 }
 
 function harness(records, mappings = []) {
@@ -41,7 +43,7 @@ function harness(records, mappings = []) {
         const search = pipeline.find(stage => stage.$search)?.$search;
         const counts = new Map();
         for (const record of records.filter(record => record.status === base.status && (!base.type || record.type === base.type) &&
-            record.artistActive !== false && (!search || matches(search, record.tags)))) {
+            record.artistActive !== false && (!search || matches(search, record.tags, record.searchDescriptions)))) {
             for (const tag of record.tags) { counts.set(tag, (counts.get(tag) || 0) + 1); }
         }
         return [...counts].map(([_id, count]) => ({ _id, count }));
@@ -73,6 +75,13 @@ test('Spanish completions preserve the full query and are supported by the selec
     assert.deepEqual((await h.search('Naruto az', 'image')).data, [{ label: 'Naruto azul', query: 'Naruto azul', kind: 'completion' }]);
     assert.deepEqual((await h.search('Naruto az', 'video')).data, []);
     assert.ok((await h.search('naruto ro', 'video')).data.some(item => item.query === 'naruto rojo'));
+});
+
+test('description context supports suggestions without turning prose into suggestions', async () => {
+    const h = harness([{ ...wall(['blue']), searchDescriptions: ['A girl stands in the rain on a city street.'] }]);
+    assert.deepEqual((await h.search('chica lluvia az')).data,
+        [{ label: 'chica lluvia azul', query: 'chica lluvia azul', kind: 'completion' }]);
+    assert.deepEqual((await h.search('city')).data, []);
 });
 
 test('phrase aliases retain accented display labels while finding canonical catalogue tags', async () => {

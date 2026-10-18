@@ -481,6 +481,8 @@ const SYNONYMS = {
   'miles morale': 'miles morales', 'hombre araña': 'spiderman',
   'spider man': 'spiderman', 'spider-man': 'spiderman',
   'ironman': 'iron man', 'iron-man': 'iron man',
+  'bajo la lluvia': 'rain', 'piel': 'skin', 'piel roja': 'red skin',
+  'color rojo': 'red', 'de color rojo': 'red',
 
 };
 

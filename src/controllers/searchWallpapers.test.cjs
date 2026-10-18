@@ -26,19 +26,21 @@ function editDistance(a, b) {
 
 // Model the emitted Atlas clauses for controlled ASCII fixtures; this does not
 // replace integration checks against the deployed index and its analyzer.
-function matches(clause, tags) {
+function matches(clause, tags, descriptions = []) {
     if (clause.compound) {
         const { must = [], filter = [], mustNot = [], should = [], minimumShouldMatch } = clause.compound;
         const minimum = minimumShouldMatch ?? (must.length || filter.length ? 0 : Number(should.length > 0));
-        return [...must, ...filter].every(c => matches(c, tags)) &&
-            mustNot.every(c => !matches(c, tags)) && should.filter(c => matches(c, tags)).length >= minimum;
+        return [...must, ...filter].every(c => matches(c, tags, descriptions)) &&
+            mustNot.every(c => !matches(c, tags, descriptions)) && should.filter(c => matches(c, tags, descriptions)).length >= minimum;
     }
+    const paths = [clause.phrase?.path ?? clause.text?.path].flat();
+    const values = [...(paths.includes('tags') ? tags : []), ...(paths.includes('searchDescriptions') ? descriptions : [])];
     if (clause.phrase) {
-        return tags.some(tag => normalize(tag).includes(normalize(clause.phrase.query)));
+        return values.some(tag => normalize(tag).includes(normalize(clause.phrase.query)));
     }
     if (clause.text) {
         const { query, fuzzy, matchCriteria = 'any' } = clause.text;
-        const indexed = tags.flatMap(tokens);
+        const indexed = values.flatMap(tokens);
         const found = tokens(query).map(word => indexed.some(tag => word === tag || (fuzzy &&
             word.slice(0, fuzzy.prefixLength) === tag.slice(0, fuzzy.prefixLength) &&
             editDistance(word, tag) <= fuzzy.maxEdits)));
@@ -112,7 +114,7 @@ function harness(records, mappings = [], ranked = false) {
         };
         if (name === '../models/Wallpaper') return { aggregate: async pipeline => {
             pipelines.push(pipeline);
-            let result = records.filter(record => matches(pipeline[0].$search, record.tags)).map(record => ({ ...record }));
+            let result = records.filter(record => matches(pipeline[0].$search, record.tags, record.searchDescriptions)).map(record => ({ ...record }));
             for (const stage of pipeline.slice(1)) {
                 if (ranked && stage.$addFields) {
                     result = result.map(record => ({ ...record, ...Object.fromEntries(Object.entries(stage.$addFields)
@@ -163,6 +165,24 @@ function harness(records, mappings = [], ranked = false) {
 }
 
 const wall = (_id, tags, type = 'image', status = 'approved') => ({ _id, tags, type, status, imageUrl: 'fixture' });
+
+test('descriptions retrieve scenes in Spanish while requiring every concept', async () => {
+    const scene = description => ({ ...wall(description, ['illustration']), searchDescriptions: [description] });
+    const h = harness([scene('A girl stands in the rain on a city street.'),
+        scene('A girl stands on a city street.'), scene('A girl stands in the rain in a forest.')]);
+    assert.deepEqual(await h.search('una chica bajo la lluvia en la ciudad'), ['A girl stands in the rain on a city street.']);
+    assert.deepEqual(await h.search('girl rain city'), ['A girl stands in the rain on a city street.']);
+    assert.deepEqual(await h.search('gril rain city'), ['A girl stands in the rain on a city street.']);
+});
+
+test('a description keeps a red demon searchable and emits a phrase bonus for red skin', async () => {
+    const h = harness([{ ...wall('red', ['fantasy']), searchDescriptions: ['A demon-like man with red skin stands beside a wall.'] },
+        { ...wall('blue', ['fantasy']), searchDescriptions: ['A demon-like man with blue skin stands beside a wall.'] }]);
+    assert.deepEqual(await h.search('un hombre demonio de color rojo'), ['red']);
+    assert.deepEqual(await h.search('hombre demonio piel roja'), ['red']);
+    assert.ok(h.pipelines.at(-1)[0].$search.compound.should.some(clause => clause.phrase?.path === 'searchDescriptions'
+        && clause.phrase.query.includes('red skin')));
+});
 
 test('Spanish translations survive filtering without accepting unrelated colors', async () => {
     const h = harness([wall('blue', ['blue']), wall('green', ['green'])]);
@@ -296,6 +316,29 @@ test('queries containing only filler words do not execute an Atlas search', asyn
 
 const rankedWall = (index, tags = ['naruto'], fixtureScore = 10, seconds = 0) => ({
     ...wall((1700000000 + seconds).toString(16) + index.toString(16).padStart(16, '0'), tags), fixtureScore,
+});
+
+test('description-only results keep cursor continuity and open the matching carousel asset', async () => {
+    const records = Array.from({ length: 5 }, (_, i) => ({ ...rankedWall(i + 1, ['illustration']),
+        searchDescriptions: ['A girl stands in the rain on a city street.'], images: [
+            { assetId: 'unrelated', metadata: { description: 'A forest.' } },
+            { assetId: 'scene', aiMetadata: { description: 'A girl stands in the rain on a city street.' } },
+        ] }));
+    const h = harness(records, [], true);
+    const ids = [];
+    let cursor;
+    do {
+        const response = await h.request('chica lluvia ciudad', { pagination: 'cursor', limit: '2', cursor });
+        assert.equal(response.code, 200);
+        for (const item of response.data.items) {
+            assert.equal(item.matchedAssetId, 'scene');
+            assert.equal(item.searchDescriptions, undefined);
+            assert.deepEqual(item.tags, ['illustration']);
+            ids.push(item._id);
+        }
+        cursor = response.data.nextCursor;
+    } while (cursor);
+    assert.deepEqual(ids, records.map(record => record._id).reverse());
 });
 
 test('cursor pagination exhausts tied scores exactly once with a stable id order', async () => {

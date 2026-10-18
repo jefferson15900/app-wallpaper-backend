@@ -1,7 +1,8 @@
 const { createHash } = require('node:crypto');
+const { SEARCH_VERSION } = require('./searchQuery');
 
 function searchKey(query, type, premium, exclude) {
-    return createHash('sha256').update(JSON.stringify([query, type || 'all', premium === 'true', exclude || ''])).digest('hex');
+    return createHash('sha256').update(JSON.stringify([SEARCH_VERSION, query, type || 'all', premium === 'true', exclude || ''])).digest('hex');
 }
 
 function readSearchCursor(value, key) {

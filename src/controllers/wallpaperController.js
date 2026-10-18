@@ -8,12 +8,12 @@ const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { randomUUID } = require('node:crypto');
-const { parseMetadata, parseAssetMetadata, searchTagsFor, matchedAssetId, removeMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
+const { parseMetadata, parseAssetMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
 const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
 const { searchKey, readSearchCursor, nextSearchCursor } = require('../utils/searchPagination');
-const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts, searchWordFuzzy } = require('../utils/searchQuery');
+const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts, searchWordFuzzy, SEARCH_TEXT_PATHS, SEARCH_VERSION } = require('../utils/searchQuery');
 const Visitor = require('../models/Visitor');
 const RelatedCache = require('../models/RelatedCache');
 const TagSuggestion = require('../models/TagSuggestion');
@@ -373,7 +373,7 @@ exports.searchWallpapers = async (req, res) => {
                         const words = variant.split(/\s+/).filter(Boolean);
                         if (words.length > 1) {
                             const mustClauses = words.map(word => {
-                                const textQuery = { query: word, path: "tags" };
+                                const textQuery = { query: word, path: SEARCH_TEXT_PATHS };
                                 const fuzzyConf = wordFuzzy(word);
                                 if (fuzzyConf) textQuery.fuzzy = fuzzyConf;
                                 return { text: textQuery };
@@ -393,7 +393,7 @@ exports.searchWallpapers = async (req, res) => {
                                 shouldClauses.push({
                                     text: {
                                         query: word,
-                                        path: "tags",
+                                        path: SEARCH_TEXT_PATHS,
                                         ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}),
                                         score: { constant: { value: 2 } }
                                     }
@@ -406,7 +406,7 @@ exports.searchWallpapers = async (req, res) => {
                         shouldClauses.push({
                             text: {
                                 query: variant,
-                                path: "tags",
+                                path: SEARCH_TEXT_PATHS,
                                 ...(fuzzyConf ? { fuzzy: fuzzyConf } : {}),
                                 score: { constant: { value: originalWords.has(variant) ? 2 : 1 } }
                             }
@@ -416,7 +416,16 @@ exports.searchWallpapers = async (req, res) => {
             }
 
             if (shouldClauses.length === 0) {
-                shouldClauses.push({ text: { query: rawSearch, path: "tags" } });
+                shouldClauses.push({ text: { query: rawSearch, path: SEARCH_TEXT_PATHS } });
+            }
+            // Descriptions supplement tags; they never remove a requested concept.
+            shouldClauses.push({ text: { query: canonicalQuery, path: 'searchDescriptions', matchCriteria: 'all',
+                score: { constant: { value: 3 } } } });
+            const descriptionPhrases = new Set([rawSearch, canonicalQuery, ...concepts.map(concept => concept.canonical)]);
+            for (const phrase of descriptionPhrases) {
+                if (phrase.includes(' ')) {
+                    shouldClauses.push({ phrase: { query: phrase, path: 'searchDescriptions', score: { constant: { value: 6 } } } });
+                }
             }
 
             return [
@@ -507,6 +516,7 @@ exports.searchWallpapers = async (req, res) => {
                         score          : 0,
                         exactTagMatchBoost: 0,
                         finalBaseScore: 0,
+                        searchDescriptions: 0,
                         // randomizedScore stays internal until the next cursor is built.
                         'artist.password' : 0,
                         'artist.email'    : 0,
@@ -540,7 +550,7 @@ exports.searchWallpapers = async (req, res) => {
         if (!cursor && (paginated || page === 1)) {
             await recordSearch(req.query.searchId, rawSearch, results.length, {
                 // Bump this identifier whenever retrieval or ranking changes.
-                searchVersion: 'metadata-text-v2-variety15', searchMode: mode,
+                searchVersion: SEARCH_VERSION, searchMode: mode,
                 mediaType: finalType || 'all',
                 serverDurationMs: Math.max(0, Date.now() - searchStartedAt),
             }).catch(error => console.error('[analytics]', error.message));
@@ -759,6 +769,7 @@ exports.uploadWallpaper = async (req, res) => {
         const newWallpaper = new Wallpaper({
             ...(req.uploadRequestId ? { uploadRequestId: req.uploadRequestId } : {}),
             tags:      searchTagsFor({ manualTags: finalTags, metadata, images: imagesList }),
+            searchDescriptions: searchDescriptionsFor({ metadata, images: imagesList }),
             manualTags: finalTags,
             metadata,
             metadataVersion: 1,

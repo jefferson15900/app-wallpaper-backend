@@ -9,9 +9,9 @@ const reviewedNames = new Map();
 for (const alias of Object.keys(SYNONYMS)) { reviewedNames.set(normalizeTerm(alias), { label: alias, canonical: resolveLocalTag(alias) }); }
 for (const dictionary of Object.values(ALIASES)) {
     for (const [canonical, aliases] of Object.entries(dictionary)) {
-        for (const alias of [canonical, ...aliases]) {
+        for (const [aliasOrder, alias] of [canonical, ...aliases].entries()) {
             const term = normalizeTerm(alias);
-            reviewedNames.set(term, { label: reviewedNames.get(term)?.label || alias, canonical });
+            reviewedNames.set(term, { label: reviewedNames.get(term)?.label || alias, canonical, aliasOrder });
         }
     }
 }
@@ -98,7 +98,9 @@ exports.searchSuggestions = async (req, res) => {
         const suggestions = candidates.filter(candidate => candidate.context.length + candidate.label.length + Number(Boolean(candidate.context)) <= 150 &&
             !IGNORED_SEARCH_WORDS.has(normalizeTerm(candidate.label)) && values.get(candidate.context).has(candidate.canonical))
             .sort((a, b) => Number(b.exact) - Number(a.exact) || b.prefix.length - a.prefix.length ||
-                values.get(b.context).get(b.canonical).count - values.get(a.context).get(a.canonical).count || a.label.length - b.label.length || a.label.localeCompare(b.label))
+                values.get(b.context).get(b.canonical).count - values.get(a.context).get(a.canonical).count || a.label.length - b.label.length ||
+                // Keep the preferred spelling when equal-length inflections share a concept (rojo/roja).
+                (a.aliasOrder ?? 0) - (b.aliasOrder ?? 0) || a.label.localeCompare(b.label))
             .filter(candidate => {
                 const key = JSON.stringify([normalizeTerm(candidate.context), candidate.canonical]);
                 if (seen.has(key)) { return false; }

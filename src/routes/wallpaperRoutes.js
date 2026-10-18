@@ -19,6 +19,7 @@ router.get('/search/suggestions', searchSuggestions);
 router.get('/search/popular', popularSearchTags);
 router.get('/metadata/schema', (req, res) => res.json({ version: 1,
     fields: METADATA_FIELDS,
+    description: { supported: true, maxLength: 240 },
     limits: { valuesPerField: 8, extraTags: 20, valueLength: 80, assets: 10 }, aiOptIn: true,
 }));
 router.get('/metadata/suggestions', searchMetadataSuggestions);
