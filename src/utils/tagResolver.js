@@ -1,5 +1,5 @@
 const TagMap = require('../models/TagMap');
-const { LOCAL_TAG_ALIASES, resolveLocalTag } = require('../config/tags');
+const { LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
 const { normalizeTerm } = require('./wallpaperMetadata');
 
 /**
@@ -98,14 +98,15 @@ async function resolveSearchConcepts(query, ignoredWords = new Set()) {
         concepts.push({ original: word, canonical: singular ?? word });
     }
     if (!concepts.length) { return []; }
-    const canonicals = [...new Set(concepts.map(concept => concept.canonical))];
+    const canonicals = [...new Set(concepts.flatMap(concept => equivalentSearchTags(concept.canonical)))];
     const reverseMappings = await findMappings({ canonical: { $in: canonicals } });
     return concepts.map(concept => {
-        const alternatives = new Set([concept.original, concept.canonical, ...(localAlternatives.get(concept.canonical) || [])]);
+        const equivalents = equivalentSearchTags(concept.canonical);
+        const alternatives = new Set([concept.original, ...equivalents.flatMap(canonical => [canonical, ...(localAlternatives.get(canonical) || [])])]);
         for (const row of reverseMappings) {
             const original = normalizeTerm(row.original);
-            if (resolveLocalTag(row.canonical) === concept.canonical &&
-                (!LOCAL_TAG_ALIASES.has(original) || resolveLocalTag(original) === concept.canonical)) {
+            if (equivalents.includes(resolveLocalTag(row.canonical)) &&
+                (!LOCAL_TAG_ALIASES.has(original) || equivalents.includes(resolveLocalTag(original)))) {
                 alternatives.add(original);
             }
         }

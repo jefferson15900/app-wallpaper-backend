@@ -35,7 +35,15 @@ Hasta 8 términos por campo y 20 en `extraTags`, 80 caracteres por término, 10 
 
 Referencia de configuración: [campos string de MongoDB Search](https://www.mongodb.com/docs/search/indexes/field-types/string-type/) y [operador phrase](https://www.mongodb.com/docs/search/query/operators-collectors/phrase/).
 
-`matchedAssetId` se devuelve cuando todos los términos canónicos de la consulta se reconocen literalmente en los metadatos o la descripción efectiva de una misma imagen; si depende de fuzzy, etiquetas generales o cruza imágenes, puede omitirse. No es una búsqueda vectorial ni una garantía de precisión visual. La versión del buscador es `metadata-text-v3-description-variety15`; invalida continuaciones de la versión anterior para no mezclar rankings y mantiene el 15 % de variedad acordado.
+`matchedAssetId` se devuelve cuando todos los términos canónicos de la consulta se reconocen literalmente en los metadatos o la descripción efectiva de una misma imagen; si depende de fuzzy, equivalencias visuales, etiquetas generales o cruza imágenes, puede omitirse. No es una búsqueda vectorial ni una garantía de precisión visual. La versión del buscador es `metadata-text-v4-equivalents-variety15`; invalida continuaciones de la versión anterior para no mezclar rankings y mantiene el 15 % de variedad acordado.
+
+## Equivalencias de búsqueda
+
+El diccionario local incorpora 342 variantes nuevas para 134 conceptos existentes: traducciones, plurales, formas femeninas de colores y sinónimos habituales. Por ejemplo: `automóvil / auto / coche / carro → car`, `gafas / lentes / anteojos → glasses`, `moto / motocicleta / motorbike → motorcycle`, `morada / morados / púrpura → purple` y `puesta de sol / ocaso → sunset`. Se aplican al interpretar consultas y sugerencias, también contra etiquetas antiguas y descripciones; no requieren Gemini ni una migración de datos. Las traducciones directas siguen normalizándose al guardar nuevos metadatos. Se corrigen las asociaciones antiguas `árboles → forest` y `bruja → wizard` a `tree` y `witch` respectivamente; no se pueden recuperar distinciones que ya se perdieron al guardar datos antiguos.
+
+Las equivalencias visuales se definen aparte de las traducciones: `girl ↔ woman` (chica, muchacha, mujer y sus plurales) y `boy ↔ man` (chico, muchacho, hombre, varón y sus plurales). Comparten resultados y sugerencias en ambos sentidos, conservando los conceptos canónicos distintos al guardar. Cada término adicional sigue siendo obligatorio: «mujer azul» admite chica o mujer, pero sigue exigiendo azul. No se vinculan los grupos femenino y masculino ni se agregan niños o niñas a estos grupos. Los términos desconocidos siguen conservándose sin traducciones inventadas.
+
+Los datos están en `ALIASES` de `src/utils/wallpaperMetadata.js` y `SYNONYMS` de `src/config/tags.js`. Los grupos visuales están en `SEARCH_EQUIVALENT_GROUPS` del segundo archivo. Tras modificar estos diccionarios, reiniciar o desplegar el backend para cargar los cambios. Validación local: 71 pruebas de etiquetas, metadatos, resolución de consultas, búsqueda y sugerencias; se usan modelos simulados, sin conexión al índice Atlas de producción.
 
 ## APIs
 

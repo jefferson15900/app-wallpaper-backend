@@ -3,10 +3,43 @@ const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores',
 const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags', descripcion: 'description', descripción: 'description' };
 // Explicit equivalents only: free tags are never guessed into a category.
 const ALIASES = {
-    styles: { anime: [], cartoon: ['caricatura'], cyberpunk: [], fantasy: ['fantasia'], 'sci-fi': ['ciencia ficcion', 'sci fi', 'scifi', 'science fiction'], abstract: ['abstracto'], minimalist: ['minimalista', 'minimalism', 'minimalismo'], gaming: ['videojuegos'], 'pixel art': ['pixelart'], illustration: ['ilustracion'], photography: ['fotografia'], '3d': [], motivational: ['motivacional'], typography: ['tipografia'] },
-    colors: { blue: ['azul'], red: ['rojo', 'roja'], green: ['verde'], purple: ['morado', 'violeta'], pink: ['rosa', 'rosado'], yellow: ['amarillo'], orange: ['naranja'], black: ['negro'], white: ['blanco'], gray: ['gris', 'grey'], brown: ['marron', 'cafe'], gold: ['dorado'], turquoise: ['turquesa'] },
-    subjects: { city: ['ciudad'], car: ['coche', 'auto', 'carro'], girl: ['chica'], boy: ['chico'], man: ['hombre'], woman: ['mujer'], animal: [], dog: ['perro'], cat: ['gato'], dragon: [], robot: [], planet: ['planeta'], spaceship: ['nave espacial'], flower: ['flor', 'flores', 'flowers'], astronaut: ['astronauta'] },
-    environments: { night: ['noche'], day: ['dia'], rain: ['lluvia'], snow: ['nieve'], sunset: ['atardecer'], forest: ['bosque'], ocean: ['oceano', 'mar'], mountain: ['montana'], desert: ['desierto'], space: ['espacio'], beach: ['playa'], street: ['calle'] },
+    styles: {
+        anime: [], cartoon: ['caricatura', 'caricaturas', 'cartoons'],
+        cyberpunk: ['ciberpunk'], fantasy: ['fantasia', 'fantasias'],
+        'sci-fi': ['ciencia ficcion', 'sci fi', 'scifi', 'science fiction'],
+        abstract: ['abstracto', 'abstracta', 'abstractos', 'abstractas', 'arte abstracto'],
+        minimalist: ['minimalista', 'minimalistas', 'minimalism', 'minimalismo'], gaming: ['videojuegos', 'videojuego', 'video game', 'video games', 'videogame', 'videogames'],
+        'pixel art': ['pixelart', 'arte pixelado', 'arte de pixeles'], illustration: ['ilustracion', 'ilustraciones', 'illustrations'],
+        photography: ['fotografia', 'fotografias', 'fotografico', 'fotografica'], '3d': ['tridimensional', 'tres dimensiones', 'three dimensional'],
+        motivational: ['motivacional', 'motivacion', 'motivation'], typography: ['tipografia', 'tipografico', 'tipografica'],
+    },
+    colors: {
+        blue: ['azul', 'azules'], red: ['rojo', 'roja', 'rojos', 'rojas'], green: ['verde', 'verdes'],
+        purple: ['morado', 'morada', 'morados', 'moradas', 'violeta', 'violetas', 'purpura'],
+        pink: ['rosa', 'rosado', 'rosada', 'rosados', 'rosadas'], yellow: ['amarillo', 'amarilla', 'amarillos', 'amarillas'],
+        orange: ['naranja', 'anaranjado', 'anaranjada', 'anaranjados', 'anaranjadas'],
+        black: ['negro', 'negra', 'negros', 'negras'], white: ['blanco', 'blanca', 'blancos', 'blancas'],
+        gray: ['gris', 'grises', 'grey'], brown: ['marron', 'marrones', 'cafe', 'castano', 'castana'],
+        gold: ['dorado', 'dorada', 'dorados', 'doradas', 'golden', 'oro'], turquoise: ['turquesa', 'turquesas'],
+    },
+    subjects: {
+        city: ['ciudad', 'ciudades', 'cities', 'metropoli', 'metropolis'],
+        car: ['coche', 'coches', 'auto', 'autos', 'carro', 'carros', 'automovil', 'automoviles', 'cars'],
+        girl: ['chica', 'chicas', 'muchacha', 'muchachas', 'girls'], boy: ['chico', 'chicos', 'muchacho', 'muchachos', 'boys'],
+        man: ['hombre', 'hombres', 'varon', 'varones', 'men'], woman: ['mujer', 'mujeres', 'women'],
+        animal: ['animales', 'animals'], dog: ['perro', 'perra', 'perros', 'perras', 'dogs'], cat: ['gato', 'gata', 'gatos', 'gatas', 'cats'],
+        dragon: ['dragones', 'dragons'], robot: ['robots'], planet: ['planeta', 'planetas', 'planets'],
+        spaceship: ['nave espacial', 'naves espaciales', 'spaceships', 'spacecraft', 'space ship', 'space ships'],
+        flower: ['flor', 'flores', 'flowers'], astronaut: ['astronauta', 'astronautas', 'astronauts'],
+    },
+    environments: {
+        night: ['noche', 'noches', 'nocturno', 'nocturna', 'nighttime', 'night time'], day: ['dia', 'dias', 'diurno', 'diurna', 'daytime', 'day time'],
+        rain: ['lluvia', 'lluvias', 'lluvioso', 'lluviosa', 'rainy', 'raining'], snow: ['nieve', 'nevado', 'nevada', 'snowy', 'snowing'],
+        sunset: ['atardecer', 'atardeceres', 'puesta de sol', 'puestas de sol', 'ocaso', 'sunsets'],
+        forest: ['bosque', 'bosques', 'forests', 'woods', 'woodland'], ocean: ['oceano', 'oceanos', 'mar', 'mares', 'sea', 'oceans', 'seas'],
+        mountain: ['montana', 'montanas', 'mountains'], desert: ['desierto', 'desiertos', 'deserts'],
+        space: ['espacio', 'espacio exterior', 'outer space'], beach: ['playa', 'playas', 'beaches'], street: ['calle', 'calles', 'streets'],
+    },
 };
 
 function metadataError(message) {

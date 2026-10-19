@@ -1,0 +1,2781 @@
+{
+  "beforeCount": 583,
+  "inserts": [
+    {
+      "original": "three dimensional",
+      "canonical": "3d",
+      "language": "en"
+    },
+    {
+      "original": "tres dimensiones",
+      "canonical": "3d",
+      "language": "es"
+    },
+    {
+      "original": "tridimensional",
+      "canonical": "3d",
+      "language": "es"
+    },
+    {
+      "original": "abstracta",
+      "canonical": "abstract",
+      "language": "es"
+    },
+    {
+      "original": "abstractas",
+      "canonical": "abstract",
+      "language": "es"
+    },
+    {
+      "original": "abstractos",
+      "canonical": "abstract",
+      "language": "es"
+    },
+    {
+      "original": "arte abstracto",
+      "canonical": "abstract",
+      "language": "es"
+    },
+    {
+      "original": "adorables",
+      "canonical": "adorable",
+      "language": "es"
+    },
+    {
+      "original": "aerea",
+      "canonical": "aerial",
+      "language": "es"
+    },
+    {
+      "original": "aereas",
+      "canonical": "aerial",
+      "language": "es"
+    },
+    {
+      "original": "aereos",
+      "canonical": "aerial",
+      "language": "es"
+    },
+    {
+      "original": "vista aerea",
+      "canonical": "aerial",
+      "language": "es"
+    },
+    {
+      "original": "vista desde arriba",
+      "canonical": "aerial",
+      "language": "es"
+    },
+    {
+      "original": "angeles",
+      "canonical": "angel",
+      "language": "es"
+    },
+    {
+      "original": "enfadada",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "enfadado",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "enojada",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "enojadas",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "enojados",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "furiosa",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "furioso",
+      "canonical": "angry",
+      "language": "es"
+    },
+    {
+      "original": "animaciones",
+      "canonical": "animation",
+      "language": "es"
+    },
+    {
+      "original": "anime girls",
+      "canonical": "anime girl",
+      "language": "en"
+    },
+    {
+      "original": "anime woman",
+      "canonical": "anime girl",
+      "language": "en"
+    },
+    {
+      "original": "anime women",
+      "canonical": "anime girl",
+      "language": "en"
+    },
+    {
+      "original": "acuarios",
+      "canonical": "aquarium",
+      "language": "es"
+    },
+    {
+      "original": "pecera",
+      "canonical": "aquarium",
+      "language": "es"
+    },
+    {
+      "original": "peceras",
+      "canonical": "aquarium",
+      "language": "es"
+    },
+    {
+      "original": "archers",
+      "canonical": "archer",
+      "language": "en"
+    },
+    {
+      "original": "arqueros",
+      "canonical": "archer",
+      "language": "es"
+    },
+    {
+      "original": "arquitectonica",
+      "canonical": "architecture",
+      "language": "es"
+    },
+    {
+      "original": "arquitectonico",
+      "canonical": "architecture",
+      "language": "es"
+    },
+    {
+      "original": "armaduras",
+      "canonical": "armor",
+      "language": "es"
+    },
+    {
+      "original": "armour",
+      "canonical": "armor",
+      "language": "en"
+    },
+    {
+      "original": "astronautas",
+      "canonical": "astronaut",
+      "language": "es"
+    },
+    {
+      "original": "astronauts",
+      "canonical": "astronaut",
+      "language": "en"
+    },
+    {
+      "original": "beaches",
+      "canonical": "beach",
+      "language": "en"
+    },
+    {
+      "original": "playas",
+      "canonical": "beach",
+      "language": "es"
+    },
+    {
+      "original": "osos",
+      "canonical": "bear",
+      "language": "es"
+    },
+    {
+      "original": "ave",
+      "canonical": "bird",
+      "language": "es"
+    },
+    {
+      "original": "aves",
+      "canonical": "bird",
+      "language": "es"
+    },
+    {
+      "original": "birds",
+      "canonical": "bird",
+      "language": "en"
+    },
+    {
+      "original": "negra",
+      "canonical": "black",
+      "language": "es"
+    },
+    {
+      "original": "negras",
+      "canonical": "black",
+      "language": "es"
+    },
+    {
+      "original": "negros",
+      "canonical": "black",
+      "language": "es"
+    },
+    {
+      "original": "sangrienta",
+      "canonical": "blood",
+      "language": "es"
+    },
+    {
+      "original": "sangriento",
+      "canonical": "blood",
+      "language": "es"
+    },
+    {
+      "original": "azules",
+      "canonical": "blue",
+      "language": "es"
+    },
+    {
+      "original": "barco",
+      "canonical": "boat",
+      "language": "es"
+    },
+    {
+      "original": "boats",
+      "canonical": "boat",
+      "language": "en"
+    },
+    {
+      "original": "botes",
+      "canonical": "boat",
+      "language": "es"
+    },
+    {
+      "original": "bridges",
+      "canonical": "bridge",
+      "language": "en"
+    },
+    {
+      "original": "puentes",
+      "canonical": "bridge",
+      "language": "es"
+    },
+    {
+      "original": "castana",
+      "canonical": "brown",
+      "language": "es"
+    },
+    {
+      "original": "castano",
+      "canonical": "brown",
+      "language": "es"
+    },
+    {
+      "original": "marrones",
+      "canonical": "brown",
+      "language": "es"
+    },
+    {
+      "original": "burbuja",
+      "canonical": "bubbles",
+      "language": "es"
+    },
+    {
+      "original": "pompa",
+      "canonical": "bubbles",
+      "language": "es"
+    },
+    {
+      "original": "pompas",
+      "canonical": "bubbles",
+      "language": "es"
+    },
+    {
+      "original": "pompas de jabon",
+      "canonical": "bubbles",
+      "language": "es"
+    },
+    {
+      "original": "mariposas",
+      "canonical": "butterfly",
+      "language": "es"
+    },
+    {
+      "original": "automobile",
+      "canonical": "car",
+      "language": "en"
+    },
+    {
+      "original": "automobiles",
+      "canonical": "car",
+      "language": "en"
+    },
+    {
+      "original": "automovil",
+      "canonical": "car",
+      "language": "es"
+    },
+    {
+      "original": "automoviles",
+      "canonical": "car",
+      "language": "es"
+    },
+    {
+      "original": "autos",
+      "canonical": "car",
+      "language": "es"
+    },
+    {
+      "original": "carros",
+      "canonical": "car",
+      "language": "es"
+    },
+    {
+      "original": "cars",
+      "canonical": "car",
+      "language": "en"
+    },
+    {
+      "original": "coches",
+      "canonical": "car",
+      "language": "es"
+    },
+    {
+      "original": "baraja",
+      "canonical": "cards",
+      "language": "es"
+    },
+    {
+      "original": "carta",
+      "canonical": "cards",
+      "language": "es"
+    },
+    {
+      "original": "naipe",
+      "canonical": "cards",
+      "language": "es"
+    },
+    {
+      "original": "naipes",
+      "canonical": "cards",
+      "language": "es"
+    },
+    {
+      "original": "caricaturas",
+      "canonical": "cartoon",
+      "language": "es"
+    },
+    {
+      "original": "cartoons",
+      "canonical": "cartoon",
+      "language": "en"
+    },
+    {
+      "original": "castillos",
+      "canonical": "castle",
+      "language": "es"
+    },
+    {
+      "original": "castles",
+      "canonical": "castle",
+      "language": "en"
+    },
+    {
+      "original": "gata",
+      "canonical": "cat",
+      "language": "es"
+    },
+    {
+      "original": "gatas",
+      "canonical": "cat",
+      "language": "es"
+    },
+    {
+      "original": "camaleones",
+      "canonical": "chameleon",
+      "language": "es"
+    },
+    {
+      "original": "chameleons",
+      "canonical": "chameleon",
+      "language": "en"
+    },
+    {
+      "original": "personajes",
+      "canonical": "character",
+      "language": "es"
+    },
+    {
+      "original": "pollitos",
+      "canonical": "chick",
+      "language": "es"
+    },
+    {
+      "original": "polluelo",
+      "canonical": "chick",
+      "language": "es"
+    },
+    {
+      "original": "polluelos",
+      "canonical": "chick",
+      "language": "es"
+    },
+    {
+      "original": "circular",
+      "canonical": "circle",
+      "language": "es"
+    },
+    {
+      "original": "circulos",
+      "canonical": "circle",
+      "language": "es"
+    },
+    {
+      "original": "ciudades",
+      "canonical": "city",
+      "language": "es"
+    },
+    {
+      "original": "metropoli",
+      "canonical": "city",
+      "language": "es"
+    },
+    {
+      "original": "clasica",
+      "canonical": "classic",
+      "language": "es"
+    },
+    {
+      "original": "clasicas",
+      "canonical": "classic",
+      "language": "es"
+    },
+    {
+      "original": "clasicos",
+      "canonical": "classic",
+      "language": "es"
+    },
+    {
+      "original": "paredes rocosas",
+      "canonical": "cliffs",
+      "language": "es"
+    },
+    {
+      "original": "capa con capucha",
+      "canonical": "cloak",
+      "language": "es"
+    },
+    {
+      "original": "capas",
+      "canonical": "cloak",
+      "language": "es"
+    },
+    {
+      "original": "close up",
+      "canonical": "closeup",
+      "language": "en"
+    },
+    {
+      "original": "close-up",
+      "canonical": "closeup",
+      "language": "en"
+    },
+    {
+      "original": "primer plano",
+      "canonical": "closeup",
+      "language": "es"
+    },
+    {
+      "original": "primeros planos",
+      "canonical": "closeup",
+      "language": "es"
+    },
+    {
+      "original": "clouds",
+      "canonical": "cloud",
+      "language": "en"
+    },
+    {
+      "original": "clowns",
+      "canonical": "clown",
+      "language": "en"
+    },
+    {
+      "original": "payasos",
+      "canonical": "clown",
+      "language": "es"
+    },
+    {
+      "original": "abrigos",
+      "canonical": "coat",
+      "language": "es"
+    },
+    {
+      "original": "cafe en taza",
+      "canonical": "coffee",
+      "language": "es"
+    },
+    {
+      "original": "taza de cafe",
+      "canonical": "coffee",
+      "language": "es"
+    },
+    {
+      "original": "colorida",
+      "canonical": "colorful",
+      "language": "es"
+    },
+    {
+      "original": "coloridas",
+      "canonical": "colorful",
+      "language": "es"
+    },
+    {
+      "original": "coloridos",
+      "canonical": "colorful",
+      "language": "es"
+    },
+    {
+      "original": "colourful",
+      "canonical": "colorful",
+      "language": "en"
+    },
+    {
+      "original": "multicolor",
+      "canonical": "colorful",
+      "language": "es"
+    },
+    {
+      "original": "multicolores",
+      "canonical": "colorful",
+      "language": "es"
+    },
+    {
+      "original": "color",
+      "canonical": "colors",
+      "language": "es"
+    },
+    {
+      "original": "tonalidades",
+      "canonical": "colors",
+      "language": "es"
+    },
+    {
+      "original": "computador",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "computadoras",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "computadores",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "computers",
+      "canonical": "computer",
+      "language": "en"
+    },
+    {
+      "original": "ordenador",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "ordenadores",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "pc",
+      "canonical": "computer",
+      "language": "es"
+    },
+    {
+      "original": "cosmica",
+      "canonical": "cosmic",
+      "language": "es"
+    },
+    {
+      "original": "cosmicas",
+      "canonical": "cosmic",
+      "language": "es"
+    },
+    {
+      "original": "cosmicos",
+      "canonical": "cosmic",
+      "language": "es"
+    },
+    {
+      "original": "grietas",
+      "canonical": "crack",
+      "language": "es"
+    },
+    {
+      "original": "rajadura",
+      "canonical": "crack",
+      "language": "es"
+    },
+    {
+      "original": "rajaduras",
+      "canonical": "crack",
+      "language": "es"
+    },
+    {
+      "original": "escalofriante",
+      "canonical": "creepy",
+      "language": "es"
+    },
+    {
+      "original": "escalofriantes",
+      "canonical": "creepy",
+      "language": "es"
+    },
+    {
+      "original": "espeluznante",
+      "canonical": "creepy",
+      "language": "es"
+    },
+    {
+      "original": "espeluznantes",
+      "canonical": "creepy",
+      "language": "es"
+    },
+    {
+      "original": "perturbadora",
+      "canonical": "creepy",
+      "language": "es"
+    },
+    {
+      "original": "cruces",
+      "canonical": "cross",
+      "language": "es"
+    },
+    {
+      "original": "cuervos",
+      "canonical": "crow",
+      "language": "es"
+    },
+    {
+      "original": "cristal",
+      "canonical": "crystals",
+      "language": "es"
+    },
+    {
+      "original": "cristalina",
+      "canonical": "crystals",
+      "language": "es"
+    },
+    {
+      "original": "cristalino",
+      "canonical": "crystals",
+      "language": "es"
+    },
+    {
+      "original": "cubes",
+      "canonical": "cube",
+      "language": "en"
+    },
+    {
+      "original": "cubos",
+      "canonical": "cube",
+      "language": "es"
+    },
+    {
+      "original": "astuta",
+      "canonical": "cunning",
+      "language": "es"
+    },
+    {
+      "original": "astutas",
+      "canonical": "cunning",
+      "language": "es"
+    },
+    {
+      "original": "astutos",
+      "canonical": "cunning",
+      "language": "es"
+    },
+    {
+      "original": "curvada",
+      "canonical": "curve",
+      "language": "es"
+    },
+    {
+      "original": "curvado",
+      "canonical": "curve",
+      "language": "es"
+    },
+    {
+      "original": "bonita",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "bonitas",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "bonito",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "bonitos",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "linda",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "lindas",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "lindos",
+      "canonical": "cute",
+      "language": "es"
+    },
+    {
+      "original": "ciborg",
+      "canonical": "cyborg",
+      "language": "es"
+    },
+    {
+      "original": "ciborgs",
+      "canonical": "cyborg",
+      "language": "es"
+    },
+    {
+      "original": "darkness",
+      "canonical": "dark",
+      "language": "en"
+    },
+    {
+      "original": "oscura",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "oscuras",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "oscuridad",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "oscuros",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "tenebrosa",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "tenebroso",
+      "canonical": "dark",
+      "language": "es"
+    },
+    {
+      "original": "ciervos",
+      "canonical": "deer",
+      "language": "es"
+    },
+    {
+      "original": "venados",
+      "canonical": "deer",
+      "language": "es"
+    },
+    {
+      "original": "demonios",
+      "canonical": "demon",
+      "language": "es"
+    },
+    {
+      "original": "deserts",
+      "canonical": "desert",
+      "language": "en"
+    },
+    {
+      "original": "desiertos",
+      "canonical": "desert",
+      "language": "es"
+    },
+    {
+      "original": "dinosaurios",
+      "canonical": "dinosaur",
+      "language": "es"
+    },
+    {
+      "original": "dinosaurs",
+      "canonical": "dinosaur",
+      "language": "en"
+    },
+    {
+      "original": "buceador",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "buceadora",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "buceadores",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "buzo de buceo",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "buzos",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "submarinista",
+      "canonical": "diver",
+      "language": "es"
+    },
+    {
+      "original": "perra",
+      "canonical": "dog",
+      "language": "es"
+    },
+    {
+      "original": "perras",
+      "canonical": "dog",
+      "language": "es"
+    },
+    {
+      "original": "perros",
+      "canonical": "dog",
+      "language": "es"
+    },
+    {
+      "original": "delfines",
+      "canonical": "dolphin",
+      "language": "es"
+    },
+    {
+      "original": "dolphins",
+      "canonical": "dolphin",
+      "language": "en"
+    },
+    {
+      "original": "doors",
+      "canonical": "door",
+      "language": "en"
+    },
+    {
+      "original": "puertas",
+      "canonical": "door",
+      "language": "es"
+    },
+    {
+      "original": "gota de agua",
+      "canonical": "drops",
+      "language": "es"
+    },
+    {
+      "original": "gotas de agua",
+      "canonical": "drops",
+      "language": "es"
+    },
+    {
+      "original": "gotitas",
+      "canonical": "drops",
+      "language": "es"
+    },
+    {
+      "original": "ducks",
+      "canonical": "duck",
+      "language": "en"
+    },
+    {
+      "original": "patos",
+      "canonical": "duck",
+      "language": "es"
+    },
+    {
+      "original": "aguilas",
+      "canonical": "eagle",
+      "language": "es"
+    },
+    {
+      "original": "elfos",
+      "canonical": "elf",
+      "language": "es"
+    },
+    {
+      "original": "sobre de carta",
+      "canonical": "envelope",
+      "language": "es"
+    },
+    {
+      "original": "sobres",
+      "canonical": "envelope",
+      "language": "es"
+    },
+    {
+      "original": "fantasias",
+      "canonical": "fantasy",
+      "language": "es"
+    },
+    {
+      "original": "bicho de luz",
+      "canonical": "firefly",
+      "language": "es"
+    },
+    {
+      "original": "bichos de luz",
+      "canonical": "firefly",
+      "language": "es"
+    },
+    {
+      "original": "luciernagas",
+      "canonical": "firefly",
+      "language": "es"
+    },
+    {
+      "original": "fluir",
+      "canonical": "flow",
+      "language": "es"
+    },
+    {
+      "original": "flowers",
+      "canonical": "flower",
+      "language": "en"
+    },
+    {
+      "original": "esponjosa",
+      "canonical": "fluffy",
+      "language": "es"
+    },
+    {
+      "original": "esponjosas",
+      "canonical": "fluffy",
+      "language": "es"
+    },
+    {
+      "original": "esponjosos",
+      "canonical": "fluffy",
+      "language": "es"
+    },
+    {
+      "original": "fluida",
+      "canonical": "fluid",
+      "language": "es"
+    },
+    {
+      "original": "fluidas",
+      "canonical": "fluid",
+      "language": "es"
+    },
+    {
+      "original": "fluidos",
+      "canonical": "fluid",
+      "language": "es"
+    },
+    {
+      "original": "espumosa",
+      "canonical": "foam",
+      "language": "es"
+    },
+    {
+      "original": "espumoso",
+      "canonical": "foam",
+      "language": "es"
+    },
+    {
+      "original": "bruma",
+      "canonical": "fog",
+      "language": "es"
+    },
+    {
+      "original": "mist",
+      "canonical": "fog",
+      "language": "en"
+    },
+    {
+      "original": "neblina",
+      "canonical": "fog",
+      "language": "es"
+    },
+    {
+      "original": "nebuloso",
+      "canonical": "fog",
+      "language": "es"
+    },
+    {
+      "original": "bosques",
+      "canonical": "forest",
+      "language": "es"
+    },
+    {
+      "original": "forests",
+      "canonical": "forest",
+      "language": "en"
+    },
+    {
+      "original": "zorros",
+      "canonical": "fox",
+      "language": "es"
+    },
+    {
+      "original": "amiga",
+      "canonical": "friends",
+      "language": "es"
+    },
+    {
+      "original": "amigas",
+      "canonical": "friends",
+      "language": "es"
+    },
+    {
+      "original": "amigo",
+      "canonical": "friends",
+      "language": "es"
+    },
+    {
+      "original": "amistad",
+      "canonical": "friends",
+      "language": "es"
+    },
+    {
+      "original": "friend",
+      "canonical": "friends",
+      "language": "en"
+    },
+    {
+      "original": "friendship",
+      "canonical": "friends",
+      "language": "en"
+    },
+    {
+      "original": "full moons",
+      "canonical": "full moon",
+      "language": "en"
+    },
+    {
+      "original": "lunas llenas",
+      "canonical": "full moon",
+      "language": "es"
+    },
+    {
+      "original": "comica",
+      "canonical": "funny",
+      "language": "es"
+    },
+    {
+      "original": "comico",
+      "canonical": "funny",
+      "language": "es"
+    },
+    {
+      "original": "divertida",
+      "canonical": "funny",
+      "language": "es"
+    },
+    {
+      "original": "divertido",
+      "canonical": "funny",
+      "language": "es"
+    },
+    {
+      "original": "graciosa",
+      "canonical": "funny",
+      "language": "es"
+    },
+    {
+      "original": "pelo de animal",
+      "canonical": "fur",
+      "language": "es"
+    },
+    {
+      "original": "futuristas",
+      "canonical": "futuristic",
+      "language": "es"
+    },
+    {
+      "original": "video game",
+      "canonical": "gaming",
+      "language": "en"
+    },
+    {
+      "original": "video games",
+      "canonical": "gaming",
+      "language": "en"
+    },
+    {
+      "original": "videogame",
+      "canonical": "gaming",
+      "language": "en"
+    },
+    {
+      "original": "videogames",
+      "canonical": "gaming",
+      "language": "en"
+    },
+    {
+      "original": "videojuegos",
+      "canonical": "gaming",
+      "language": "es"
+    },
+    {
+      "original": "cochera",
+      "canonical": "garage",
+      "language": "es"
+    },
+    {
+      "original": "cocheras",
+      "canonical": "garage",
+      "language": "es"
+    },
+    {
+      "original": "garajes",
+      "canonical": "garage",
+      "language": "es"
+    },
+    {
+      "original": "geometrica",
+      "canonical": "geometric",
+      "language": "es"
+    },
+    {
+      "original": "geometricas",
+      "canonical": "geometric",
+      "language": "es"
+    },
+    {
+      "original": "geometricos",
+      "canonical": "geometric",
+      "language": "es"
+    },
+    {
+      "original": "fantasmas",
+      "canonical": "ghost",
+      "language": "es"
+    },
+    {
+      "original": "ghosts",
+      "canonical": "ghost",
+      "language": "en"
+    },
+    {
+      "original": "giraffes",
+      "canonical": "giraffe",
+      "language": "en"
+    },
+    {
+      "original": "jirafas",
+      "canonical": "giraffe",
+      "language": "es"
+    },
+    {
+      "original": "chicas",
+      "canonical": "girl",
+      "language": "es"
+    },
+    {
+      "original": "girls",
+      "canonical": "girl",
+      "language": "en"
+    },
+    {
+      "original": "muchachas",
+      "canonical": "girl",
+      "language": "es"
+    },
+    {
+      "original": "mujer",
+      "canonical": "girl",
+      "language": "es"
+    },
+    {
+      "original": "mujeres",
+      "canonical": "girl",
+      "language": "es"
+    },
+    {
+      "original": "woman",
+      "canonical": "girl",
+      "language": "en"
+    },
+    {
+      "original": "women",
+      "canonical": "girl",
+      "language": "en"
+    },
+    {
+      "original": "young woman",
+      "canonical": "girl",
+      "language": "en"
+    },
+    {
+      "original": "young women",
+      "canonical": "girl",
+      "language": "en"
+    },
+    {
+      "original": "anteojos",
+      "canonical": "glasses",
+      "language": "es"
+    },
+    {
+      "original": "eyeglasses",
+      "canonical": "glasses",
+      "language": "en"
+    },
+    {
+      "original": "lentes",
+      "canonical": "glasses",
+      "language": "es"
+    },
+    {
+      "original": "spectacles",
+      "canonical": "glasses",
+      "language": "en"
+    },
+    {
+      "original": "guantes",
+      "canonical": "glove",
+      "language": "es"
+    },
+    {
+      "original": "ojos brillantes",
+      "canonical": "glowing eyes",
+      "language": "es"
+    },
+    {
+      "original": "ojos luminosos",
+      "canonical": "glowing eyes",
+      "language": "es"
+    },
+    {
+      "original": "ojos resplandecientes",
+      "canonical": "glowing eyes",
+      "language": "es"
+    },
+    {
+      "original": "dorada",
+      "canonical": "gold",
+      "language": "es"
+    },
+    {
+      "original": "doradas",
+      "canonical": "gold",
+      "language": "es"
+    },
+    {
+      "original": "dorados",
+      "canonical": "gold",
+      "language": "es"
+    },
+    {
+      "original": "degradados",
+      "canonical": "gradient",
+      "language": "es"
+    },
+    {
+      "original": "degrade",
+      "canonical": "gradient",
+      "language": "es"
+    },
+    {
+      "original": "gradientes",
+      "canonical": "gradient",
+      "language": "es"
+    },
+    {
+      "original": "graffitis",
+      "canonical": "graffiti",
+      "language": "es"
+    },
+    {
+      "original": "grafitis",
+      "canonical": "graffiti",
+      "language": "es"
+    },
+    {
+      "original": "grises",
+      "canonical": "gray",
+      "language": "es"
+    },
+    {
+      "original": "verdes",
+      "canonical": "green",
+      "language": "es"
+    },
+    {
+      "original": "agrupacion",
+      "canonical": "group",
+      "language": "es"
+    },
+    {
+      "original": "grupos",
+      "canonical": "group",
+      "language": "es"
+    },
+    {
+      "original": "guitarras",
+      "canonical": "guitar",
+      "language": "es"
+    },
+    {
+      "original": "guitars",
+      "canonical": "guitar",
+      "language": "en"
+    },
+    {
+      "original": "alegre",
+      "canonical": "happy",
+      "language": "es"
+    },
+    {
+      "original": "alegres",
+      "canonical": "happy",
+      "language": "es"
+    },
+    {
+      "original": "cheerful",
+      "canonical": "happy",
+      "language": "en"
+    },
+    {
+      "original": "contenta",
+      "canonical": "happy",
+      "language": "es"
+    },
+    {
+      "original": "contento",
+      "canonical": "happy",
+      "language": "es"
+    },
+    {
+      "original": "felices",
+      "canonical": "happy",
+      "language": "es"
+    },
+    {
+      "original": "hats",
+      "canonical": "hat",
+      "language": "en"
+    },
+    {
+      "original": "sombreros",
+      "canonical": "hat",
+      "language": "es"
+    },
+    {
+      "original": "corazones",
+      "canonical": "heart",
+      "language": "es"
+    },
+    {
+      "original": "hearts",
+      "canonical": "heart",
+      "language": "en"
+    },
+    {
+      "original": "heroes",
+      "canonical": "hero",
+      "language": "es"
+    },
+    {
+      "original": "heroina",
+      "canonical": "hero",
+      "language": "es"
+    },
+    {
+      "original": "heroinas",
+      "canonical": "hero",
+      "language": "es"
+    },
+    {
+      "original": "cerro",
+      "canonical": "hill",
+      "language": "es"
+    },
+    {
+      "original": "cerros",
+      "canonical": "hill",
+      "language": "es"
+    },
+    {
+      "original": "colinas",
+      "canonical": "hill",
+      "language": "es"
+    },
+    {
+      "original": "loma",
+      "canonical": "hill",
+      "language": "es"
+    },
+    {
+      "original": "lomas",
+      "canonical": "hill",
+      "language": "es"
+    },
+    {
+      "original": "hoodies",
+      "canonical": "hoodie",
+      "language": "en"
+    },
+    {
+      "original": "poleron con capucha",
+      "canonical": "hoodie",
+      "language": "es"
+    },
+    {
+      "original": "sudadera con capucha",
+      "canonical": "hoodie",
+      "language": "es"
+    },
+    {
+      "original": "terrorifica",
+      "canonical": "horror",
+      "language": "es"
+    },
+    {
+      "original": "terrorifico",
+      "canonical": "horror",
+      "language": "es"
+    },
+    {
+      "original": "caballos",
+      "canonical": "horse",
+      "language": "es"
+    },
+    {
+      "original": "casas",
+      "canonical": "house",
+      "language": "es"
+    },
+    {
+      "original": "houses",
+      "canonical": "house",
+      "language": "en"
+    },
+    {
+      "original": "icono",
+      "canonical": "icons",
+      "language": "es"
+    },
+    {
+      "original": "simbolo",
+      "canonical": "icons",
+      "language": "es"
+    },
+    {
+      "original": "simbolos",
+      "canonical": "icons",
+      "language": "es"
+    },
+    {
+      "original": "impresionista",
+      "canonical": "impressionism",
+      "language": "es"
+    },
+    {
+      "original": "iron-man",
+      "canonical": "iron man",
+      "language": "es"
+    },
+    {
+      "original": "ironman",
+      "canonical": "iron man",
+      "language": "es"
+    },
+    {
+      "original": "islands",
+      "canonical": "island",
+      "language": "en"
+    },
+    {
+      "original": "islas",
+      "canonical": "island",
+      "language": "es"
+    },
+    {
+      "original": "medusas",
+      "canonical": "jellyfish",
+      "language": "es"
+    },
+    {
+      "original": "caballeros",
+      "canonical": "knight",
+      "language": "es"
+    },
+    {
+      "original": "guerreros",
+      "canonical": "knight",
+      "language": "es"
+    },
+    {
+      "original": "knights",
+      "canonical": "knight",
+      "language": "en"
+    },
+    {
+      "original": "warriors",
+      "canonical": "knight",
+      "language": "en"
+    },
+    {
+      "original": "leopardos",
+      "canonical": "leopard",
+      "language": "es"
+    },
+    {
+      "original": "leopards",
+      "canonical": "leopard",
+      "language": "en"
+    },
+    {
+      "original": "faros",
+      "canonical": "lighthouse",
+      "language": "es"
+    },
+    {
+      "original": "lighthouses",
+      "canonical": "lighthouse",
+      "language": "en"
+    },
+    {
+      "original": "leones",
+      "canonical": "lion",
+      "language": "es"
+    },
+    {
+      "original": "lagartija",
+      "canonical": "lizard",
+      "language": "es"
+    },
+    {
+      "original": "lagartijas",
+      "canonical": "lizard",
+      "language": "es"
+    },
+    {
+      "original": "lagartos",
+      "canonical": "lizard",
+      "language": "es"
+    },
+    {
+      "original": "romance",
+      "canonical": "love",
+      "language": "es"
+    },
+    {
+      "original": "romantica",
+      "canonical": "love",
+      "language": "es"
+    },
+    {
+      "original": "romantico",
+      "canonical": "love",
+      "language": "es"
+    },
+    {
+      "original": "lujosa",
+      "canonical": "luxury",
+      "language": "es"
+    },
+    {
+      "original": "lujosas",
+      "canonical": "luxury",
+      "language": "es"
+    },
+    {
+      "original": "lujoso",
+      "canonical": "luxury",
+      "language": "es"
+    },
+    {
+      "original": "lujosos",
+      "canonical": "luxury",
+      "language": "es"
+    },
+    {
+      "original": "magica",
+      "canonical": "magic",
+      "language": "es"
+    },
+    {
+      "original": "magicas",
+      "canonical": "magic",
+      "language": "es"
+    },
+    {
+      "original": "magico",
+      "canonical": "magic",
+      "language": "es"
+    },
+    {
+      "original": "magicos",
+      "canonical": "magic",
+      "language": "es"
+    },
+    {
+      "original": "mapamundi",
+      "canonical": "map",
+      "language": "es"
+    },
+    {
+      "original": "mapas",
+      "canonical": "map",
+      "language": "es"
+    },
+    {
+      "original": "cerillos",
+      "canonical": "match",
+      "language": "es"
+    },
+    {
+      "original": "fosforo",
+      "canonical": "match",
+      "language": "es"
+    },
+    {
+      "original": "fosforos",
+      "canonical": "match",
+      "language": "es"
+    },
+    {
+      "original": "minimalism",
+      "canonical": "minimalist",
+      "language": "en"
+    },
+    {
+      "original": "minimalistas",
+      "canonical": "minimalist",
+      "language": "es"
+    },
+    {
+      "original": "moderna",
+      "canonical": "modern",
+      "language": "es"
+    },
+    {
+      "original": "modernas",
+      "canonical": "modern",
+      "language": "es"
+    },
+    {
+      "original": "modernos",
+      "canonical": "modern",
+      "language": "es"
+    },
+    {
+      "original": "monkeys",
+      "canonical": "monkey",
+      "language": "en"
+    },
+    {
+      "original": "monos",
+      "canonical": "monkey",
+      "language": "es"
+    },
+    {
+      "original": "monochromatic",
+      "canonical": "monochrome",
+      "language": "en"
+    },
+    {
+      "original": "monocroma",
+      "canonical": "monochrome",
+      "language": "es"
+    },
+    {
+      "original": "monocromatica",
+      "canonical": "monochrome",
+      "language": "es"
+    },
+    {
+      "original": "monocromatico",
+      "canonical": "monochrome",
+      "language": "es"
+    },
+    {
+      "original": "monsters",
+      "canonical": "monster",
+      "language": "en"
+    },
+    {
+      "original": "monstruos",
+      "canonical": "monster",
+      "language": "es"
+    },
+    {
+      "original": "lunas",
+      "canonical": "moon",
+      "language": "es"
+    },
+    {
+      "original": "en movimiento",
+      "canonical": "motion",
+      "language": "es"
+    },
+    {
+      "original": "motivacion",
+      "canonical": "motivational",
+      "language": "es"
+    },
+    {
+      "original": "motivation",
+      "canonical": "motivational",
+      "language": "en"
+    },
+    {
+      "original": "moto",
+      "canonical": "motorcycle",
+      "language": "es"
+    },
+    {
+      "original": "motocicletas",
+      "canonical": "motorcycle",
+      "language": "es"
+    },
+    {
+      "original": "motorbike",
+      "canonical": "motorcycle",
+      "language": "en"
+    },
+    {
+      "original": "motorbikes",
+      "canonical": "motorcycle",
+      "language": "en"
+    },
+    {
+      "original": "motorcycles",
+      "canonical": "motorcycle",
+      "language": "en"
+    },
+    {
+      "original": "motos",
+      "canonical": "motorcycle",
+      "language": "es"
+    },
+    {
+      "original": "ratoncito",
+      "canonical": "mouse",
+      "language": "es"
+    },
+    {
+      "original": "ratones",
+      "canonical": "mouse",
+      "language": "es"
+    },
+    {
+      "original": "musculos",
+      "canonical": "muscle",
+      "language": "es"
+    },
+    {
+      "original": "musculosa",
+      "canonical": "muscle",
+      "language": "es"
+    },
+    {
+      "original": "musculoso",
+      "canonical": "muscle",
+      "language": "es"
+    },
+    {
+      "original": "musical",
+      "canonical": "music",
+      "language": "es"
+    },
+    {
+      "original": "natural",
+      "canonical": "nature",
+      "language": "es"
+    },
+    {
+      "original": "natural scenery",
+      "canonical": "nature",
+      "language": "en"
+    },
+    {
+      "original": "naturales",
+      "canonical": "nature",
+      "language": "es"
+    },
+    {
+      "original": "night time",
+      "canonical": "night",
+      "language": "en"
+    },
+    {
+      "original": "noches",
+      "canonical": "night",
+      "language": "es"
+    },
+    {
+      "original": "nocturna",
+      "canonical": "night",
+      "language": "es"
+    },
+    {
+      "original": "mares",
+      "canonical": "ocean",
+      "language": "es"
+    },
+    {
+      "original": "oceanos",
+      "canonical": "ocean",
+      "language": "es"
+    },
+    {
+      "original": "oceans",
+      "canonical": "ocean",
+      "language": "en"
+    },
+    {
+      "original": "seas",
+      "canonical": "ocean",
+      "language": "en"
+    },
+    {
+      "original": "anaranjada",
+      "canonical": "orange",
+      "language": "es"
+    },
+    {
+      "original": "anaranjadas",
+      "canonical": "orange",
+      "language": "es"
+    },
+    {
+      "original": "anaranjado",
+      "canonical": "orange",
+      "language": "es"
+    },
+    {
+      "original": "anaranjados",
+      "canonical": "orange",
+      "language": "es"
+    },
+    {
+      "original": "palma",
+      "canonical": "palm",
+      "language": "es"
+    },
+    {
+      "original": "palmas",
+      "canonical": "palm",
+      "language": "es"
+    },
+    {
+      "original": "festiva",
+      "canonical": "party",
+      "language": "es"
+    },
+    {
+      "original": "festivo",
+      "canonical": "party",
+      "language": "es"
+    },
+    {
+      "original": "fiestas",
+      "canonical": "party",
+      "language": "es"
+    },
+    {
+      "original": "apasionada",
+      "canonical": "passion",
+      "language": "es"
+    },
+    {
+      "original": "apasionado",
+      "canonical": "passion",
+      "language": "es"
+    },
+    {
+      "original": "asomada",
+      "canonical": "peek",
+      "language": "es"
+    },
+    {
+      "original": "asomado",
+      "canonical": "peek",
+      "language": "es"
+    },
+    {
+      "original": "asomandose",
+      "canonical": "peek",
+      "language": "es"
+    },
+    {
+      "original": "penguins",
+      "canonical": "penguin",
+      "language": "en"
+    },
+    {
+      "original": "pinguinos",
+      "canonical": "penguin",
+      "language": "es"
+    },
+    {
+      "original": "rosada",
+      "canonical": "pink",
+      "language": "es"
+    },
+    {
+      "original": "rosadas",
+      "canonical": "pink",
+      "language": "es"
+    },
+    {
+      "original": "rosado",
+      "canonical": "pink",
+      "language": "es"
+    },
+    {
+      "original": "rosados",
+      "canonical": "pink",
+      "language": "es"
+    },
+    {
+      "original": "senalando",
+      "canonical": "pointing",
+      "language": "es"
+    },
+    {
+      "original": "portraits",
+      "canonical": "portrait",
+      "language": "en"
+    },
+    {
+      "original": "retratos",
+      "canonical": "portrait",
+      "language": "es"
+    },
+    {
+      "original": "calabazas",
+      "canonical": "pumpkin",
+      "language": "es"
+    },
+    {
+      "original": "pumpkins",
+      "canonical": "pumpkin",
+      "language": "en"
+    },
+    {
+      "original": "morada",
+      "canonical": "purple",
+      "language": "es"
+    },
+    {
+      "original": "moradas",
+      "canonical": "purple",
+      "language": "es"
+    },
+    {
+      "original": "morados",
+      "canonical": "purple",
+      "language": "es"
+    },
+    {
+      "original": "violetas",
+      "canonical": "purple",
+      "language": "es"
+    },
+    {
+      "original": "conejos",
+      "canonical": "rabbit",
+      "language": "es"
+    },
+    {
+      "original": "rabbits",
+      "canonical": "rabbit",
+      "language": "en"
+    },
+    {
+      "original": "carrera",
+      "canonical": "racing",
+      "language": "es"
+    },
+    {
+      "original": "competicion automovilistica",
+      "canonical": "racing",
+      "language": "es"
+    },
+    {
+      "original": "color rojo",
+      "canonical": "red",
+      "language": "es"
+    },
+    {
+      "original": "de color rojo",
+      "canonical": "red",
+      "language": "es"
+    },
+    {
+      "original": "roja",
+      "canonical": "red",
+      "language": "es"
+    },
+    {
+      "original": "rojas",
+      "canonical": "red",
+      "language": "es"
+    },
+    {
+      "original": "rojos",
+      "canonical": "red",
+      "language": "es"
+    },
+    {
+      "original": "reflections",
+      "canonical": "reflection",
+      "language": "en"
+    },
+    {
+      "original": "reflejos",
+      "canonical": "reflection",
+      "language": "es"
+    },
+    {
+      "original": "reptiles",
+      "canonical": "reptile",
+      "language": "es"
+    },
+    {
+      "original": "retro futurista",
+      "canonical": "retrofuturism",
+      "language": "es"
+    },
+    {
+      "original": "retrofuturista",
+      "canonical": "retrofuturism",
+      "language": "es"
+    },
+    {
+      "original": "carreteras",
+      "canonical": "road",
+      "language": "es"
+    },
+    {
+      "original": "roads",
+      "canonical": "road",
+      "language": "en"
+    },
+    {
+      "original": "roca",
+      "canonical": "rocks",
+      "language": "es"
+    },
+    {
+      "original": "rock",
+      "canonical": "rocks",
+      "language": "en"
+    },
+    {
+      "original": "cuarto",
+      "canonical": "room",
+      "language": "es"
+    },
+    {
+      "original": "cuartos",
+      "canonical": "room",
+      "language": "es"
+    },
+    {
+      "original": "habitaciones",
+      "canonical": "room",
+      "language": "es"
+    },
+    {
+      "original": "rooms",
+      "canonical": "room",
+      "language": "en"
+    },
+    {
+      "original": "sci-fi",
+      "canonical": "scifi",
+      "language": "es"
+    },
+    {
+      "original": "shadows",
+      "canonical": "shadow",
+      "language": "en"
+    },
+    {
+      "original": "sombras",
+      "canonical": "shadow",
+      "language": "es"
+    },
+    {
+      "original": "figura geometrica",
+      "canonical": "shape",
+      "language": "es"
+    },
+    {
+      "original": "forma geometrica",
+      "canonical": "shape",
+      "language": "es"
+    },
+    {
+      "original": "figuras geometricas",
+      "canonical": "shapes",
+      "language": "es"
+    },
+    {
+      "original": "formas geometricas",
+      "canonical": "shapes",
+      "language": "es"
+    },
+    {
+      "original": "plateada",
+      "canonical": "silver",
+      "language": "es"
+    },
+    {
+      "original": "plateadas",
+      "canonical": "silver",
+      "language": "es"
+    },
+    {
+      "original": "plateados",
+      "canonical": "silver",
+      "language": "es"
+    },
+    {
+      "original": "monopatin",
+      "canonical": "skateboard",
+      "language": "es"
+    },
+    {
+      "original": "monopatines",
+      "canonical": "skateboard",
+      "language": "es"
+    },
+    {
+      "original": "patinetas",
+      "canonical": "skateboard",
+      "language": "es"
+    },
+    {
+      "original": "calaveras",
+      "canonical": "skull",
+      "language": "es"
+    },
+    {
+      "original": "skulls",
+      "canonical": "skull",
+      "language": "en"
+    },
+    {
+      "original": "cielos",
+      "canonical": "sky",
+      "language": "es"
+    },
+    {
+      "original": "smiles",
+      "canonical": "smile",
+      "language": "en"
+    },
+    {
+      "original": "sonrisas",
+      "canonical": "smile",
+      "language": "es"
+    },
+    {
+      "original": "serpientes",
+      "canonical": "snake",
+      "language": "es"
+    },
+    {
+      "original": "calzado deportivo",
+      "canonical": "sneakers",
+      "language": "es"
+    },
+    {
+      "original": "zapatilla",
+      "canonical": "sneakers",
+      "language": "es"
+    },
+    {
+      "original": "zapatilla deportiva",
+      "canonical": "sneakers",
+      "language": "es"
+    },
+    {
+      "original": "zapatillas deportivas",
+      "canonical": "sneakers",
+      "language": "es"
+    },
+    {
+      "original": "cubierta de nieve",
+      "canonical": "snowy",
+      "language": "es"
+    },
+    {
+      "original": "cubierto de nieve",
+      "canonical": "snowy",
+      "language": "es"
+    },
+    {
+      "original": "nevada",
+      "canonical": "snowy",
+      "language": "es"
+    },
+    {
+      "original": "nevado",
+      "canonical": "snowy",
+      "language": "es"
+    },
+    {
+      "original": "snowing",
+      "canonical": "snowy",
+      "language": "en"
+    },
+    {
+      "original": "suaves",
+      "canonical": "soft",
+      "language": "es"
+    },
+    {
+      "original": "suavidad",
+      "canonical": "soft",
+      "language": "es"
+    },
+    {
+      "original": "espacio exterior",
+      "canonical": "space",
+      "language": "es"
+    },
+    {
+      "original": "naves espaciales",
+      "canonical": "spaceship",
+      "language": "es"
+    },
+    {
+      "original": "space ship",
+      "canonical": "spaceship",
+      "language": "en"
+    },
+    {
+      "original": "space ships",
+      "canonical": "spaceship",
+      "language": "en"
+    },
+    {
+      "original": "spaceships",
+      "canonical": "spaceship",
+      "language": "en"
+    },
+    {
+      "original": "spider man",
+      "canonical": "spiderman",
+      "language": "es"
+    },
+    {
+      "original": "spider-man",
+      "canonical": "spiderman",
+      "language": "es"
+    },
+    {
+      "original": "pincho",
+      "canonical": "spikes",
+      "language": "es"
+    },
+    {
+      "original": "pinchos",
+      "canonical": "spikes",
+      "language": "es"
+    },
+    {
+      "original": "pua",
+      "canonical": "spikes",
+      "language": "es"
+    },
+    {
+      "original": "puas",
+      "canonical": "spikes",
+      "language": "es"
+    },
+    {
+      "original": "alerones",
+      "canonical": "spoiler",
+      "language": "es"
+    },
+    {
+      "original": "esponjas",
+      "canonical": "sponge",
+      "language": "es"
+    },
+    {
+      "original": "deportes",
+      "canonical": "sport",
+      "language": "es"
+    },
+    {
+      "original": "moto deportiva",
+      "canonical": "sportbike",
+      "language": "es"
+    },
+    {
+      "original": "motocicleta deportiva",
+      "canonical": "sportbike",
+      "language": "es"
+    },
+    {
+      "original": "auto deportivo",
+      "canonical": "sports car",
+      "language": "es"
+    },
+    {
+      "original": "automovil deportivo",
+      "canonical": "sports car",
+      "language": "es"
+    },
+    {
+      "original": "carro deportivo",
+      "canonical": "sports car",
+      "language": "es"
+    },
+    {
+      "original": "sports cars",
+      "canonical": "sports car",
+      "language": "en"
+    },
+    {
+      "original": "squares",
+      "canonical": "square",
+      "language": "en"
+    },
+    {
+      "original": "figuras cuadradas",
+      "canonical": "squares",
+      "language": "es"
+    },
+    {
+      "original": "estrellita",
+      "canonical": "star",
+      "language": "es"
+    },
+    {
+      "original": "estrellitas",
+      "canonical": "star",
+      "language": "es"
+    },
+    {
+      "original": "piedra",
+      "canonical": "stones",
+      "language": "es"
+    },
+    {
+      "original": "franja",
+      "canonical": "stripes",
+      "language": "es"
+    },
+    {
+      "original": "franjas",
+      "canonical": "stripes",
+      "language": "es"
+    },
+    {
+      "original": "raya",
+      "canonical": "stripes",
+      "language": "es"
+    },
+    {
+      "original": "estudio fotografico",
+      "canonical": "studio",
+      "language": "es"
+    },
+    {
+      "original": "suits",
+      "canonical": "suit",
+      "language": "en"
+    },
+    {
+      "original": "trajes",
+      "canonical": "suit",
+      "language": "es"
+    },
+    {
+      "original": "soles",
+      "canonical": "sun",
+      "language": "es"
+    },
+    {
+      "original": "anteojos de sol",
+      "canonical": "sunglasses",
+      "language": "es"
+    },
+    {
+      "original": "gafas de sol",
+      "canonical": "sunglasses",
+      "language": "es"
+    },
+    {
+      "original": "lentes de sol",
+      "canonical": "sunglasses",
+      "language": "es"
+    },
+    {
+      "original": "sun glasses",
+      "canonical": "sunglasses",
+      "language": "en"
+    },
+    {
+      "original": "amaneceres",
+      "canonical": "sunrise",
+      "language": "es"
+    },
+    {
+      "original": "salida del sol",
+      "canonical": "sunrise",
+      "language": "es"
+    },
+    {
+      "original": "atardeceres",
+      "canonical": "sunset",
+      "language": "es"
+    },
+    {
+      "original": "ocaso",
+      "canonical": "sunset",
+      "language": "es"
+    },
+    {
+      "original": "puesta de sol",
+      "canonical": "sunset",
+      "language": "es"
+    },
+    {
+      "original": "puestas de sol",
+      "canonical": "sunset",
+      "language": "es"
+    },
+    {
+      "original": "sunsets",
+      "canonical": "sunset",
+      "language": "en"
+    },
+    {
+      "original": "superheroe",
+      "canonical": "superhero",
+      "language": "es"
+    },
+    {
+      "original": "surrealist",
+      "canonical": "surrealism",
+      "language": "en"
+    },
+    {
+      "original": "surrealista",
+      "canonical": "surrealism",
+      "language": "es"
+    },
+    {
+      "original": "espadas",
+      "canonical": "sword",
+      "language": "es"
+    },
+    {
+      "original": "tattoos",
+      "canonical": "tattoo",
+      "language": "en"
+    },
+    {
+      "original": "tatuajes",
+      "canonical": "tattoo",
+      "language": "es"
+    },
+    {
+      "original": "tecnologica",
+      "canonical": "technology",
+      "language": "es"
+    },
+    {
+      "original": "tecnologico",
+      "canonical": "technology",
+      "language": "es"
+    },
+    {
+      "original": "temples",
+      "canonical": "temple",
+      "language": "en"
+    },
+    {
+      "original": "templos",
+      "canonical": "temple",
+      "language": "es"
+    },
+    {
+      "original": "letras",
+      "canonical": "text",
+      "language": "es"
+    },
+    {
+      "original": "textos",
+      "canonical": "text",
+      "language": "es"
+    },
+    {
+      "original": "texturas",
+      "canonical": "texture",
+      "language": "es"
+    },
+    {
+      "original": "texturizada",
+      "canonical": "texture",
+      "language": "es"
+    },
+    {
+      "original": "texturizado",
+      "canonical": "texture",
+      "language": "es"
+    },
+    {
+      "original": "tigres",
+      "canonical": "tiger",
+      "language": "es"
+    },
+    {
+      "original": "torres",
+      "canonical": "tower",
+      "language": "es"
+    },
+    {
+      "original": "towers",
+      "canonical": "tower",
+      "language": "en"
+    },
+    {
+      "original": "juguetes",
+      "canonical": "toy",
+      "language": "es"
+    },
+    {
+      "original": "toys",
+      "canonical": "toy",
+      "language": "en"
+    },
+    {
+      "original": "circuito",
+      "canonical": "track",
+      "language": "es"
+    },
+    {
+      "original": "circuitos",
+      "canonical": "track",
+      "language": "es"
+    },
+    {
+      "original": "pistas",
+      "canonical": "track",
+      "language": "es"
+    },
+    {
+      "original": "triangular",
+      "canonical": "triangle",
+      "language": "es"
+    },
+    {
+      "original": "triangulos",
+      "canonical": "triangle",
+      "language": "es"
+    },
+    {
+      "original": "turquesas",
+      "canonical": "turquoise",
+      "language": "es"
+    },
+    {
+      "original": "tortugas",
+      "canonical": "turtle",
+      "language": "es"
+    },
+    {
+      "original": "turtles",
+      "canonical": "turtle",
+      "language": "en"
+    },
+    {
+      "original": "paraguas",
+      "canonical": "umbrella",
+      "language": "es"
+    },
+    {
+      "original": "umbrellas",
+      "canonical": "umbrella",
+      "language": "en"
+    },
+    {
+      "original": "debajo del agua",
+      "canonical": "underwater",
+      "language": "es"
+    },
+    {
+      "original": "subacuatica",
+      "canonical": "underwater",
+      "language": "es"
+    },
+    {
+      "original": "subacuatico",
+      "canonical": "underwater",
+      "language": "es"
+    },
+    {
+      "original": "sumergida",
+      "canonical": "underwater",
+      "language": "es"
+    },
+    {
+      "original": "sumergido",
+      "canonical": "underwater",
+      "language": "es"
+    },
+    {
+      "original": "vampires",
+      "canonical": "vampire",
+      "language": "en"
+    },
+    {
+      "original": "vampiros",
+      "canonical": "vampire",
+      "language": "es"
+    },
+    {
+      "original": "vehicles",
+      "canonical": "vehicle",
+      "language": "en"
+    },
+    {
+      "original": "vehiculos",
+      "canonical": "vehicle",
+      "language": "es"
+    },
+    {
+      "original": "muro",
+      "canonical": "wall",
+      "language": "es"
+    },
+    {
+      "original": "muros",
+      "canonical": "wall",
+      "language": "es"
+    },
+    {
+      "original": "paredes",
+      "canonical": "wall",
+      "language": "es"
+    },
+    {
+      "original": "ola",
+      "canonical": "wave",
+      "language": "es"
+    },
+    {
+      "original": "mojada",
+      "canonical": "wet",
+      "language": "es"
+    },
+    {
+      "original": "mojadas",
+      "canonical": "wet",
+      "language": "es"
+    },
+    {
+      "original": "mojados",
+      "canonical": "wet",
+      "language": "es"
+    },
+    {
+      "original": "ruedas",
+      "canonical": "wheel",
+      "language": "es"
+    },
+    {
+      "original": "blanca",
+      "canonical": "white",
+      "language": "es"
+    },
+    {
+      "original": "blancas",
+      "canonical": "white",
+      "language": "es"
+    },
+    {
+      "original": "blancos",
+      "canonical": "white",
+      "language": "es"
+    },
+    {
+      "original": "brujas",
+      "canonical": "witch",
+      "language": "es"
+    },
+    {
+      "original": "witches",
+      "canonical": "witch",
+      "language": "en"
+    },
+    {
+      "original": "magos",
+      "canonical": "wizard",
+      "language": "es"
+    },
+    {
+      "original": "wizards",
+      "canonical": "wizard",
+      "language": "en"
+    },
+    {
+      "original": "amarilla",
+      "canonical": "yellow",
+      "language": "es"
+    },
+    {
+      "original": "amarillas",
+      "canonical": "yellow",
+      "language": "es"
+    },
+    {
+      "original": "amarillos",
+      "canonical": "yellow",
+      "language": "es"
+    },
+    {
+      "original": "cebras",
+      "canonical": "zebra",
+      "language": "es"
+    },
+    {
+      "original": "zebras",
+      "canonical": "zebra",
+      "language": "en"
+    }
+  ],
+  "skipped": []
+}

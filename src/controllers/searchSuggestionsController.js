@@ -1,6 +1,6 @@
 const Wallpaper = require('../models/Wallpaper');
 const TagMap = require('../models/TagMap');
-const { SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag } = require('../config/tags');
+const { SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
 const { ALIASES, normalizeTerm } = require('../utils/wallpaperMetadata');
 const { resolveSearchConcepts } = require('../utils/tagResolver');
 const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts } = require('../utils/searchQuery');
@@ -95,14 +95,16 @@ exports.searchSuggestions = async (req, res) => {
         const contexts = [...new Set(candidates.map(candidate => candidate.context))];
         const values = new Map(await Promise.all(contexts.map(async context => [context, context ? await vocabulary(finalType, context) : globalValues])));
         const seen = new Set();
-        const suggestions = candidates.filter(candidate => candidate.context.length + candidate.label.length + Number(Boolean(candidate.context)) <= 150 &&
-            !IGNORED_SEARCH_WORDS.has(normalizeTerm(candidate.label)) && values.get(candidate.context).has(candidate.canonical))
+        const suggestions = candidates.map(candidate => ({ ...candidate,
+            count: equivalentSearchTags(candidate.canonical).reduce((total, canonical) => total + (values.get(candidate.context).get(canonical)?.count || 0), 0),
+        })).filter(candidate => candidate.context.length + candidate.label.length + Number(Boolean(candidate.context)) <= 150 &&
+            !IGNORED_SEARCH_WORDS.has(normalizeTerm(candidate.label)) && candidate.count > 0)
             .sort((a, b) => Number(b.exact) - Number(a.exact) || b.prefix.length - a.prefix.length ||
-                values.get(b.context).get(b.canonical).count - values.get(a.context).get(a.canonical).count || a.label.length - b.label.length ||
+                b.count - a.count || a.label.length - b.label.length ||
                 // Keep the preferred spelling when equal-length inflections share a concept (rojo/roja).
                 (a.aliasOrder ?? 0) - (b.aliasOrder ?? 0) || a.label.localeCompare(b.label))
             .filter(candidate => {
-                const key = JSON.stringify([normalizeTerm(candidate.context), candidate.canonical]);
+                const key = JSON.stringify([normalizeTerm(candidate.context), equivalentSearchTags(candidate.canonical)[0]]);
                 if (seen.has(key)) { return false; }
                 seen.add(key); return true;
             }).slice(0, 8).map(candidate => {

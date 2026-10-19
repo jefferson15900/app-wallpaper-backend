@@ -166,6 +166,25 @@ function harness(records, mappings = [], ranked = false) {
 
 const wall = (_id, tags, type = 'image', status = 'approved') => ({ _id, tags, type, status, imageUrl: 'fixture' });
 
+test('woman and girl queries share tagged and described results while retaining required colors', async () => {
+    const h = harness([wall('girl-blue', ['girl', 'blue']), wall('woman-blue', ['woman', 'blue']),
+        wall('old-spanish', ['chica', 'azul']), wall('red', ['woman', 'red']), wall('male', ['man', 'blue']),
+        { ...wall('description', ['illustration']), searchDescriptions: ['A woman with a blue dress.'] }]);
+    for (const query of ['mujer azul', 'chica azul', 'woman blue', 'girl blue', 'muchachas azules']) {
+        assert.deepEqual(new Set(await h.search(query)), new Set(['girl-blue', 'woman-blue', 'old-spanish', 'description']), query);
+    }
+});
+
+test('expanded equivalents retrieve existing tags and descriptions without changing stored records', async () => {
+    const records = [wall('car', ['car', 'orange']), wall('glasses', ['glasses', 'purple']),
+        { ...wall('motorcycle', ['photography']), searchDescriptions: ['An orange motorcycle on the road.'] }];
+    const before = JSON.stringify(records), h = harness(records);
+    assert.deepEqual(await h.search('automóvil anaranjado'), ['car']);
+    assert.deepEqual(await h.search('anteojos morados'), ['glasses']);
+    assert.deepEqual(await h.search('moto anaranjada'), ['motorcycle']);
+    assert.equal(JSON.stringify(records), before);
+});
+
 test('descriptions retrieve scenes in Spanish while requiring every concept', async () => {
     const scene = description => ({ ...wall(description, ['illustration']), searchDescriptions: [description] });
     const h = harness([scene('A girl stands in the rain on a city street.'),

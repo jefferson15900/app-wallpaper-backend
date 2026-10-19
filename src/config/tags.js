@@ -260,7 +260,7 @@ const SYNONYMS = {
   'bosque': 'forest', 'selva': 'forest', 'woods': 'forest',
   'woodland': 'forest', 'jungle': 'forest', 'jungla': 'forest',
   'rainforest': 'forest', 'selva tropical': 'forest',
-  'arboles': 'forest', 'árboles': 'forest', 'trees': 'forest',
+  'arboles': 'tree', 'árboles': 'tree', 'trees': 'tree',
 
   // ══════════════════════════════════════════════
   // 🏔️ MONTAÑA
@@ -369,7 +369,7 @@ const SYNONYMS = {
   'castle': 'castle', 'castillo': 'castle', 'fortress': 'castle',
   'fortaleza': 'castle',
   'magic': 'magic', 'magia': 'magic', 'magical': 'magic',
-  'wizard': 'wizard', 'mago': 'wizard', 'mage': 'wizard', 'bruja': 'wizard',
+  'wizard': 'wizard', 'mago': 'wizard', 'mage': 'wizard', 'bruja': 'witch',
   'witch': 'witch',
   'elf': 'elf', 'elfo': 'elf', 'elves': 'elf',
   'demon': 'demon', 'demonio': 'demon', 'demons': 'demon',
@@ -484,7 +484,78 @@ const SYNONYMS = {
   'bajo la lluvia': 'rain', 'piel': 'skin', 'piel roja': 'red skin',
   'color rojo': 'red', 'de color rojo': 'red',
 
+  // Traducciones y variantes de conceptos ya usados por el catalogo.
+  'motocicleta': 'motorcycle', 'motocicletas': 'motorcycle', 'moto': 'motorcycle', 'motos': 'motorcycle', 'motorbike': 'motorcycle', 'motorcycles': 'motorcycle',
+  'moto deportiva': 'sportbike', 'motocicleta deportiva': 'sportbike',
+  'automovil deportivo': 'sports car', 'carro deportivo': 'sports car', 'auto deportivo': 'sports car',
+  'vehiculo': 'vehicle', 'vehiculos': 'vehicle', 'vehicles': 'vehicle',
+  'conejo': 'rabbit', 'conejos': 'rabbit', 'rabbits': 'rabbit',
+  'pajaro': 'bird', 'pajaros': 'bird', 'ave': 'bird', 'aves': 'bird', 'birds': 'bird',
+  'pez': 'fish', 'peces': 'fish', 'pato': 'duck', 'patos': 'duck', 'ducks': 'duck',
+  'tortuga': 'turtle', 'tortugas': 'turtle', 'turtles': 'turtle',
+  'delfin': 'dolphin', 'delfines': 'dolphin', 'dolphins': 'dolphin',
+  'medusa': 'jellyfish', 'medusas': 'jellyfish',
+  'pinguino': 'penguin', 'pinguinos': 'penguin', 'penguins': 'penguin',
+  'jirafa': 'giraffe', 'jirafas': 'giraffe', 'giraffes': 'giraffe',
+  'mono': 'monkey', 'monos': 'monkey', 'monkeys': 'monkey',
+  'leopardo': 'leopard', 'leopardos': 'leopard', 'leopards': 'leopard',
+  'camaleon': 'chameleon', 'camaleones': 'chameleon', 'chameleons': 'chameleon',
+  'dinosaurio': 'dinosaur', 'dinosaurios': 'dinosaur', 'dinosaurs': 'dinosaur',
+  'cebra': 'zebra', 'cebras': 'zebra', 'zebras': 'zebra',
+  'lobos': 'wolf', 'leones': 'lion', 'tigres': 'tiger', 'osos': 'bear',
+  'aguilas': 'eagle', 'cuervos': 'crow', 'serpientes': 'snake', 'zorros': 'fox',
+  'caballos': 'horse', 'mariposas': 'butterfly', 'ciervos': 'deer', 'venados': 'deer',
+  'arbol': 'tree',
+  'planta': 'plants', 'isla': 'island', 'islas': 'island', 'islands': 'island',
+  'nube': 'cloud', 'nubes': 'cloud', 'clouds': 'cloud',
+  'roca': 'rocks', 'rocas': 'rocks', 'rock': 'rocks',
+  'carretera': 'road', 'carreteras': 'road', 'roads': 'road',
+  'casa': 'house', 'casas': 'house', 'houses': 'house',
+  'habitacion': 'room', 'habitaciones': 'room', 'cuarto': 'room', 'cuartos': 'room', 'rooms': 'room',
+  'puerta': 'door', 'puertas': 'door', 'doors': 'door',
+  'barco': 'boat', 'barcos': 'boat', 'bote': 'boat', 'botes': 'boat', 'boats': 'boat',
+  'paraguas': 'umbrella', 'umbrellas': 'umbrella',
+  'auriculares': 'headphone', 'audifonos': 'headphone', 'headphones': 'headphone',
+  'teclado': 'keyboard', 'teclados': 'keyboard', 'keyboards': 'keyboard',
+  'guitarra': 'guitar', 'guitarras': 'guitar', 'guitars': 'guitar',
+  'gafas': 'glasses', 'lentes': 'glasses', 'anteojos': 'glasses',
+  'sudadera con capucha': 'hoodie', 'poleron con capucha': 'hoodie', 'hoodies': 'hoodie',
+  'sombrero': 'hat', 'sombreros': 'hat', 'hats': 'hat',
+  'traje': 'suit', 'trajes': 'suit', 'suits': 'suit',
+  'zapatilla': 'sneaker', 'zapatillas': 'sneaker', 'sneakers': 'sneaker',
+  'juguete': 'toy', 'juguetes': 'toy', 'toys': 'toy',
+  'corazon': 'heart', 'corazones': 'heart', 'hearts': 'heart',
+  'calabaza': 'pumpkin', 'calabazas': 'pumpkin', 'pumpkins': 'pumpkin',
+  'manzana': 'apple', 'manzanas': 'apple', 'apples': 'apple',
+  'cubo': 'cube', 'cubos': 'cube', 'cubes': 'cube',
+  'hexagono': 'hexagon', 'hexagonos': 'hexagon', 'hexagons': 'hexagon',
+  'cuadrado': 'square', 'cuadrados': 'square', 'squares': 'square',
+  'fantasma': 'ghost', 'fantasmas': 'ghost', 'ghosts': 'ghost',
+  'monstruo': 'monster', 'monstruos': 'monster', 'monsters': 'monster',
+  'vampiro': 'vampire', 'vampiros': 'vampire', 'vampires': 'vampire',
+  'superheroe': 'superhero', 'superheroes': 'superhero',
+  'arquero': 'archer', 'arqueros': 'archer', 'archers': 'archer',
+  'payaso': 'clown', 'payasos': 'clown', 'clowns': 'clown',
+  'guerreros': 'warrior', 'warriors': 'warrior', 'caballeros': 'knight', 'knights': 'knight',
+  'brujas': 'witch', 'witches': 'witch', 'magos': 'wizard', 'wizards': 'wizard',
+  'elfos': 'elf', 'demonios': 'demon', 'angeles': 'angel',
+  'espadas': 'sword', 'castillos': 'castle', 'castles': 'castle',
+  'puentes': 'bridge', 'bridges': 'bridge', 'torres': 'tower', 'towers': 'tower',
+  'faros': 'lighthouse', 'lighthouses': 'lighthouse', 'templos': 'temple', 'temples': 'temple',
+  'armaduras': 'armor', 'armour': 'armor',
+  'tatuajes': 'tattoo', 'tattoos': 'tattoo', 'calaveras': 'skull', 'skulls': 'skull',
+  'sombras': 'shadow', 'shadows': 'shadow', 'reflejos': 'reflection', 'reflections': 'reflection',
+  'sonrisas': 'smile', 'smiles': 'smile',
+  'lunas': 'moon', 'soles': 'sun', 'amaneceres': 'sunrise', 'salida del sol': 'sunrise',
+  'lunas llenas': 'full moon', 'full moons': 'full moon',
+  'surrealista': 'surrealism', 'surrealist': 'surrealism', 'impresionista': 'impressionism',
+  'retrofuturista': 'retrofuturism', 'retro futurista': 'retrofuturism',
+  'plateada': 'silver', 'plateados': 'silver', 'plateadas': 'silver',
+
 };
+
+// Equivalencia visual de busqueda: no cambia las etiquetas al guardar.
+const SEARCH_EQUIVALENT_GROUPS = [['girl', 'woman'], ['boy', 'man']];
 
 // Metadata is authoritative: a planet is not space, and snow is not ice.
 const LOCAL_TAG_ALIASES = new Map(Object.entries(SYNONYMS).map(([alias, canonical]) => [normalizeTerm(alias), normalizeTerm(canonical)]));
@@ -506,6 +577,11 @@ function resolveLocalTag(value) {
     term = next;
   }
   return term;
+}
+
+function equivalentSearchTags(value) {
+  const canonical = resolveLocalTag(value);
+  return SEARCH_EQUIVALENT_GROUPS.find(group => group.includes(canonical)) || [canonical];
 }
 
 /**
@@ -565,4 +641,4 @@ const cleanTags = (tagsArray, { maxTags = 20, minLength = 2 } = {}) => {
     .slice(0, maxTags);
 };
 
-module.exports = { cleanTags, SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag };
+module.exports = { cleanTags, SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags };

@@ -6,7 +6,7 @@ const STOP_WORDS = new Set(['wallpaper', 'wallpapers', 'fondo', 'fondos', 'panta
 const LIVE_INTENT_WORDS = new Set(['live', 'video', 'gif', 'animated', 'animado', 'animados', 'movimiento', 'dinamico', 'dinamicos', 'dinamica']);
 const IGNORED_SEARCH_WORDS = new Set([...STOP_WORDS, ...LIVE_INTENT_WORDS]);
 const SEARCH_TEXT_PATHS = ['tags', 'searchDescriptions'];
-const SEARCH_VERSION = 'metadata-text-v3-description-variety15';
+const SEARCH_VERSION = 'metadata-text-v4-equivalents-variety15';
 
 function cleanSearchQuery(query) {
     const text = normalizeTerm(query || '');

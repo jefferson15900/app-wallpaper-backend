@@ -70,6 +70,15 @@ function harness(records, mappings = []) {
 }
 const wall = (tags, type = 'image', status = 'approved', artistActive = true) => ({ tags, type, status, artistActive });
 
+test('suggestions recognize visual equivalents in both prefixes and query context', async () => {
+    const h = harness([wall(['girl', 'blue']), wall(['car', 'orange'])]);
+    assert.ok((await h.search('muj')).data.some(item => item.query === 'mujer'));
+    assert.deepEqual((await h.search('mujer az')).data, [{ label: 'mujer azul', query: 'mujer azul', kind: 'completion' }]);
+    assert.ok((await h.search('automó')).data.some(item => item.query === 'automovil'));
+    const reverse = harness([wall(['woman', 'blue'])]);
+    assert.ok((await reverse.search('chi')).data.some(item => item.query === 'chica'));
+});
+
 test('Spanish completions preserve the full query and are supported by the selected media type', async () => {
     const h = harness([wall(['naruto', 'blue']), wall(['naruto', 'red'], 'video'), wall(['boruto', 'blue'], 'video')]);
     assert.deepEqual((await h.search('Naruto az', 'image')).data, [{ label: 'Naruto azul', query: 'Naruto azul', kind: 'completion' }]);

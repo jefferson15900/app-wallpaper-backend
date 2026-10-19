@@ -60,3 +60,45 @@ test('new learned aliases use the same accent and whitespace normalization as qu
     assert.equal(record.original, 'heroe espacial');
     assert.equal(record.canonical, 'space hero');
 });
+
+test('visual equivalents work both ways without changing saved subject labels', async () => {
+    const r = resolver([{ original: 'dama', canonical: 'woman' }, { original: 'nieve', canonical: 'woman' }]);
+    for (const query of ['mujer', 'chica', 'woman', 'girl', 'mujeres', 'muchachas', 'women', 'girls']) {
+        const [concept] = await r.resolveSearchConcepts(query);
+        for (const equivalent of ['woman', 'girl', 'mujer', 'chica', 'dama']) {
+            assert.ok(concept.alternatives.includes(equivalent), `${query} must find ${equivalent}`);
+        }
+        assert.ok(!concept.alternatives.includes('man'));
+        assert.ok(!concept.alternatives.includes('nieve'));
+    }
+    const [male] = await r.resolveSearchConcepts('hombres');
+    for (const equivalent of ['man', 'boy', 'hombre', 'chico', 'men', 'boys']) {
+        assert.ok(male.alternatives.includes(equivalent));
+    }
+    assert.ok(!male.alternatives.includes('woman'));
+    assert.deepEqual(normalizeMetadata({ subjects: ['chica', 'mujer', 'chico', 'hombre'] }).subjects, ['girl', 'woman', 'boy', 'man']);
+    assert.deepEqual(await r.resolveTagsArray(['chica', 'mujer', 'chico', 'hombre']), ['girl', 'woman', 'boy', 'man']);
+});
+
+test('expanded translations handle accents, plurals and phrases while preserving other concepts', async () => {
+    const r = resolver();
+    const cases = [
+        ['automóviles', 'car'], ['anaranjadas', 'orange'], ['moradas', 'purple'], ['anteojos', 'glasses'],
+        ['audífonos', 'headphone'], ['motocicletas', 'motorcycle'], ['delfines', 'dolphin'], ['pingüinos', 'penguin'],
+        ['puesta de sol', 'sunset'], ['salida del sol', 'sunrise'], ['naves espaciales', 'spaceship'],
+        ['arte pixelado', 'pixel art'], ['ciencia ficción', 'sci-fi'], ['brujas', 'witch'], ['árboles', 'tree'],
+    ];
+    for (const [query, canonical] of cases) {
+        const concepts = await r.resolveSearchConcepts(query);
+        assert.deepEqual(concepts.map(concept => concept.canonical), [canonical], query);
+        assert.ok(concepts[0].alternatives.includes(canonical));
+    }
+    const [sunset, snow, witch, tree] = await r.resolveSearchConcepts('puesta de sol nieve bruja arbol');
+    assert.ok(!sunset.alternatives.includes('sunrise'));
+    assert.ok(!snow.alternatives.includes('ice'));
+    assert.ok(!witch.alternatives.includes('wizard'));
+    assert.ok(!tree.alternatives.includes('forest'));
+    const [car] = await r.resolveSearchConcepts('car');
+    assert.ok(car.alternatives.includes('automovil'));
+    assert.ok(car.alternatives.includes('automoviles'));
+});

@@ -1,0 +1,4083 @@
+[
+  {
+    "_id": "69effeb6e9b6f97c92adc8b4",
+    "original": "ciudad",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "69effeb6e9b6f97c92adc8b5",
+    "original": "neón",
+    "__v": 0,
+    "canonical": "neon",
+    "language": "es"
+  },
+  {
+    "_id": "69effeb6e9b6f97c92adc8b6",
+    "original": "azul",
+    "__v": 0,
+    "canonical": "blue",
+    "language": "es"
+  },
+  {
+    "_id": "69f0033fe9b6f97c92adc9a1",
+    "original": "chica",
+    "__v": 0,
+    "canonical": "girl",
+    "language": "es"
+  },
+  {
+    "_id": "69f0033fe9b6f97c92adc9a2",
+    "original": "amarillo",
+    "__v": 0,
+    "canonical": "yellow",
+    "language": "es"
+  },
+  {
+    "_id": "69f0033fe9b6f97c92adc9a3",
+    "original": "oscuro",
+    "__v": 0,
+    "canonical": "dark",
+    "language": "es"
+  },
+  {
+    "_id": "69f004cde9b6f97c92adca01",
+    "original": "fantasma",
+    "__v": 0,
+    "canonical": "ghost",
+    "language": "es"
+  },
+  {
+    "_id": "69f004cde9b6f97c92adca02",
+    "original": "morado",
+    "__v": 0,
+    "canonical": "purple",
+    "language": "es"
+  },
+  {
+    "_id": "69f005d7e9b6f97c92adca3b",
+    "original": "océano",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "69f005d7e9b6f97c92adca3c",
+    "original": "pez",
+    "__v": 0,
+    "canonical": "fish",
+    "language": "es"
+  },
+  {
+    "_id": "69f005e0e9b6f97c92adca3e",
+    "original": "agua",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "69f005e0e9b6f97c92adca3f",
+    "original": "cuadrados",
+    "__v": 0,
+    "canonical": "squares",
+    "language": "es"
+  },
+  {
+    "_id": "69f0061fe9b6f97c92adca5f",
+    "original": "motocicleta",
+    "__v": 0,
+    "canonical": "motorcycle",
+    "language": "es"
+  },
+  {
+    "_id": "69f0061fe9b6f97c92adca60",
+    "original": "naranja",
+    "__v": 0,
+    "canonical": "orange",
+    "language": "es"
+  },
+  {
+    "_id": "69f0061fe9b6f97c92adca61",
+    "original": "blanco",
+    "__v": 0,
+    "canonical": "white",
+    "language": "es"
+  },
+  {
+    "_id": "69f0b20ee9b6f97c92ae006b",
+    "original": "pájaros",
+    "__v": 0,
+    "canonical": "birds",
+    "language": "es"
+  },
+  {
+    "_id": "69f0b20ee9b6f97c92ae006c",
+    "original": "cielo",
+    "__v": 0,
+    "canonical": "sky",
+    "language": "es"
+  },
+  {
+    "_id": "69f0b20ee9b6f97c92ae006d",
+    "original": "rojo",
+    "__v": 0,
+    "canonical": "red",
+    "language": "es"
+  },
+  {
+    "_id": "69f0b20ee9b6f97c92ae006e",
+    "original": "enojado",
+    "__v": 0,
+    "canonical": "angry",
+    "language": "es"
+  },
+  {
+    "_id": "69f0ca66e9b6f97c92ae11bf",
+    "original": "lluvia",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "69f0caf5e9b6f97c92ae1215",
+    "original": "coche",
+    "__v": 0,
+    "canonical": "car",
+    "language": "es"
+  },
+  {
+    "_id": "69f0caf5e9b6f97c92ae1216",
+    "original": "carretera",
+    "__v": 0,
+    "canonical": "road",
+    "language": "es"
+  },
+  {
+    "_id": "69f0cbb7e9b6f97c92ae126f",
+    "original": "abstracto",
+    "__v": 0,
+    "canonical": "abstract",
+    "language": "es"
+  },
+  {
+    "_id": "69f0cbb7e9b6f97c92ae1270",
+    "original": "ondas",
+    "__v": 0,
+    "canonical": "waves",
+    "language": "es"
+  },
+  {
+    "_id": "69f0cc39e9b6f97c92ae12ca",
+    "original": "degradado",
+    "__v": 0,
+    "canonical": "gradient",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8c0e9b6f97c92ae1f09",
+    "original": "púrpura",
+    "__v": 0,
+    "canonical": "purple",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8c0e9b6f97c92ae1f0a",
+    "original": "cerilla",
+    "__v": 0,
+    "canonical": "match",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8c0e9b6f97c92ae1f0b",
+    "original": "llama",
+    "__v": 0,
+    "canonical": "flame",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8d5e9b6f97c92ae1f1e",
+    "original": "rosa",
+    "__v": 0,
+    "canonical": "pink",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8d5e9b6f97c92ae1f1f",
+    "original": "flor",
+    "__v": 0,
+    "canonical": "flower",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d8d5e9b6f97c92ae1f20",
+    "original": "pétalo",
+    "__v": 0,
+    "canonical": "petal",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d91de9b6f97c92ae1f44",
+    "original": "naturaleza",
+    "__v": 0,
+    "canonical": "nature",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d9e2e9b6f97c92ae1fb1",
+    "original": "calle",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d9e2e9b6f97c92ae1fb2",
+    "original": "negro",
+    "__v": 0,
+    "canonical": "black",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d9e2e9b6f97c92ae1fb3",
+    "original": "arbol",
+    "__v": 0,
+    "canonical": "tree",
+    "language": "es"
+  },
+  {
+    "_id": "69f0d9f4e9b6f97c92ae1fbf",
+    "original": "curva",
+    "__v": 0,
+    "canonical": "curve",
+    "language": "es"
+  },
+  {
+    "_id": "69f0da14e9b6f97c92ae1fd8",
+    "original": "verde",
+    "__v": 0,
+    "canonical": "green",
+    "language": "es"
+  },
+  {
+    "_id": "69f0da14e9b6f97c92ae1fd9",
+    "original": "onda",
+    "__v": 0,
+    "canonical": "wave",
+    "language": "es"
+  },
+  {
+    "_id": "69f0da14e9b6f97c92ae1fda",
+    "original": "brillo",
+    "__v": 0,
+    "canonical": "glow",
+    "language": "es"
+  },
+  {
+    "_id": "69f0db09e9b6f97c92ae2069",
+    "original": "forma",
+    "__v": 0,
+    "canonical": "shape",
+    "language": "es"
+  },
+  {
+    "_id": "69f0db20e9b6f97c92ae2078",
+    "original": "tierno",
+    "__v": 0,
+    "canonical": "adorable",
+    "language": "es"
+  },
+  {
+    "_id": "69f0db67e9b6f97c92ae20b8",
+    "original": "gorra",
+    "__v": 0,
+    "canonical": "hat",
+    "language": "es"
+  },
+  {
+    "_id": "69f0db77e9b6f97c92ae20c8",
+    "original": "conejo",
+    "__v": 0,
+    "canonical": "rabbit",
+    "language": "es"
+  },
+  {
+    "_id": "69f0db9ee9b6f97c92ae20eb",
+    "original": "textura",
+    "__v": 0,
+    "canonical": "texture",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dc86e9b6f97c92ae2188",
+    "original": "juguete",
+    "__v": 0,
+    "canonical": "toy",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dc95e9b6f97c92ae2192",
+    "original": "formas",
+    "__v": 0,
+    "canonical": "shapes",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dca9e9b6f97c92ae21a6",
+    "original": "burbujas",
+    "__v": 0,
+    "canonical": "bubbles",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dca9e9b6f97c92ae21a7",
+    "original": "humo",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dcbfe9b6f97c92ae21b6",
+    "original": "colorido",
+    "__v": 0,
+    "canonical": "colorful",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dcbfe9b6f97c92ae21b7",
+    "original": "iconos",
+    "__v": 0,
+    "canonical": "icons",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dcbfe9b6f97c92ae21b8",
+    "original": "musica",
+    "__v": 0,
+    "canonical": "music",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dcdce9b6f97c92ae21ce",
+    "original": "piedras",
+    "__v": 0,
+    "canonical": "stones",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dcdce9b6f97c92ae21cf",
+    "original": "cristales",
+    "__v": 0,
+    "canonical": "crystals",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dd0ee9b6f97c92ae21f3",
+    "original": "dorado",
+    "__v": 0,
+    "canonical": "gold",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dd0ee9b6f97c92ae21f4",
+    "original": "circulo",
+    "__v": 0,
+    "canonical": "circle",
+    "language": "es"
+  },
+  {
+    "_id": "69f0dd7ce9b6f97c92ae2236",
+    "original": "geometrico",
+    "__v": 0,
+    "canonical": "geometric",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e59fe9b6f97c92ae261f",
+    "original": "montana",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e59fe9b6f97c92ae2620",
+    "original": "bosque",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e59fe9b6f97c92ae2621",
+    "original": "fantasia",
+    "__v": 0,
+    "canonical": "fantasy",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e5bfe9b6f97c92ae2634",
+    "original": "geométrico",
+    "__v": 0,
+    "canonical": "geometric",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e5cfe9b6f97c92ae263e",
+    "original": "tecnología",
+    "__v": 0,
+    "canonical": "technology",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e5e3e9b6f97c92ae2649",
+    "original": "fluido",
+    "__v": 0,
+    "canonical": "fluid",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e5e3e9b6f97c92ae264a",
+    "original": "3d",
+    "__v": 0,
+    "canonical": "3d",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e643e9b6f97c92ae2677",
+    "original": "gotas",
+    "__v": 0,
+    "canonical": "drops",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e67ae9b6f97c92ae268e",
+    "original": "estudio",
+    "__v": 0,
+    "canonical": "studio",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e6c6e9b6f97c92ae26ae",
+    "original": "niebla",
+    "__v": 0,
+    "canonical": "fog",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e6c6e9b6f97c92ae26af",
+    "original": "luces",
+    "__v": 0,
+    "canonical": "lights",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e6d2e9b6f97c92ae26b5",
+    "original": "crema",
+    "__v": 0,
+    "canonical": "beige",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e6e7e9b6f97c92ae26be",
+    "original": "futurista",
+    "__v": 0,
+    "canonical": "futuristic",
+    "language": "es"
+  },
+  {
+    "_id": "69f0e6f7e9b6f97c92ae26c5",
+    "original": "curvas",
+    "__v": 0,
+    "canonical": "curves",
+    "language": "es"
+  },
+  {
+    "_id": "69f0fa28e9b6f97c92ae30d3",
+    "original": "playa",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "69f11d4ce9b6f97c92ae40ec",
+    "original": "habitación",
+    "__v": 0,
+    "canonical": "room",
+    "language": "es"
+  },
+  {
+    "_id": "69f11d4ce9b6f97c92ae40ed",
+    "original": "gato",
+    "__v": 0,
+    "canonical": "cat",
+    "language": "es"
+  },
+  {
+    "_id": "69f11d4ce9b6f97c92ae40ee",
+    "original": "computadora",
+    "__v": 0,
+    "canonical": "computer",
+    "language": "es"
+  },
+  {
+    "_id": "69f11d70e9b6f97c92ae40fe",
+    "original": "caricatura",
+    "__v": 0,
+    "canonical": "cartoon",
+    "language": "es"
+  },
+  {
+    "_id": "69f11dcce9b6f97c92ae4123",
+    "original": "colina",
+    "__v": 0,
+    "canonical": "hill",
+    "language": "es"
+  },
+  {
+    "_id": "69f11dcce9b6f97c92ae4124",
+    "original": "árbol",
+    "__v": 0,
+    "canonical": "tree",
+    "language": "es"
+  },
+  {
+    "_id": "69f11dcce9b6f97c92ae4125",
+    "original": "sol",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "69f11e29e9b6f97c92ae414c",
+    "original": "noche",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "69f11e29e9b6f97c92ae414d",
+    "original": "casa",
+    "__v": 0,
+    "canonical": "house",
+    "language": "es"
+  },
+  {
+    "_id": "69f11e29e9b6f97c92ae414e",
+    "original": "minimalista",
+    "__v": 0,
+    "canonical": "minimalist",
+    "language": "es"
+  },
+  {
+    "_id": "69f11f60e9b6f97c92ae41cb",
+    "original": "ratón",
+    "__v": 0,
+    "canonical": "mouse",
+    "language": "es"
+  },
+  {
+    "_id": "69f11f73e9b6f97c92ae41d4",
+    "original": "contraste",
+    "__v": 0,
+    "canonical": "contrast",
+    "language": "es"
+  },
+  {
+    "_id": "69f11f73e9b6f97c92ae41d5",
+    "original": "colores",
+    "__v": 0,
+    "canonical": "colors",
+    "language": "es"
+  },
+  {
+    "_id": "69f11f8ae9b6f97c92ae41df",
+    "original": "hojas",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fa5e9b6f97c92ae41eb",
+    "original": "astronauta",
+    "__v": 0,
+    "canonical": "astronaut",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fa5e9b6f97c92ae41ec",
+    "original": "espacio",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fb8e9b6f97c92ae41f4",
+    "original": "galaxia",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fb8e9b6f97c92ae41f5",
+    "original": "nubes",
+    "__v": 0,
+    "canonical": "clouds",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fcfe9b6f97c92ae41ff",
+    "original": "atardecer",
+    "__v": 0,
+    "canonical": "sunset",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fe4e9b6f97c92ae4209",
+    "original": "flujo",
+    "__v": 0,
+    "canonical": "flow",
+    "language": "es"
+  },
+  {
+    "_id": "69f11fe4e9b6f97c92ae420a",
+    "original": "estrellas",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "69f12007e9b6f97c92ae4219",
+    "original": "cerillo",
+    "__v": 0,
+    "canonical": "match",
+    "language": "es"
+  },
+  {
+    "_id": "69f12007e9b6f97c92ae421a",
+    "original": "fuego",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "69f12016e9b6f97c92ae4221",
+    "original": "abrigo",
+    "__v": 0,
+    "canonical": "coat",
+    "language": "es"
+  },
+  {
+    "_id": "69f12016e9b6f97c92ae4222",
+    "original": "personaje",
+    "__v": 0,
+    "canonical": "character",
+    "language": "es"
+  },
+  {
+    "_id": "69f1202ae9b6f97c92ae422d",
+    "original": "carreras",
+    "__v": 0,
+    "canonical": "racing",
+    "language": "es"
+  },
+  {
+    "_id": "69f1202ae9b6f97c92ae422e",
+    "original": "velocidad",
+    "__v": 0,
+    "canonical": "speed",
+    "language": "es"
+  },
+  {
+    "_id": "69f1202ae9b6f97c92ae422f",
+    "original": "movimiento",
+    "__v": 0,
+    "canonical": "motion",
+    "language": "es"
+  },
+  {
+    "_id": "69f12071e9b6f97c92ae424c",
+    "original": "triángulo",
+    "__v": 0,
+    "canonical": "triangle",
+    "language": "es"
+  },
+  {
+    "_id": "69f1207fe9b6f97c92ae4253",
+    "original": "medusa",
+    "__v": 0,
+    "canonical": "jellyfish",
+    "language": "es"
+  },
+  {
+    "_id": "69f12089e9b6f97c92ae4258",
+    "original": "cubo",
+    "__v": 0,
+    "canonical": "cube",
+    "language": "es"
+  },
+  {
+    "_id": "69f120c4e9b6f97c92ae4270",
+    "original": "nieve",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "69f120c4e9b6f97c92ae4271",
+    "original": "montaña",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "69f120c4e9b6f97c92ae4272",
+    "original": "puerta",
+    "__v": 0,
+    "canonical": "door",
+    "language": "es"
+  },
+  {
+    "_id": "69f12110e9b6f97c92ae4292",
+    "original": "gafas",
+    "__v": 0,
+    "canonical": "sunglasses",
+    "language": "es"
+  },
+  {
+    "_id": "69f12110e9b6f97c92ae4293",
+    "original": "genial",
+    "__v": 0,
+    "canonical": "cool",
+    "language": "es"
+  },
+  {
+    "_id": "69f12121e9b6f97c92ae429b",
+    "original": "cebra",
+    "__v": 0,
+    "canonical": "zebra",
+    "language": "es"
+  },
+  {
+    "_id": "69f1212de9b6f97c92ae42a0",
+    "original": "milu",
+    "__v": 0,
+    "canonical": "snowy",
+    "language": "es"
+  },
+  {
+    "_id": "69f1212de9b6f97c92ae42a1",
+    "original": "perro",
+    "__v": 0,
+    "canonical": "dog",
+    "language": "es"
+  },
+  {
+    "_id": "69f1213ae9b6f97c92ae42a9",
+    "original": "lobo",
+    "__v": 0,
+    "canonical": "wolf",
+    "language": "es"
+  },
+  {
+    "_id": "69f1213ae9b6f97c92ae42aa",
+    "original": "pelaje",
+    "__v": 0,
+    "canonical": "fur",
+    "language": "es"
+  },
+  {
+    "_id": "69f1213ae9b6f97c92ae42ab",
+    "original": "astuto",
+    "__v": 0,
+    "canonical": "cunning",
+    "language": "es"
+  },
+  {
+    "_id": "69f12149e9b6f97c92ae42b2",
+    "original": "esponja",
+    "__v": 0,
+    "canonical": "sponge",
+    "language": "es"
+  },
+  {
+    "_id": "69f12149e9b6f97c92ae42b3",
+    "original": "dibujos",
+    "__v": 0,
+    "canonical": "cartoon",
+    "language": "es"
+  },
+  {
+    "_id": "69f12161e9b6f97c92ae42bd",
+    "original": "gris",
+    "__v": 0,
+    "canonical": "grey",
+    "language": "es"
+  },
+  {
+    "_id": "69f12161e9b6f97c92ae42be",
+    "original": "feliz",
+    "__v": 0,
+    "canonical": "happy",
+    "language": "es"
+  },
+  {
+    "_id": "69f1216ee9b6f97c92ae42c4",
+    "original": "ojos",
+    "__v": 0,
+    "canonical": "eye",
+    "language": "es"
+  },
+  {
+    "_id": "69f121cee9b6f97c92ae42ec",
+    "original": "tortuga",
+    "__v": 0,
+    "canonical": "turtle",
+    "language": "es"
+  },
+  {
+    "_id": "69f121cee9b6f97c92ae42ed",
+    "original": "luciérnaga",
+    "__v": 0,
+    "canonical": "firefly",
+    "language": "es"
+  },
+  {
+    "_id": "69f121cee9b6f97c92ae42ee",
+    "original": "mono",
+    "__v": 0,
+    "canonical": "monkey",
+    "language": "es"
+  },
+  {
+    "_id": "69f121ebe9b6f97c92ae42fa",
+    "original": "sombrero",
+    "__v": 0,
+    "canonical": "hat",
+    "language": "es"
+  },
+  {
+    "_id": "69f12214e9b6f97c92ae430c",
+    "original": "palmera",
+    "__v": 0,
+    "canonical": "palm",
+    "language": "es"
+  },
+  {
+    "_id": "69f12290e9b6f97c92ae433e",
+    "original": "jirafa",
+    "__v": 0,
+    "canonical": "giraffe",
+    "language": "es"
+  },
+  {
+    "_id": "69f1230ce9b6f97c92ae4394",
+    "original": "cuadrado",
+    "__v": 0,
+    "canonical": "square",
+    "language": "es"
+  },
+  {
+    "_id": "69f1230ce9b6f97c92ae4395",
+    "original": "círculo",
+    "__v": 0,
+    "canonical": "circle",
+    "language": "es"
+  },
+  {
+    "_id": "69f1230ce9b6f97c92ae4396",
+    "original": "cruz",
+    "__v": 0,
+    "canonical": "cross",
+    "language": "es"
+  },
+  {
+    "_id": "69f12314e9b6f97c92ae43a1",
+    "original": "lago",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "69f12314e9b6f97c92ae43a2",
+    "original": "bote",
+    "__v": 0,
+    "canonical": "boat",
+    "language": "es"
+  },
+  {
+    "_id": "69f12321e9b6f97c92ae43b0",
+    "original": "amor",
+    "__v": 0,
+    "canonical": "love",
+    "language": "es"
+  },
+  {
+    "_id": "69f12321e9b6f97c92ae43b1",
+    "original": "pasión",
+    "__v": 0,
+    "canonical": "passion",
+    "language": "es"
+  },
+  {
+    "_id": "69f123a2e9b6f97c92ae4446",
+    "original": "submarino",
+    "__v": 0,
+    "canonical": "underwater",
+    "language": "es"
+  },
+  {
+    "_id": "69f1243ce9b6f97c92ae44f0",
+    "original": "grieta",
+    "__v": 0,
+    "canonical": "crack",
+    "language": "es"
+  },
+  {
+    "_id": "69f1253fe9b6f97c92ae4632",
+    "original": "buzo",
+    "__v": 0,
+    "canonical": "diver",
+    "language": "es"
+  },
+  {
+    "_id": "69f1253fe9b6f97c92ae4633",
+    "original": "peces",
+    "__v": 0,
+    "canonical": "fish",
+    "language": "es"
+  },
+  {
+    "_id": "69f12552e9b6f97c92ae4653",
+    "original": "planta",
+    "__v": 0,
+    "canonical": "plant",
+    "language": "es"
+  },
+  {
+    "_id": "69f1255fe9b6f97c92ae466b",
+    "original": "camaleon",
+    "__v": 0,
+    "canonical": "chameleon",
+    "language": "es"
+  },
+  {
+    "_id": "69f1255fe9b6f97c92ae466c",
+    "original": "lagarto",
+    "__v": 0,
+    "canonical": "lizard",
+    "language": "es"
+  },
+  {
+    "_id": "69f1255fe9b6f97c92ae466d",
+    "original": "reptil",
+    "__v": 0,
+    "canonical": "reptile",
+    "language": "es"
+  },
+  {
+    "_id": "69f12571e9b6f97c92ae4688",
+    "original": "espinas",
+    "__v": 0,
+    "canonical": "spikes",
+    "language": "es"
+  },
+  {
+    "_id": "69f12583e9b6f97c92ae46a7",
+    "original": "traje",
+    "__v": 0,
+    "canonical": "suit",
+    "language": "es"
+  },
+  {
+    "_id": "69f12583e9b6f97c92ae46a8",
+    "original": "guante",
+    "__v": 0,
+    "canonical": "glove",
+    "language": "es"
+  },
+  {
+    "_id": "69f12583e9b6f97c92ae46a9",
+    "original": "apuntando",
+    "__v": 0,
+    "canonical": "pointing",
+    "language": "es"
+  },
+  {
+    "_id": "69f12628e9b6f97c92ae47a0",
+    "original": "vehiculo",
+    "__v": 0,
+    "canonical": "vehicle",
+    "language": "es"
+  },
+  {
+    "_id": "69f12628e9b6f97c92ae47a1",
+    "original": "tecnologia",
+    "__v": 0,
+    "canonical": "technology",
+    "language": "es"
+  },
+  {
+    "_id": "69f12636e9b6f97c92ae47bb",
+    "original": "deportiva",
+    "__v": 0,
+    "canonical": "sportbike",
+    "language": "es"
+  },
+  {
+    "_id": "69f12656e9b6f97c92ae47ff",
+    "original": "sudadera",
+    "__v": 0,
+    "canonical": "hoodie",
+    "language": "es"
+  },
+  {
+    "_id": "69f12656e9b6f97c92ae4800",
+    "original": "retrato",
+    "__v": 0,
+    "canonical": "portrait",
+    "language": "es"
+  },
+  {
+    "_id": "69f12656e9b6f97c92ae4801",
+    "original": "monocromo",
+    "__v": 0,
+    "canonical": "monochrome",
+    "language": "es"
+  },
+  {
+    "_id": "69f1267be9b6f97c92ae483c",
+    "original": "asomar",
+    "__v": 0,
+    "canonical": "peek",
+    "language": "es"
+  },
+  {
+    "_id": "69f1268ee9b6f97c92ae4862",
+    "original": "sonrisa",
+    "__v": 0,
+    "canonical": "smile",
+    "language": "es"
+  },
+  {
+    "_id": "69f1268ee9b6f97c92ae4863",
+    "original": "primerplano",
+    "__v": 0,
+    "canonical": "closeup",
+    "language": "es"
+  },
+  {
+    "_id": "69f12e87e9b6f97c92ae4ed1",
+    "original": "musculo",
+    "__v": 0,
+    "canonical": "muscle",
+    "language": "es"
+  },
+  {
+    "_id": "69f1310ae9b6f97c92ae4f90",
+    "original": "geometria",
+    "__v": 0,
+    "canonical": "geometry",
+    "language": "es"
+  },
+  {
+    "_id": "69f13130e9b6f97c92ae4f98",
+    "original": "amigos",
+    "__v": 0,
+    "canonical": "friends",
+    "language": "es"
+  },
+  {
+    "_id": "69f13141e9b6f97c92ae4f9d",
+    "original": "videojuego",
+    "__v": 0,
+    "canonical": "gaming",
+    "language": "es"
+  },
+  {
+    "_id": "69f13456e9b6f97c92ae5047",
+    "original": "gatos",
+    "__v": 0,
+    "canonical": "cats",
+    "language": "es"
+  },
+  {
+    "_id": "69f13456e9b6f97c92ae5048",
+    "original": "grupo",
+    "__v": 0,
+    "canonical": "group",
+    "language": "es"
+  },
+  {
+    "_id": "69f13456e9b6f97c92ae5049",
+    "original": "gracioso",
+    "__v": 0,
+    "canonical": "funny",
+    "language": "es"
+  },
+  {
+    "_id": "69f1363de9b6f97c92ae50be",
+    "original": "oceano",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "69f1363de9b6f97c92ae50bf",
+    "original": "palmeras",
+    "__v": 0,
+    "canonical": "palms",
+    "language": "es"
+  },
+  {
+    "_id": "69f1364fe9b6f97c92ae50c3",
+    "original": "isla",
+    "__v": 0,
+    "canonical": "island",
+    "language": "es"
+  },
+  {
+    "_id": "69f1365ee9b6f97c92ae50c9",
+    "original": "olas",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "69f1365ee9b6f97c92ae50ca",
+    "original": "rocas",
+    "__v": 0,
+    "canonical": "rocks",
+    "language": "es"
+  },
+  {
+    "_id": "69f1365ee9b6f97c92ae50cb",
+    "original": "costa",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "69f1365ee9b6f97c92ae50cc",
+    "original": "aereo",
+    "__v": 0,
+    "canonical": "aerial",
+    "language": "es"
+  },
+  {
+    "_id": "69f1366ce9b6f97c92ae50d1",
+    "original": "arena",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "69f1366ce9b6f97c92ae50d2",
+    "original": "espuma",
+    "__v": 0,
+    "canonical": "foam",
+    "language": "es"
+  },
+  {
+    "_id": "69f1366ce9b6f97c92ae50d3",
+    "original": "orilla",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "69f1368ce9b6f97c92ae50dc",
+    "original": "acantilados",
+    "__v": 0,
+    "canonical": "cliffs",
+    "language": "es"
+  },
+  {
+    "_id": "69f136d0e9b6f97c92ae50ed",
+    "original": "acantilado",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "69f13700e9b6f97c92ae50fe",
+    "original": "barcos",
+    "__v": 0,
+    "canonical": "boats",
+    "language": "es"
+  },
+  {
+    "_id": "69f13710e9b6f97c92ae5104",
+    "original": "sombrilla",
+    "__v": 0,
+    "canonical": "umbrella",
+    "language": "es"
+  },
+  {
+    "_id": "69f15364e9b6f97c92ae57fc",
+    "original": "superdeportivo",
+    "__v": 0,
+    "canonical": "sports car",
+    "language": "es"
+  },
+  {
+    "_id": "69f15364e9b6f97c92ae57fd",
+    "original": "deporte",
+    "__v": 0,
+    "canonical": "sport",
+    "language": "es"
+  },
+  {
+    "_id": "69f15364e9b6f97c92ae57fe",
+    "original": "lujo",
+    "__v": 0,
+    "canonical": "luxury",
+    "language": "es"
+  },
+  {
+    "_id": "69f153bee9b6f97c92ae5811",
+    "original": "clasico",
+    "__v": 0,
+    "canonical": "classic",
+    "language": "es"
+  },
+  {
+    "_id": "69f153d3e9b6f97c92ae5817",
+    "original": "rayas",
+    "__v": 0,
+    "canonical": "stripes",
+    "language": "es"
+  },
+  {
+    "_id": "69f153e4e9b6f97c92ae581b",
+    "original": "mojado",
+    "__v": 0,
+    "canonical": "wet",
+    "language": "es"
+  },
+  {
+    "_id": "69f15410e9b6f97c92ae5825",
+    "original": "moderno",
+    "__v": 0,
+    "canonical": "modern",
+    "language": "es"
+  },
+  {
+    "_id": "69f15431e9b6f97c92ae582c",
+    "original": "garaje",
+    "__v": 0,
+    "canonical": "garage",
+    "language": "es"
+  },
+  {
+    "_id": "69f15431e9b6f97c92ae582d",
+    "original": "aleron",
+    "__v": 0,
+    "canonical": "spoiler",
+    "language": "es"
+  },
+  {
+    "_id": "69f1646ee9b6f97c92ae5bfa",
+    "original": "sobre",
+    "__v": 0,
+    "canonical": "envelope",
+    "language": "es"
+  },
+  {
+    "_id": "69f16497e9b6f97c92ae5c03",
+    "original": "cafe",
+    "__v": 0,
+    "canonical": "coffee",
+    "language": "es"
+  },
+  {
+    "_id": "69f16497e9b6f97c92ae5c04",
+    "original": "esponjoso",
+    "__v": 0,
+    "canonical": "fluffy",
+    "language": "es"
+  },
+  {
+    "_id": "69f164a6e9b6f97c92ae5c08",
+    "original": "animacion",
+    "__v": 0,
+    "canonical": "animation",
+    "language": "es"
+  },
+  {
+    "_id": "69f164bee9b6f97c92ae5c0e",
+    "original": "guitarra",
+    "__v": 0,
+    "canonical": "guitar",
+    "language": "es"
+  },
+  {
+    "_id": "69f164bee9b6f97c92ae5c0f",
+    "original": "raton",
+    "__v": 0,
+    "canonical": "mouse",
+    "language": "es"
+  },
+  {
+    "_id": "69f164d2e9b6f97c92ae5c14",
+    "original": "arquero",
+    "__v": 0,
+    "canonical": "archer",
+    "language": "es"
+  },
+  {
+    "_id": "69f164d2e9b6f97c92ae5c15",
+    "original": "capa",
+    "__v": 0,
+    "canonical": "cloak",
+    "language": "es"
+  },
+  {
+    "_id": "69f164d2e9b6f97c92ae5c16",
+    "original": "guerrero",
+    "__v": 0,
+    "canonical": "warrior",
+    "language": "es"
+  },
+  {
+    "_id": "69f16512e9b6f97c92ae5c24",
+    "original": "heroe",
+    "__v": 0,
+    "canonical": "hero",
+    "language": "es"
+  },
+  {
+    "_id": "69f16522e9b6f97c92ae5c28",
+    "original": "acuario",
+    "__v": 0,
+    "canonical": "aquarium",
+    "language": "es"
+  },
+  {
+    "_id": "69f16538e9b6f97c92ae5c2d",
+    "original": "pato",
+    "__v": 0,
+    "canonical": "duck",
+    "language": "es"
+  },
+  {
+    "_id": "69f1655ae9b6f97c92ae5c36",
+    "original": "gradiente",
+    "__v": 0,
+    "canonical": "gradient",
+    "language": "es"
+  },
+  {
+    "_id": "69f1656ee9b6f97c92ae5c3c",
+    "original": "texto",
+    "__v": 0,
+    "canonical": "text",
+    "language": "es"
+  },
+  {
+    "_id": "69f1657ee9b6f97c92ae5c40",
+    "original": "terror",
+    "__v": 0,
+    "canonical": "horror",
+    "language": "es"
+  },
+  {
+    "_id": "69f1657ee9b6f97c92ae5c41",
+    "original": "payaso",
+    "__v": 0,
+    "canonical": "clown",
+    "language": "es"
+  },
+  {
+    "_id": "69f1657ee9b6f97c92ae5c42",
+    "original": "perturbador",
+    "__v": 0,
+    "canonical": "creepy",
+    "language": "es"
+  },
+  {
+    "_id": "69f1657ee9b6f97c92ae5c43",
+    "original": "monstruo",
+    "__v": 0,
+    "canonical": "monster",
+    "language": "es"
+  },
+  {
+    "_id": "69f20380e9b6f97c92ae8bb5",
+    "original": "grafiti",
+    "__v": 0,
+    "canonical": "graffiti",
+    "language": "es"
+  },
+  {
+    "_id": "69f2038be9b6f97c92ae8bbc",
+    "original": "zapatillas",
+    "__v": 0,
+    "canonical": "sneakers",
+    "language": "es"
+  },
+  {
+    "_id": "69f20398e9b6f97c92ae8bc3",
+    "original": "urbano",
+    "__v": 0,
+    "canonical": "urban",
+    "language": "es"
+  },
+  {
+    "_id": "69f20458e9b6f97c92ae8c18",
+    "original": "patineta",
+    "__v": 0,
+    "canonical": "skateboard",
+    "language": "es"
+  },
+  {
+    "_id": "69f20479e9b6f97c92ae8c26",
+    "original": "corazón",
+    "__v": 0,
+    "canonical": "heart",
+    "language": "es"
+  },
+  {
+    "_id": "69f20479e9b6f97c92ae8c27",
+    "original": "lindo",
+    "__v": 0,
+    "canonical": "cute",
+    "language": "es"
+  },
+  {
+    "_id": "69f204aae9b6f97c92ae8c3c",
+    "original": "sangre",
+    "__v": 0,
+    "canonical": "blood",
+    "language": "es"
+  },
+  {
+    "_id": "69f204c2e9b6f97c92ae8c4b",
+    "original": "dragón",
+    "__v": 0,
+    "canonical": "dragon",
+    "language": "es"
+  },
+  {
+    "_id": "69f204d1e9b6f97c92ae8c54",
+    "original": "marrón",
+    "__v": 0,
+    "canonical": "brown",
+    "language": "es"
+  },
+  {
+    "_id": "69f2051ae9b6f97c92ae8c79",
+    "original": "suave",
+    "__v": 0,
+    "canonical": "soft",
+    "language": "es"
+  },
+  {
+    "_id": "69f20537e9b6f97c92ae8c86",
+    "original": "estrella",
+    "__v": 0,
+    "canonical": "star",
+    "language": "es"
+  },
+  {
+    "_id": "69f2056ee9b6f97c92ae8c9d",
+    "original": "rueda",
+    "__v": 0,
+    "canonical": "wheel",
+    "language": "es"
+  },
+  {
+    "_id": "69f20578e9b6f97c92ae8ca2",
+    "original": "pista",
+    "__v": 0,
+    "canonical": "track",
+    "language": "es"
+  },
+  {
+    "_id": "69f20585e9b6f97c92ae8cab",
+    "original": "desierto",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "69f20585e9b6f97c92ae8cac",
+    "original": "montañas",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "69f205a4e9b6f97c92ae8cb4",
+    "original": "ojo",
+    "__v": 0,
+    "canonical": "eye",
+    "language": "es"
+  },
+  {
+    "_id": "69f20697e9b6f97c92ae8d1b",
+    "original": "pared",
+    "__v": 0,
+    "canonical": "wall",
+    "language": "es"
+  },
+  {
+    "_id": "69f206ade9b6f97c92ae8d25",
+    "original": "fiesta",
+    "__v": 0,
+    "canonical": "party",
+    "language": "es"
+  },
+  {
+    "_id": "69f206aee9b6f97c92ae8d26",
+    "original": "fantasía",
+    "__v": 0,
+    "canonical": "fantasy",
+    "language": "es"
+  },
+  {
+    "_id": "69f206aee9b6f97c92ae8d27",
+    "original": "nube",
+    "__v": 0,
+    "canonical": "cloud",
+    "language": "es"
+  },
+  {
+    "_id": "69f235efe9b6f97c92aeaa9f",
+    "original": "plateado",
+    "__v": 0,
+    "canonical": "silver",
+    "language": "es"
+  },
+  {
+    "_id": "69f27208e9b6f97c92aecf59",
+    "original": "coraje, el perro cobarde",
+    "__v": 0,
+    "canonical": "courage the cowardly dog",
+    "language": "es"
+  },
+  {
+    "_id": "69f27219e9b6f97c92aecf62",
+    "original": "pájaro",
+    "__v": 0,
+    "canonical": "bird",
+    "language": "es"
+  },
+  {
+    "_id": "69f27219e9b6f97c92aecf63",
+    "original": "verde azulado",
+    "__v": 0,
+    "canonical": "teal",
+    "language": "es"
+  },
+  {
+    "_id": "69f273dde9b6f97c92aed01d",
+    "original": "pantera rosa",
+    "__v": 0,
+    "canonical": "pink panther",
+    "language": "es"
+  },
+  {
+    "_id": "69f27436e9b6f97c92aed043",
+    "original": "carro",
+    "__v": 0,
+    "canonical": "car",
+    "language": "es"
+  },
+  {
+    "_id": "69f323e5e9b6f97c92aefe1b",
+    "original": "mapa",
+    "__v": 0,
+    "canonical": "map",
+    "language": "es"
+  },
+  {
+    "_id": "69f3261de9b6f97c92aefe8d",
+    "original": "ciberpunk",
+    "__v": 0,
+    "canonical": "cyberpunk",
+    "language": "es"
+  },
+  {
+    "_id": "69f393ffe9b6f97c92af2845",
+    "original": "vampiro",
+    "__v": 0,
+    "canonical": "vampire",
+    "language": "es"
+  },
+  {
+    "_id": "69f41fb7e9b6f97c92af432d",
+    "original": "ciencia ficción",
+    "__v": 0,
+    "canonical": "scifi",
+    "language": "es"
+  },
+  {
+    "_id": "69f420abe9b6f97c92af432e",
+    "original": "oso",
+    "__v": 0,
+    "canonical": "bear",
+    "language": "es"
+  },
+  {
+    "_id": "69f42a2ae9b6f97c92af4333",
+    "original": "pato lucas",
+    "__v": 0,
+    "canonical": "daffy duck",
+    "language": "es"
+  },
+  {
+    "_id": "69f6107afab11fafa017b214",
+    "original": "bajo el agua",
+    "__v": 0,
+    "canonical": "underwater",
+    "language": "es"
+  },
+  {
+    "_id": "69f65d8ffab11fafa017b242",
+    "original": "pollito",
+    "__v": 0,
+    "canonical": "chick",
+    "language": "es"
+  },
+  {
+    "_id": "69f65ddcfab11fafa017b244",
+    "original": "motivacional",
+    "__v": 0,
+    "canonical": "motivational",
+    "language": "es"
+  },
+  {
+    "_id": "69f7c299fab11fafa017b37b",
+    "original": "cartas",
+    "__v": 0,
+    "canonical": "cards",
+    "language": "es"
+  },
+  {
+    "_id": "69f8b445fab11fafa017c7d5",
+    "original": "dinosaurio",
+    "__v": 0,
+    "canonical": "dinosaur",
+    "language": "es"
+  },
+  {
+    "_id": "69f8f3adfab11fafa017d43c",
+    "original": "androide 18",
+    "__v": 0,
+    "canonical": "android 18",
+    "language": "es"
+  },
+  {
+    "_id": "69f8fcacfab11fafa017d547",
+    "original": "muchacha",
+    "__v": 0,
+    "canonical": "girl",
+    "language": "es"
+  },
+  {
+    "_id": "69fa66b9fab11fafa0181ec1",
+    "original": "pingüino",
+    "__v": 0,
+    "canonical": "penguin",
+    "language": "es"
+  },
+  {
+    "_id": "69fa66e0fab11fafa0181eca",
+    "original": "bob esponja",
+    "__v": 0,
+    "canonical": "spongebob",
+    "language": "es"
+  },
+  {
+    "_id": "69fbb2970ef74d835f20d901",
+    "original": "calabaza",
+    "__v": 0,
+    "canonical": "pumpkin",
+    "language": "es"
+  },
+  {
+    "_id": "69fbcea50ef74d835f20deb0",
+    "original": "chimuelo",
+    "__v": 0,
+    "canonical": "toothless",
+    "language": "es"
+  },
+  {
+    "_id": "69fbcea50ef74d835f20deb1",
+    "original": "furia luminosa",
+    "__v": 0,
+    "canonical": "light fury",
+    "language": "es"
+  },
+  {
+    "_id": "69fdd79f0ef74d835f215f61",
+    "original": "tom y jerry",
+    "__v": 0,
+    "canonical": "tom and jerry",
+    "language": "es"
+  },
+  {
+    "_id": "69fe75120ef74d835f2197a6",
+    "original": "planeta",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "69ff38ae0ef74d835f21a5d9",
+    "original": "polar",
+    "__v": 0,
+    "canonical": "ice bear",
+    "language": "es"
+  },
+  {
+    "_id": "69ff7d4f67f3ac22e812113f",
+    "original": "firefly",
+    "__v": 0,
+    "canonical": "firefly",
+    "language": "es"
+  },
+  {
+    "_id": "69ff961b67f3ac22e812116b",
+    "original": "vivian banshee",
+    "__v": 0,
+    "canonical": "vivian banshee",
+    "language": "es"
+  },
+  {
+    "_id": "6a00d31967f3ac22e81212c4",
+    "original": "pato donald",
+    "__v": 0,
+    "canonical": "donald duck",
+    "language": "es"
+  },
+  {
+    "_id": "6a03351567f3ac22e812874a",
+    "original": "maestro roshi",
+    "__v": 0,
+    "canonical": "master roshi",
+    "language": "es"
+  },
+  {
+    "_id": "6a04e06567f3ac22e812ef32",
+    "original": "delfín",
+    "__v": 0,
+    "canonical": "dolphin",
+    "language": "es"
+  },
+  {
+    "_id": "6a100c57a5db38499f3f69b9",
+    "original": "capitán américa",
+    "__v": 0,
+    "canonical": "captain america",
+    "language": "es"
+  },
+  {
+    "_id": "6a164c533932787496d78e80",
+    "original": "iron  man",
+    "__v": 0,
+    "canonical": "iron man",
+    "language": "es"
+  },
+  {
+    "_id": "6a164d463932787496d78ebd",
+    "original": "leopardo",
+    "__v": 0,
+    "canonical": "leopard",
+    "language": "es"
+  },
+  {
+    "_id": "6a171eb73932787496d7da59",
+    "original": "da da dan",
+    "__v": 0,
+    "canonical": "dan da dan",
+    "language": "es"
+  },
+  {
+    "_id": "6a172d003932787496d7dce2",
+    "original": "tigre",
+    "__v": 0,
+    "canonical": "tiger",
+    "language": "es"
+  },
+  {
+    "_id": "6a25496e70bfe3648e0701ef",
+    "original": "el caballero",
+    "__v": 0,
+    "canonical": "the knight",
+    "language": "es"
+  },
+  {
+    "_id": "6a254cf770bfe3648e070203",
+    "original": "guasón",
+    "__v": 0,
+    "canonical": "joker",
+    "language": "es"
+  },
+  {
+    "_id": "6a29ebbc09346b05fb3a08ff",
+    "original": "anime chica",
+    "__v": 0,
+    "canonical": "anime girl",
+    "language": "es"
+  },
+  {
+    "_id": "6a2f593e43c3939b57f7935f",
+    "original": "superheroes",
+    "__v": 0,
+    "canonical": "superhero",
+    "language": "es"
+  },
+  {
+    "_id": "6a3740e2cede822daa7e8384",
+    "original": "supercar",
+    "__v": 0,
+    "canonical": "sports car",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e83fe",
+    "original": "mar",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e83ff",
+    "original": "hielo",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8400",
+    "original": "snow",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8401",
+    "original": "frozen",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8402",
+    "original": "congelado",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8403",
+    "original": "frost",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8404",
+    "original": "escarcha",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8405",
+    "original": "glaciar",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8406",
+    "original": "glacier",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8407",
+    "original": "arctic",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8408",
+    "original": "seaside",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8409",
+    "original": "ártico",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840a",
+    "original": "winter",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840b",
+    "original": "invierno",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840c",
+    "original": "snowflake",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840d",
+    "original": "copo de nieve",
+    "__v": 0,
+    "canonical": "ice",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840e",
+    "original": "sand",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e840f",
+    "original": "dunes",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8410",
+    "original": "dunas",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8411",
+    "original": "arid",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8412",
+    "original": "árido",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8413",
+    "original": "sahara",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8414",
+    "original": "dry land",
+    "__v": 0,
+    "canonical": "desert",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8415",
+    "original": "flores",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8416",
+    "original": "flower",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8417",
+    "original": "floral",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8418",
+    "original": "blossom",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8419",
+    "original": "bloom",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841a",
+    "original": "petal",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841b",
+    "original": "shoreline",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841c",
+    "original": "pétalos",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841d",
+    "original": "rose",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841e",
+    "original": "cherry blossom",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e841f",
+    "original": "sakura",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8420",
+    "original": "lavender",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8421",
+    "original": "lavanda",
+    "__v": 0,
+    "canonical": "flowers",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8422",
+    "original": "plantas",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8423",
+    "original": "plant",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8424",
+    "original": "vegetation",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8425",
+    "original": "coastal",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8426",
+    "original": "vegetación",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8427",
+    "original": "leaves",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8428",
+    "original": "leaf",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8429",
+    "original": "hoja",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842a",
+    "original": "moss",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842b",
+    "original": "musgo",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842c",
+    "original": "grass",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842d",
+    "original": "césped",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842e",
+    "original": "hierba",
+    "__v": 0,
+    "canonical": "plants",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e842f",
+    "original": "dragons",
+    "__v": 0,
+    "canonical": "dragon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8430",
+    "original": "dragones",
+    "__v": 0,
+    "canonical": "dragon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8431",
+    "original": "drake",
+    "__v": 0,
+    "canonical": "dragon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8432",
+    "original": "wyvern",
+    "__v": 0,
+    "canonical": "dragon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8433",
+    "original": "wolves",
+    "__v": 0,
+    "canonical": "wolf",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8434",
+    "original": "lobos",
+    "__v": 0,
+    "canonical": "wolf",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8435",
+    "original": "leon",
+    "__v": 0,
+    "canonical": "lion",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8436",
+    "original": "león",
+    "__v": 0,
+    "canonical": "lion",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8437",
+    "original": "selva",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8438",
+    "original": "lions",
+    "__v": 0,
+    "canonical": "lion",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8439",
+    "original": "tigers",
+    "__v": 0,
+    "canonical": "tiger",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843a",
+    "original": "bears",
+    "__v": 0,
+    "canonical": "bear",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843b",
+    "original": "aguila",
+    "__v": 0,
+    "canonical": "eagle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843c",
+    "original": "águila",
+    "__v": 0,
+    "canonical": "eagle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843d",
+    "original": "eagles",
+    "__v": 0,
+    "canonical": "eagle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843e",
+    "original": "cuervo",
+    "__v": 0,
+    "canonical": "crow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e843f",
+    "original": "raven",
+    "__v": 0,
+    "canonical": "crow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8440",
+    "original": "woods",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8441",
+    "original": "ravens",
+    "__v": 0,
+    "canonical": "crow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8442",
+    "original": "serpiente",
+    "__v": 0,
+    "canonical": "snake",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8443",
+    "original": "serpent",
+    "__v": 0,
+    "canonical": "snake",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8444",
+    "original": "snakes",
+    "__v": 0,
+    "canonical": "snake",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8445",
+    "original": "zorro",
+    "__v": 0,
+    "canonical": "fox",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8446",
+    "original": "foxes",
+    "__v": 0,
+    "canonical": "fox",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8447",
+    "original": "cats",
+    "__v": 0,
+    "canonical": "cat",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8448",
+    "original": "kitten",
+    "__v": 0,
+    "canonical": "cat",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8449",
+    "original": "feline",
+    "__v": 0,
+    "canonical": "cat",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844a",
+    "original": "woodland",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844b",
+    "original": "dogs",
+    "__v": 0,
+    "canonical": "dog",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844c",
+    "original": "puppy",
+    "__v": 0,
+    "canonical": "dog",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844d",
+    "original": "canine",
+    "__v": 0,
+    "canonical": "dog",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844e",
+    "original": "caballo",
+    "__v": 0,
+    "canonical": "horse",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e844f",
+    "original": "horses",
+    "__v": 0,
+    "canonical": "horse",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8450",
+    "original": "stallion",
+    "__v": 0,
+    "canonical": "horse",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8451",
+    "original": "mariposa",
+    "__v": 0,
+    "canonical": "butterfly",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8452",
+    "original": "butterflies",
+    "__v": 0,
+    "canonical": "butterfly",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8453",
+    "original": "deer",
+    "__v": 0,
+    "canonical": "deer",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8454",
+    "original": "jungle",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8455",
+    "original": "ciervo",
+    "__v": 0,
+    "canonical": "deer",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8456",
+    "original": "stag",
+    "__v": 0,
+    "canonical": "deer",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8457",
+    "original": "venado",
+    "__v": 0,
+    "canonical": "deer",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8458",
+    "original": "espada",
+    "__v": 0,
+    "canonical": "sword",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8459",
+    "original": "swords",
+    "__v": 0,
+    "canonical": "sword",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845a",
+    "original": "blade",
+    "__v": 0,
+    "canonical": "sword",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845b",
+    "original": "knight",
+    "__v": 0,
+    "canonical": "knight",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845c",
+    "original": "caballero",
+    "__v": 0,
+    "canonical": "knight",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845d",
+    "original": "warrior",
+    "__v": 0,
+    "canonical": "knight",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845e",
+    "original": "sea",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e845f",
+    "original": "jungla",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8460",
+    "original": "castle",
+    "__v": 0,
+    "canonical": "castle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8461",
+    "original": "castillo",
+    "__v": 0,
+    "canonical": "castle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8462",
+    "original": "fortress",
+    "__v": 0,
+    "canonical": "castle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8463",
+    "original": "fortaleza",
+    "__v": 0,
+    "canonical": "castle",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8464",
+    "original": "magic",
+    "__v": 0,
+    "canonical": "magic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8465",
+    "original": "magia",
+    "__v": 0,
+    "canonical": "magic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8466",
+    "original": "magical",
+    "__v": 0,
+    "canonical": "magic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8467",
+    "original": "wizard",
+    "__v": 0,
+    "canonical": "wizard",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8468",
+    "original": "mago",
+    "__v": 0,
+    "canonical": "wizard",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8469",
+    "original": "mage",
+    "__v": 0,
+    "canonical": "wizard",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846a",
+    "original": "rainforest",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846b",
+    "original": "bruja",
+    "__v": 0,
+    "canonical": "wizard",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846c",
+    "original": "witch",
+    "__v": 0,
+    "canonical": "witch",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846d",
+    "original": "elf",
+    "__v": 0,
+    "canonical": "elf",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846e",
+    "original": "elfo",
+    "__v": 0,
+    "canonical": "elf",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e846f",
+    "original": "elves",
+    "__v": 0,
+    "canonical": "elf",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8470",
+    "original": "demon",
+    "__v": 0,
+    "canonical": "demon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8471",
+    "original": "demonio",
+    "__v": 0,
+    "canonical": "demon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8472",
+    "original": "demons",
+    "__v": 0,
+    "canonical": "demon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8473",
+    "original": "angel",
+    "__v": 0,
+    "canonical": "angel",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8474",
+    "original": "ángel",
+    "__v": 0,
+    "canonical": "angel",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8475",
+    "original": "selva tropical",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8476",
+    "original": "angels",
+    "__v": 0,
+    "canonical": "angel",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8477",
+    "original": "robot",
+    "__v": 0,
+    "canonical": "robot",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8478",
+    "original": "robots",
+    "__v": 0,
+    "canonical": "robot",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8479",
+    "original": "mech",
+    "__v": 0,
+    "canonical": "robot",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847a",
+    "original": "mecha",
+    "__v": 0,
+    "canonical": "robot",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847b",
+    "original": "cyborg",
+    "__v": 0,
+    "canonical": "cyborg",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847c",
+    "original": "android",
+    "__v": 0,
+    "canonical": "cyborg",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847d",
+    "original": "futuristic",
+    "__v": 0,
+    "canonical": "futuristic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847e",
+    "original": "futuro",
+    "__v": 0,
+    "canonical": "futuristic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e847f",
+    "original": "arboles",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8480",
+    "original": "neon",
+    "__v": 0,
+    "canonical": "neon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8481",
+    "original": "neon lights",
+    "__v": 0,
+    "canonical": "neon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8482",
+    "original": "cyberpunk city",
+    "__v": 0,
+    "canonical": "cyberpunk",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8483",
+    "original": "sci fi",
+    "__v": 0,
+    "canonical": "scifi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8484",
+    "original": "science fiction",
+    "__v": 0,
+    "canonical": "scifi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8485",
+    "original": "spaceship",
+    "__v": 0,
+    "canonical": "spaceship",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8486",
+    "original": "nave espacial",
+    "__v": 0,
+    "canonical": "spaceship",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8487",
+    "original": "spacecraft",
+    "__v": 0,
+    "canonical": "spaceship",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8488",
+    "original": "árboles",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8489",
+    "original": "japón",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848a",
+    "original": "japanese",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848b",
+    "original": "japonés",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848c",
+    "original": "tokyo",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848d",
+    "original": "tokio",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848e",
+    "original": "animé",
+    "__v": 0,
+    "canonical": "anime",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e848f",
+    "original": "animated",
+    "__v": 0,
+    "canonical": "anime",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8490",
+    "original": "samurai",
+    "__v": 0,
+    "canonical": "samurai",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8491",
+    "original": "ninja",
+    "__v": 0,
+    "canonical": "ninja",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8492",
+    "original": "torii",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8493",
+    "original": "trees",
+    "__v": 0,
+    "canonical": "forest",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8494",
+    "original": "pagoda",
+    "__v": 0,
+    "canonical": "japan",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8495",
+    "original": "templo",
+    "__v": 0,
+    "canonical": "temple",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8496",
+    "original": "temple",
+    "__v": 0,
+    "canonical": "temple",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8497",
+    "original": "minimalismo",
+    "__v": 0,
+    "canonical": "minimalism",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8498",
+    "original": "surrealismo",
+    "__v": 0,
+    "canonical": "surrealism",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8499",
+    "original": "impresionismo",
+    "__v": 0,
+    "canonical": "impressionism",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849a",
+    "original": "retrofuturismo",
+    "__v": 0,
+    "canonical": "retrofuturism",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849b",
+    "original": "retro futurism",
+    "__v": 0,
+    "canonical": "retrofuturism",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849c",
+    "original": "vaporwave",
+    "__v": 0,
+    "canonical": "vaporwave",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849d",
+    "original": "vapor wave",
+    "__v": 0,
+    "canonical": "vaporwave",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849e",
+    "original": "lofi",
+    "__v": 0,
+    "canonical": "lofi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e849f",
+    "original": "lo fi",
+    "__v": 0,
+    "canonical": "lofi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a0",
+    "original": "lo-fi",
+    "__v": 0,
+    "canonical": "lofi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a1",
+    "original": "mountains",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a2",
+    "original": "violeta",
+    "__v": 0,
+    "canonical": "purple",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a3",
+    "original": "grey",
+    "__v": 0,
+    "canonical": "gray",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a4",
+    "original": "turquesa",
+    "__v": 0,
+    "canonical": "turquoise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a5",
+    "original": "cyan",
+    "__v": 0,
+    "canonical": "turquoise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a6",
+    "original": "cian",
+    "__v": 0,
+    "canonical": "turquoise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a7",
+    "original": "golden",
+    "__v": 0,
+    "canonical": "gold",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a8",
+    "original": "oro",
+    "__v": 0,
+    "canonical": "gold",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84a9",
+    "original": "silver",
+    "__v": 0,
+    "canonical": "silver",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84aa",
+    "original": "plata",
+    "__v": 0,
+    "canonical": "silver",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ab",
+    "original": "bronce",
+    "__v": 0,
+    "canonical": "bronze",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ac",
+    "original": "beige",
+    "__v": 0,
+    "canonical": "beige",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ad",
+    "original": "cream",
+    "__v": 0,
+    "canonical": "beige",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ae",
+    "original": "marron",
+    "__v": 0,
+    "canonical": "brown",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84af",
+    "original": "sierra",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b0",
+    "original": "brown",
+    "__v": 0,
+    "canonical": "brown",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b1",
+    "original": "café",
+    "__v": 0,
+    "canonical": "brown",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b2",
+    "original": "luna",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b3",
+    "original": "moons",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b4",
+    "original": "moonlight",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b5",
+    "original": "luz de luna",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b6",
+    "original": "crescent",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b7",
+    "original": "creciente",
+    "__v": 0,
+    "canonical": "moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b8",
+    "original": "nocturno",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84b9",
+    "original": "ocean waves",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ba",
+    "original": "peak",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84bb",
+    "original": "nocturnal",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84bc",
+    "original": "nighttime",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84bd",
+    "original": "midnight",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84be",
+    "original": "medianoche",
+    "__v": 0,
+    "canonical": "night",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84bf",
+    "original": "sunshine",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c0",
+    "original": "solar",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c1",
+    "original": "sunlight",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c2",
+    "original": "luz solar",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c3",
+    "original": "sunny",
+    "__v": 0,
+    "canonical": "sun",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c4",
+    "original": "pico",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c5",
+    "original": "amanecer",
+    "__v": 0,
+    "canonical": "sunrise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c6",
+    "original": "dawn",
+    "__v": 0,
+    "canonical": "sunrise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c7",
+    "original": "aurora",
+    "__v": 0,
+    "canonical": "sunrise",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c8",
+    "original": "dusk",
+    "__v": 0,
+    "canonical": "sunset",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84c9",
+    "original": "twilight",
+    "__v": 0,
+    "canonical": "sunset",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ca",
+    "original": "crepúsculo",
+    "__v": 0,
+    "canonical": "sunset",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84cb",
+    "original": "arquitectura",
+    "__v": 0,
+    "canonical": "architecture",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84cc",
+    "original": "edificio",
+    "__v": 0,
+    "canonical": "architecture",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84cd",
+    "original": "building",
+    "__v": 0,
+    "canonical": "architecture",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ce",
+    "original": "cumbre",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84cf",
+    "original": "ruins",
+    "__v": 0,
+    "canonical": "ruins",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d0",
+    "original": "ruinas",
+    "__v": 0,
+    "canonical": "ruins",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d1",
+    "original": "abandoned",
+    "__v": 0,
+    "canonical": "ruins",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d2",
+    "original": "abandonado",
+    "__v": 0,
+    "canonical": "ruins",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d3",
+    "original": "bridge",
+    "__v": 0,
+    "canonical": "bridge",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d4",
+    "original": "puente",
+    "__v": 0,
+    "canonical": "bridge",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d5",
+    "original": "tower",
+    "__v": 0,
+    "canonical": "tower",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d6",
+    "original": "torre",
+    "__v": 0,
+    "canonical": "tower",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d7",
+    "original": "lighthouse",
+    "__v": 0,
+    "canonical": "lighthouse",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d8",
+    "original": "faro",
+    "__v": 0,
+    "canonical": "lighthouse",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84d9",
+    "original": "summit",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84da",
+    "original": "rojo y negro",
+    "__v": 0,
+    "canonical": "red and black",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84db",
+    "original": "negro y rojo",
+    "__v": 0,
+    "canonical": "red and black",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84dc",
+    "original": "ojos brillante",
+    "__v": 0,
+    "canonical": "glowing eyes",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84dd",
+    "original": "ojos rojos brillante",
+    "__v": 0,
+    "canonical": "glowing eyes",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84de",
+    "original": "deportivo",
+    "__v": 0,
+    "canonical": "sports car",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84df",
+    "original": "coche deportivo",
+    "__v": 0,
+    "canonical": "sports car",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e0",
+    "original": "auto",
+    "__v": 0,
+    "canonical": "car",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e1",
+    "original": "highland",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e2",
+    "original": "automotive",
+    "__v": 0,
+    "canonical": "car",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e3",
+    "original": "estilo urbano",
+    "__v": 0,
+    "canonical": "urban",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e4",
+    "original": "urban style",
+    "__v": 0,
+    "canonical": "urban",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e5",
+    "original": "fluidez",
+    "__v": 0,
+    "canonical": "fluid",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e6",
+    "original": "reflejo",
+    "__v": 0,
+    "canonical": "reflection",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e7",
+    "original": "cliff",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e8",
+    "original": "eyes",
+    "__v": 0,
+    "canonical": "eye",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84e9",
+    "original": "sombra",
+    "__v": 0,
+    "canonical": "shadow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ea",
+    "original": "contraste alto",
+    "__v": 0,
+    "canonical": "contrast",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84eb",
+    "original": "gafa",
+    "__v": 0,
+    "canonical": "glasses",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ec",
+    "original": "gafa sol",
+    "__v": 0,
+    "canonical": "glasses",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ed",
+    "original": "sunglass",
+    "__v": 0,
+    "canonical": "glasses",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ee",
+    "original": "resplandor",
+    "__v": 0,
+    "canonical": "glow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ef",
+    "original": "luminous",
+    "__v": 0,
+    "canonical": "glow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f0",
+    "original": "luminoso",
+    "__v": 0,
+    "canonical": "glow",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f1",
+    "original": "sonriente",
+    "__v": 0,
+    "canonical": "smile",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f2",
+    "original": "tatuaje",
+    "__v": 0,
+    "canonical": "tattoo",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f3",
+    "original": "calavera",
+    "__v": 0,
+    "canonical": "skull",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f4",
+    "original": "calabera",
+    "__v": 0,
+    "canonical": "skull",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f5",
+    "original": "luna llena",
+    "__v": 0,
+    "canonical": "full moon",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f6",
+    "original": "paisaje urbano",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f7",
+    "original": "cordillera",
+    "__v": 0,
+    "canonical": "mountain",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f8",
+    "original": "rascacielo",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84f9",
+    "original": "skyscraper",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84fa",
+    "original": "armadura",
+    "__v": 0,
+    "canonical": "armor",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84fb",
+    "original": "cosmico",
+    "__v": 0,
+    "canonical": "cosmic",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84fc",
+    "original": "playful",
+    "__v": 0,
+    "canonical": "adorable",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84fd",
+    "original": "itachi uchiha",
+    "__v": 0,
+    "canonical": "itachi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84fe",
+    "original": "gojo satoru",
+    "__v": 0,
+    "canonical": "gojo",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e84ff",
+    "original": "satoru gojo",
+    "__v": 0,
+    "canonical": "gojo",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8500",
+    "original": "madara uchiha",
+    "__v": 0,
+    "canonical": "madara",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8501",
+    "original": "naruto uzumaki",
+    "__v": 0,
+    "canonical": "naruto",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8502",
+    "original": "sasuke uchiha",
+    "__v": 0,
+    "canonical": "sasuke",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8503",
+    "original": "ryomen sukuna",
+    "__v": 0,
+    "canonical": "sukuna",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8504",
+    "original": "kakashi hatake",
+    "__v": 0,
+    "canonical": "kakashi",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8505",
+    "original": "miles morale",
+    "__v": 0,
+    "canonical": "miles morales",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8506",
+    "original": "hombre araña",
+    "__v": 0,
+    "canonical": "spiderman",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8507",
+    "original": "cities",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8508",
+    "original": "waves",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8509",
+    "original": "urban",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850a",
+    "original": "cityscape",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850b",
+    "original": "skyline",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850c",
+    "original": "metropolis",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850d",
+    "original": "downtown",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850e",
+    "original": "town",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e850f",
+    "original": "pueblo",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8510",
+    "original": "street",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8511",
+    "original": "buildings",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8512",
+    "original": "edificios",
+    "__v": 0,
+    "canonical": "city",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8513",
+    "original": "cosmos",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8514",
+    "original": "universo",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8515",
+    "original": "universe",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8516",
+    "original": "galaxy",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8517",
+    "original": "nebula",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8518",
+    "original": "nebulosa",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8519",
+    "original": "stars",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851a",
+    "original": "marea",
+    "__v": 0,
+    "canonical": "ocean",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851b",
+    "original": "milky way",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851c",
+    "original": "via láctea",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851d",
+    "original": "outer space",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851e",
+    "original": "starfield",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e851f",
+    "original": "cosmos art",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8520",
+    "original": "planetary",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8521",
+    "original": "planet",
+    "__v": 0,
+    "canonical": "space",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8522",
+    "original": "flames",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8523",
+    "original": "llamas",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8524",
+    "original": "flame",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8525",
+    "original": "burning",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8526",
+    "original": "ardiente",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8527",
+    "original": "inferno",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8528",
+    "original": "blaze",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8529",
+    "original": "ember",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852a",
+    "original": "brasas",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852b",
+    "original": "smoke",
+    "__v": 0,
+    "canonical": "fire",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852c",
+    "original": "shore",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852d",
+    "original": "rain",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852e",
+    "original": "waterfall",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e852f",
+    "original": "cascada",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8530",
+    "original": "river",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8531",
+    "original": "río",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8532",
+    "original": "rio",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8533",
+    "original": "lake",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8534",
+    "original": "coast",
+    "__v": 0,
+    "canonical": "beach",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8535",
+    "original": "pond",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8536",
+    "original": "estanque",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8537",
+    "original": "stream",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8538",
+    "original": "arroyo",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e8539",
+    "original": "drop",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e853a",
+    "original": "gota",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e853b",
+    "original": "splash",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e853c",
+    "original": "wet",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a374b76cede822daa7e853d",
+    "original": "húmedo",
+    "__v": 0,
+    "canonical": "water",
+    "language": "es"
+  },
+  {
+    "_id": "6a66ba460cd1519075e592fd",
+    "original": "craneo",
+    "__v": 0,
+    "canonical": "skull",
+    "language": "es"
+  }
+]
