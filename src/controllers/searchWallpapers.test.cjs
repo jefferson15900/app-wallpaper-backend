@@ -94,9 +94,13 @@ function harness(records, mappings = [], ranked = false, dictionaryRows = []) {
         findOne: filter => ({ lean: async () => mappings.find(record => queryMatches(record, filter)) }),
     };
     const resolver = { exports: {} };
-    const database = { connection: { readyState: 1, collection: () => ({ find: filter => ({
+    const database = { connection: { readyState: 1, collection: name => ({
+        distinct: async () => [...new Set(dictionaryRows.flatMap(row => row.terms))],
+        aggregate: () => ({ toArray: async () => [...new Set(records.filter(row => row.status === 'approved').flatMap(row => row.tags))]
+            .map(_id => ({ _id, count: records.filter(row => row.status === 'approved' && row.tags.includes(_id)).length })) }),
+        find: filter => ({
         project() { return this; }, sort() { return this; }, limit() { return this; }, maxTimeMS() { return this; },
-        toArray: async () => dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term))),
+        toArray: async () => name === 'tagmaps' ? mappings : dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term))),
     }) }) } };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/../utils/tagResolver.js`, 'utf8')}\n})`)(
         name => name === '../models/TagMap' ? TagMap : name === 'mongoose' ? database : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
@@ -179,6 +183,28 @@ test('imported dictionary finds English wallpapers in Spanish and preserves all 
     assert.deepEqual(await h.search('claro de luna'), ['moon']);
 });
 
+test('Spanish spelling errors retrieve English tags without dropping a required color or an exact custom name', async () => {
+    const h = harness([wall('blue', ['squirrel', 'blue']), wall('red', ['squirrel', 'red'])], [], false,
+        [{ terms: ['squirrel', 'ardilla'] }]);
+    assert.deepEqual(await h.search('adrilla azul'), ['blue']);
+    const names = harness([wall('name', ['adrillas', 'green']), wall('blue', ['squirrel', 'blue'])], [], false,
+        [{ terms: ['squirrel', 'ardilla'] }]);
+    assert.deepEqual(await names.search('adrillas verde'), ['name']);
+    assert.deepEqual(await h.search('ardillla roja'), ['red']);
+});
+
+test('corrected bilingual searches freeze their correction while paginating', async () => {
+    const make = i => ({ ...wall((2000000000 + i).toString(16).padEnd(24, '0'), ['squirrel', 'blue']), fixtureScore: 10 });
+    const h = harness([make(1), make(2), make(3)], [], true, [{ terms: ['squirrel', 'ardilla'] }]);
+    const first = await h.request('adrillas azul', { pagination: 'cursor', limit: '1' });
+    assert.equal(first.data.items.length, 1);
+    const payload = JSON.parse(Buffer.from(first.data.nextCursor, 'base64url').toString());
+    assert.deepEqual(payload.corrections, [{ original: 'adrillas', term: 'ardilla' }]);
+    const second = await h.request('adrillas azul', { pagination: 'cursor', limit: '1', cursor: first.data.nextCursor });
+    assert.equal(second.data.items.length, 1);
+    assert.notEqual(second.data.items[0]._id, first.data.items[0]._id);
+});
+
 test('both stored language descriptions retrieve one publication without duplicate results or learned TagMap entries', async () => {
     const { searchDescriptionsFor } = require('../utils/wallpaperMetadata');
     const record = { ...wall('bilingual', []), images: [{ assetId: 'one', metadata: {
@@ -242,7 +268,7 @@ test('TagMap phrase aliases survive filtering even when no original word is stor
 
 test('a misspelled character matches through fuzzy but unrelated anime does not', async () => {
     const h = harness([wall('naruto', ['anime', 'naruto']), wall('boruto', ['anime', 'boruto']), wall('anime', ['anime'])]);
-    assert.deepEqual(await h.search('narutoo'), ['naruto']);
+    assert.deepEqual(await h.search('narutooo'), ['naruto']);
     assert.ok(JSON.stringify(h.pipelines.at(-1)[0]).includes('fuzzy'));
 });
 
@@ -452,10 +478,10 @@ test('an exhausted exact search cannot switch to fuzzy on a subsequent cursor or
 
 test('a fuzzy search keeps its mode while advancing and reports the final page explicitly', async () => {
     const h = harness([rankedWall(1), rankedWall(2), rankedWall(3)], [], true);
-    const first = await h.request('narutoo', { pagination: 'cursor', limit: '2' });
+    const first = await h.request('narutooo', { pagination: 'cursor', limit: '2' });
     assert.equal(first.data.hasMore, true);
     const before = h.pipelines.length;
-    const second = await h.request('narutoo', { cursor: first.data.nextCursor, limit: '2' });
+    const second = await h.request('narutooo', { cursor: first.data.nextCursor, limit: '2' });
     assert.equal(second.data.items.length, 1);
     assert.equal(second.data.nextCursor, null);
     assert.equal(h.pipelines.length, before + 1);
@@ -468,6 +494,7 @@ test('malformed cursors and continuations for different queries or filters are r
     const cursor = first.data.nextCursor;
     const before = h.pipelines.length;
     for (const query of [{ cursor: 'broken' }, { cursor, type: 'video' }, { cursor, premium: 'true' },
+        { cursor: Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url')), corrections: [{ original: true, term: 'naruto' }] })).toString('base64url') },
         { cursor: Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url')), score: { $gt: 0 } })).toString('base64url') }]) {
         assert.equal((await h.request('naruto', query)).code, 400);
     }

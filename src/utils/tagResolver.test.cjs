@@ -6,7 +6,9 @@ const { cleanTags } = require('../config/tags');
 const { normalizeMetadata } = require('./wallpaperMetadata');
 const TagMap = require('../models/TagMap');
 
-function resolver(rows = [], unavailable = false, dictionaryRows = []) {
+function resolver(rows = [], unavailable = false, dictionaryRows = [], catalogue = []) {
+    let elapsed = 0;
+    const Clock = class extends Date { static now() { return Date.now() + elapsed; } };
     const queries = [];
     const model = { find: filter => ({ lean: async () => {
         queries.push(filter);
@@ -15,16 +17,19 @@ function resolver(rows = [], unavailable = false, dictionaryRows = []) {
         return rows.filter(row => condition.$in.includes(row[field]));
     } }) };
     const module = { exports: {} };
-    const database = { connection: { readyState: 1, collection: () => ({ find: filter => ({
+    const database = { connection: { readyState: 1, collection: name => ({
+        distinct: async () => { if (unavailable) { throw new Error('offline'); } return [...new Set(dictionaryRows.flatMap(row => row.terms))]; },
+        aggregate: () => ({ toArray: async () => catalogue.map(_id => ({ _id, count: 1 })) }),
+        find: filter => ({
         project() { return this; }, sort() { return this; }, limit() { return this; }, maxTimeMS() { return this; },
         async toArray() {
             if (unavailable) { throw new Error('offline dictionary test'); }
-            return dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term)));
+            return name === 'tagmaps' ? rows : dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term)));
         },
     }) }) } };
-    vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? model : name === 'mongoose' ? database : require(name), module, module.exports);
-    return { ...module.exports, queries };
+    vm.runInThisContext(`(function(require,module,exports,Date){${readFileSync(`${__dirname}/tagResolver.js`, 'utf8')}\n})`)(
+        name => name === '../models/TagMap' ? model : name === 'mongoose' ? database : require(name), module, module.exports, Clock);
+    return { ...module.exports, queries, advance(ms) { elapsed += ms; } };
 }
 
 test('manual tags and structured metadata agree on canonical subjects, styles and environments', async () => {
@@ -33,6 +38,54 @@ test('manual tags and structured metadata agree on canonical subjects, styles an
     const expected = Object.values(metadata).flat();
     assert.deepEqual(await r.resolveTagsArray(cleanTags(['flores', 'planeta', 'ciencia ficción', 'minimalismo', 'nieve', 'calle'])), expected);
     assert.equal(r.queries.length, 0);
+});
+
+test('spelling corrects Spanish transpositions and plurals before bilingual lookup, preserving colors', async () => {
+    const r = resolver([], false, [{ terms: ['squirrel', 'ardilla'] }], ['squirrel', 'blue']);
+    for (const query of ['adrilla azul', 'adrillas azules', 'ardila azul', 'ardillla azul', 'adrillas asul']) {
+        const [animal, color] = await r.resolveSearchConcepts(query);
+        assert.ok(animal.alternatives.includes('squirrel'), query);
+        assert.equal(animal.correction, 'ardilla');
+        assert.equal(color.canonical, 'blue');
+    }
+    assert.deepEqual(await r.resolveTagsArray(['adrillas']), ['adrillas']);
+    const phrases = resolver([], false, [{ terms: ['squirrel', 'ardilla'] }], ['squirrel on a tree']);
+    assert.ok((await phrases.resolveSearchConcepts('adrillas'))[0].alternatives.includes('squirrel'));
+});
+
+test('spelling preserves exact catalogue names, valid dictionary words and uncertain alternatives', async () => {
+    const rows = [{ terms: ['beaver', 'castor'] }, { terms: ['shepherd', 'pastor'] }, { terms: ['validword'] }];
+    const r = resolver([], false, rows, ['beaver', 'shepherd', 'baruto', 'naruto']);
+    for (const query of ['baruto', 'validword', 'bastor']) {
+        const [concept] = await r.resolveSearchConcepts(query);
+        assert.equal(concept.original, query);
+        assert.equal(concept.correction, undefined, query);
+    }
+    assert.deepEqual(new Set(await r.suggestSearchCorrections('un bastor azul')), new Set(['un castor azul', 'un pastor azul']));
+    assert.deepEqual(await r.suggestSearchCorrections('baruto'), []);
+});
+
+test('spelling requires catalogue support and frozen choices survive changing vocabulary', async () => {
+    const r = resolver([], false, [{ terms: ['squirrel', 'ardilla'] }], []);
+    assert.equal((await r.resolveSearchConcepts('adrillas'))[0].correction, undefined);
+    const [pinned] = await r.resolveSearchConcepts('adrillas azul', new Set(), {
+        corrections: [{ original: 'adrillas', term: 'ardilla' }],
+    });
+    assert.ok(pinned.alternatives.includes('squirrel'));
+    assert.equal((await r.resolveSearchConcepts('adrillas', new Set(), { corrections: [] }))[0].correction, undefined);
+    const [invalid] = await r.resolveSearchConcepts('adrillas', new Set(), { corrections: [{ original: 'adrillas', term: 'naruto' }] });
+    assert.equal(invalid.correction, undefined);
+});
+
+test('catalogue refresh automatically protects newly published names without changing saved tags', async () => {
+    const catalogue = ['beaver'];
+    const r = resolver([], false, [{ terms: ['beaver', 'castor'] }], catalogue);
+    assert.equal((await r.resolveSearchConcepts('bastor'))[0].correction, 'castor');
+    catalogue.push('bastor');
+    r.advance(61000);
+    const [name] = await r.resolveSearchConcepts('bastor');
+    assert.equal(name.correction, undefined);
+    assert.equal(name.canonical, 'bastor');
 });
 
 test('database dictionary resolves unseen words, plurals and phrases without translating saved tags', async () => {
@@ -70,7 +123,7 @@ test('learned translations normalize their canonical value and cannot override m
 
 test('phrase queries batch dictionary reads and preserve known plurals without truncating names', async () => {
     const r = resolver();
-    const concepts = await r.resolveSearchConcepts('gatos azules cosmos lunes');
+    const concepts = await r.resolveSearchConcepts('gatos azules cosmos lunes', new Set(), { spelling: false });
     assert.deepEqual(concepts.map(concept => concept.canonical), ['cat', 'blue', 'space', 'lunes']);
     assert.equal(r.queries.length, 2);
 });

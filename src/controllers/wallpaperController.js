@@ -299,7 +299,8 @@ exports.searchWallpapers = async (req, res) => {
         const key = searchKey(cleanQuery, finalType, premium, exclude);
         const cursor = readSearchCursor(req.query.cursor, key);
 
-        const concepts = await resolveSearchConcepts(cleanQuery, IGNORED_SEARCH_WORDS);
+        const concepts = await resolveSearchConcepts(cleanQuery, IGNORED_SEARCH_WORDS,
+            cursor ? { corrections: cursor.corrections || [] } : {});
         if (!concepts.length) { return emptyResults(); }
         const rawSearch = concepts.map(concept => concept.original).join(' ');
         const canonicalQuery = concepts.map(concept => concept.canonical).join(' ');
@@ -544,7 +545,8 @@ exports.searchWallpapers = async (req, res) => {
         // after its limit: doing so hides valid matches and breaks continuation.
         const hasMore = paginated && results.length > limit;
         if (paginated) { results = results.slice(0, limit); }
-        const nextCursor = hasMore ? nextSearchCursor(results[results.length - 1], key, randomSeed, mode) : null;
+        const corrections = concepts.filter(concept => concept.correction).map(concept => ({ original: concept.original, term: concept.correction }));
+        const nextCursor = hasMore ? nextSearchCursor(results[results.length - 1], key, randomSeed, mode, corrections) : null;
 
         // Only the first page represents a search; an empty next page is not unmet demand.
         if (!cursor && (paginated || page === 1)) {

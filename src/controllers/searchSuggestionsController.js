@@ -2,7 +2,7 @@ const Wallpaper = require('../models/Wallpaper');
 const TagMap = require('../models/TagMap');
 const { SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
 const { ALIASES, normalizeTerm } = require('../utils/wallpaperMetadata');
-const { resolveSearchConcepts } = require('../utils/tagResolver');
+const { resolveSearchConcepts, suggestSearchCorrections, oneEditApart } = require('../utils/tagResolver');
 const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts } = require('../utils/searchQuery');
 
 const reviewedNames = new Map();
@@ -47,21 +47,6 @@ async function vocabulary(type, context) {
     })().catch(error => { cache.delete(key); throw error; });
     cache.set(key, entry);
     return entry.promise;
-}
-
-function oneEditApart(left, right) {
-    if (Math.abs(left.length - right.length) > 1 || left === right) { return false; }
-    let i = 0, j = 0, edits = 0;
-    while (i < left.length && j < right.length) {
-        if (left[i] === right[j]) { i++; j++; continue; }
-        if (++edits > 1) { return false; }
-        if (left.length === right.length) {
-            if (left[i] === right[j + 1] && left[i + 1] === right[j]) { i++; j++; }
-            i++; j++;
-        } else if (left.length > right.length) { i++; }
-        else { j++; }
-    }
-    return edits + Number(i < left.length || j < right.length) === 1;
 }
 
 exports.searchSuggestions = async (req, res) => {
@@ -111,7 +96,24 @@ exports.searchSuggestions = async (req, res) => {
                 const text = [candidate.context, candidate.label].filter(Boolean).join(' ');
                 return { label: text, query: text, kind: candidate.correction ? 'correction' : 'completion' };
             });
-        return res.json(suggestions);
+        // Existing mobile clients already render correction suggestions. Validate
+        // the entire corrected query against the same media/artist filters.
+        const corrections = await suggestSearchCorrections(query, IGNORED_SEARCH_WORDS);
+        if (!corrections.length) { return res.json(suggestions); }
+        const verified = await Promise.all(corrections.map(async text => {
+            const concepts = await resolveSearchConcepts(text, IGNORED_SEARCH_WORDS, { spelling: false });
+            if (!concepts.length) { return null; }
+            const rows = await Wallpaper.aggregate([
+                { $search: { index: 'default', compound: { filter: requiredSearchConcepts(concepts) } } },
+                { $match: { status: 'approved', ...(finalType !== 'all' ? { type: finalType } : {}) } },
+                { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+                { $unwind: '$artist' }, { $match: { 'artist.isActive': { $ne: false } } },
+                { $limit: 1 }, { $project: { _id: 1 } },
+            ]).option({ maxTimeMS: 1500 });
+            return rows.length ? { label: text, query: text, kind: 'correction' } : null;
+        }));
+        const corrected = verified.filter(Boolean);
+        return res.json(corrected.length ? corrected : suggestions);
     } catch (error) {
         console.error('[search suggestions]', error.message);
         return res.status(503).json({ msg: 'No se pudieron cargar las sugerencias.' });

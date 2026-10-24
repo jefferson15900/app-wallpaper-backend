@@ -28,7 +28,7 @@ function matches(clause, tags, descriptions = []) {
     return tokens(query).every(word => values.flatMap(tokens).some(tag => word === tag || fuzzy && distance(word, tag) <= fuzzy.maxEdits));
 }
 
-function harness(records, mappings = []) {
+function harness(records, mappings = [], dictionaryRows = []) {
     const traces = [], modules = new Map();
     let unavailable = false;
     const tagMap = { find(filter) {
@@ -37,23 +37,35 @@ function harness(records, mappings = []) {
         return { sort() { return this; }, limit() { return this; }, lean: async () => result };
     } };
     const wallpaper = { aggregate(pipeline) { traces.push(pipeline); return { option: async options => {
-        assert.equal(options.maxTimeMS, 3000);
+        assert.ok([1500, 3000].includes(options.maxTimeMS));
         if (unavailable) throw new Error('offline fixture');
         const base = pipeline.find(stage => stage.$match?.status).$match;
         const search = pipeline.find(stage => stage.$search)?.$search;
         const counts = new Map();
-        for (const record of records.filter(record => record.status === base.status && (!base.type || record.type === base.type) &&
-            record.artistActive !== false && (!search || matches(search, record.tags, record.searchDescriptions)))) {
+        const filtered = records.filter(record => record.status === base.status && (!base.type || record.type === base.type) &&
+            record.artistActive !== false && (!search || matches(search, record.tags, record.searchDescriptions)));
+        if (!pipeline.some(stage => stage.$group)) { return filtered.slice(0, 1); }
+        for (const record of filtered) {
             for (const tag of record.tags) { counts.set(tag, (counts.get(tag) || 0) + 1); }
         }
         return [...counts].map(([_id, count]) => ({ _id, count }));
     } }; } };
+    const database = { connection: { readyState: 1, collection: name => ({
+        distinct: async () => [...new Set(dictionaryRows.flatMap(row => row.terms))],
+        aggregate: () => ({ toArray: async () => [...new Set(records.filter(row => row.status === 'approved').flatMap(row => row.tags))]
+            .map(_id => ({ _id, count: records.filter(row => row.status === 'approved' && row.tags.includes(_id)).length })) }),
+        find: filter => ({
+            project() { return this; }, sort() { return this; }, limit() { return this; }, maxTimeMS() { return this; },
+            toArray: async () => name === 'tagmaps' ? mappings : dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term))),
+        }),
+    }) } };
     function load(filename) {
         if (modules.has(filename)) return modules.get(filename);
         const local = createRequire(filename), module = { exports: {} };
         new Function('require', 'module', 'exports', readFileSync(filename, 'utf8'))(name => {
             if (name === '../models/Wallpaper') return wallpaper;
             if (name === '../models/TagMap') return tagMap;
+            if (name === 'mongoose') return database;
             if (name === '../utils/tagResolver') return load(path.resolve(__dirname, '../utils/tagResolver.js'));
             return local(name);
         }, module, module.exports);
@@ -69,6 +81,24 @@ function harness(records, mappings = []) {
     } };
 }
 const wall = (tags, type = 'image', status = 'approved', artistActive = true) => ({ tags, type, status, artistActive });
+
+test('bilingual corrections handle a typo anywhere and preserve the full query and media filters', async () => {
+    const h = harness([wall(['squirrel', 'blue']), wall(['squirrel', 'red'], 'video')], [], [{ terms: ['squirrel', 'ardilla'] }]);
+    assert.ok((await h.search('adrillas azul', 'image')).data.some(item => item.query === 'ardilla azul' && item.kind === 'correction'));
+    assert.ok((await h.search('adrillas asul', 'image')).data.some(item => item.query === 'ardilla azul' && item.kind === 'correction'));
+    assert.deepEqual((await h.search('adrillas azul', 'video')).data, []);
+    assert.ok((await h.search('rojo adrillas', 'video')).data.some(item => item.query === 'rojo ardilla'));
+});
+
+test('ambiguous dictionary corrections are selectable and each respects all concepts and artist approval', async () => {
+    const h = harness([wall(['beaver', 'blue']), wall(['shepherd', 'blue']), wall(['shepherd', 'red'], 'image', 'pending')], [],
+        [{ terms: ['beaver', 'castor'] }, { terms: ['shepherd', 'pastor'] }]);
+    const result = await h.search('bastor azul');
+    assert.deepEqual(new Set(result.data.map(item => item.query)), new Set(['castor azul', 'pastor azul']));
+    assert.ok(result.data.every(item => item.kind === 'correction'));
+    assert.deepEqual(new Set((await h.search('bastor asul')).data.map(item => item.query)), new Set(['castor azul', 'pastor azul']));
+    assert.deepEqual((await h.search('bastor rojo')).data, []);
+});
 
 test('suggestions recognize visual equivalents in both prefixes and query context', async () => {
     const h = harness([wall(['girl', 'blue']), wall(['car', 'orange'])]);

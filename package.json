@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dictionary:prepare": "node scripts/import-freedict.cts",
     "dictionary:import": "node scripts/import-freedict.cts --apply",
-    "test:dictionary": "node --test scripts/import-freedict.test.cts src/utils/tagResolver.test.cjs src/controllers/searchWallpapers.test.cjs"
+    "test:dictionary": "node --test scripts/import-freedict.test.cts src/utils/tagResolver.test.cjs src/controllers/searchWallpapers.test.cjs src/controllers/searchSuggestionsController.test.cjs"
   },
   "keywords": [],
   "author": "",

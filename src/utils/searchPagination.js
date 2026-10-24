@@ -14,14 +14,17 @@ function readSearchCursor(value, key) {
             !Number.isFinite(cursor.seed) || cursor.seed < 0 || cursor.seed >= 1 ||
             !Number.isFinite(cursor.score) || cursor.score < 0 ||
             typeof cursor.id !== 'string' || !/^[a-f0-9]{24}$/.test(cursor.id)) { throw new Error(); }
+        if (cursor.corrections !== undefined && (!Array.isArray(cursor.corrections) || cursor.corrections.length > 6 ||
+            !cursor.corrections.every(item => item && typeof item.original === 'string' && typeof item.term === 'string' &&
+                /^[a-z]{4,32}$/.test(item.original) && /^[a-z]{3,32}$/.test(item.term)))) { throw new Error(); }
         return cursor;
     } catch {
         throw Object.assign(new Error('La continuación de búsqueda no es válida. Inicia la búsqueda de nuevo.'), { statusCode: 400 });
     }
 }
 
-function nextSearchCursor(item, key, seed, mode) {
-    return Buffer.from(JSON.stringify({ v: 1, key, seed, mode, score: item.randomizedScore, id: String(item._id) })).toString('base64url');
+function nextSearchCursor(item, key, seed, mode, corrections = []) {
+    return Buffer.from(JSON.stringify({ v: 1, key, seed, mode, corrections, score: item.randomizedScore, id: String(item._id) })).toString('base64url');
 }
 
 module.exports = { searchKey, readSearchCursor, nextSearchCursor };

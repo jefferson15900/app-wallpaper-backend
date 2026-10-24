@@ -71,3 +71,46 @@ original. No se necesita un índice Atlas adicional para esta colección: se usa
 
 Los datos adaptados se pueden regenerar con los comandos anteriores y su versión
 queda fijada por la URL y el hash del importador.
+
+## Corrección ortográfica bilingüe
+
+Antes de traducir una palabra desconocida, la búsqueda puede corregir una letra
+omitida, añadida, sustituida o dos letras contiguas intercambiadas. También prueba
+los candidatos de singular ya existentes: `adrillas` → `ardilla` → `squirrel`.
+Cada concepto de la consulta sigue siendo obligatorio, por ejemplo el color en
+`adrillas azules`. Las etiquetas almacenadas no cambian.
+
+Se respetan las palabras exactas del diccionario, los alias revisados, las etiquetas
+del catálogo y los tokens dentro de nombres o frases existentes. Solo se aplica una
+corrección automática cuando hay una única interpretación candidata respaldada por
+etiquetas de publicaciones aprobadas. Si varias interpretaciones tienen contenido,
+se conserva la consulta y el endpoint de sugerencias ofrece opciones de «¿Quisiste
+decir…?». Cada opción se verifica con la consulta completa, tipo de contenido,
+aprobación y artista activo. La app móvil ya sabe mostrar y seleccionar ese formato.
+
+El vocabulario se prepara en segundo plano después de conectar MongoDB. El índice
+del diccionario se reutiliza durante 15 minutos; las etiquetas, sus frecuencias y
+los alias aprendidos se actualizan al usarse después de 60 segundos. No se recorre
+el diccionario completo por búsqueda. Un índice compacto de firmas de borrado y
+búsqueda binaria recupera candidatas y comprueba la palabra completa, incluidas las
+posibles colisiones de hash. No requiere otra colección ni servicios externos.
+
+Límites conservadores: palabras de entrada de 4–32 letras latinas normalizadas,
+hasta seis términos desconocidos y consultas de hasta 150 caracteres para activar
+la corrección; una edición por palabra o candidato singular, máximo 40 candidatas
+evaluadas por término y ocho sugerencias. Si un conjunto de firmas supera 4.000
+palabras, se conserva la entrada original. El catálogo se limita a 20.000 etiquetas
+y 50.000 alias; alcanzar esos límites desactiva la corrección hasta ajustar el
+índice, evitando corregir nombres que quedaron fuera. Los errores de carga dejan
+operativas las equivalencias y el comportamiento fuzzy existentes.
+
+La paginación guarda las correcciones elegidas, incluso la ausencia de correcciones,
+para mantener la misma interpretación al pedir más resultados. Los cursores se
+invalidan al cambiar `SEARCH_VERSION` con este despliegue.
+
+La comprobación local con el diccionario completo registró unos 13 MB adicionales
+de memoria retenida entre heap y arrays, y verificó `rudeas` → `rueda` → `wheel`
+contra una publicación aprobada del índice Atlas. Los tiempos de esa conexión de
+prueba fueron aproximadamente 2,6 segundos con el índice frío y 0,25–0,42 segundos
+para resolver consultas posteriores; incluyen los viajes a MongoDB y no son una
+garantía de latencia de producción. Informe: `reports/freedict/spelling-verification.json`.

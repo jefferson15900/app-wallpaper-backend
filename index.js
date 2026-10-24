@@ -7,6 +7,7 @@ const compression = require('compression');
 const configRoutes = require('./src/routes/configRoutes');
 const { startUpdateRetention } = require('./src/services/updateRetention');
 const { initializeAnalytics } = require('./src/services/analyticsService');
+const { warmSearchVocabulary } = require('./src/utils/tagResolver');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -37,6 +38,7 @@ app.get('/delete-account', (req, res) => {
 let stopUpdateRetention;
 let stopImageAnalysis;
 connectDB().then(async () => {
+    void warmSearchVocabulary();
     stopUpdateRetention = startUpdateRetention();
     stopImageAnalysis = require('./src/services/aiQueue').start();
     await initializeAnalytics();
