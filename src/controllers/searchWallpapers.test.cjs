@@ -84,7 +84,7 @@ function evaluate(x, doc, variables = {}) {
     }
 }
 
-function harness(records, mappings = [], ranked = false) {
+function harness(records, mappings = [], ranked = false, dictionaryRows = []) {
     const pipelines = [];
     const rankings = [], searches = [];
     const queryMatches = (record, filter) => Object.entries(filter).every(([key, value]) =>
@@ -94,8 +94,12 @@ function harness(records, mappings = [], ranked = false) {
         findOne: filter => ({ lean: async () => mappings.find(record => queryMatches(record, filter)) }),
     };
     const resolver = { exports: {} };
+    const database = { connection: { readyState: 1, collection: () => ({ find: filter => ({
+        project() { return this; }, sort() { return this; }, limit() { return this; }, maxTimeMS() { return this; },
+        toArray: async () => dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term))),
+    }) }) } };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/../utils/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? TagMap : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
+        name => name === '../models/TagMap' ? TagMap : name === 'mongoose' ? database : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
     const controller = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/wallpaperController.js`, 'utf8')}\n})`)(name => {
         if (name === 'compromise') return nlp;
@@ -165,6 +169,15 @@ function harness(records, mappings = [], ranked = false) {
 }
 
 const wall = (_id, tags, type = 'image', status = 'approved') => ({ _id, tags, type, status, imageUrl: 'fixture' });
+
+test('imported dictionary finds English wallpapers in Spanish and preserves all requested concepts', async () => {
+    const h = harness([wall('blue-squirrel', ['squirrel', 'blue']), wall('red-squirrel', ['squirrel', 'red']),
+        wall('moon', ['moon']), { ...wall('description', []), searchDescriptions: ['A blue squirrel in a tree.'] }], [], false,
+    [{ terms: ['squirrel', 'ardilla'] }, { terms: ['moonlight', 'claro de luna', 'lunada'] }]);
+    assert.deepEqual(new Set(await h.search('una ardilla azul')), new Set(['blue-squirrel', 'description']));
+    assert.deepEqual(new Set(await h.search('ardillas azules')), new Set(['blue-squirrel', 'description']));
+    assert.deepEqual(await h.search('claro de luna'), ['moon']);
+});
 
 test('both stored language descriptions retrieve one publication without duplicate results or learned TagMap entries', async () => {
     const { searchDescriptionsFor } = require('../utils/wallpaperMetadata');

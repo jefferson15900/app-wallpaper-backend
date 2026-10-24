@@ -6,7 +6,7 @@ const { cleanTags } = require('../config/tags');
 const { normalizeMetadata } = require('./wallpaperMetadata');
 const TagMap = require('../models/TagMap');
 
-function resolver(rows = [], unavailable = false) {
+function resolver(rows = [], unavailable = false, dictionaryRows = []) {
     const queries = [];
     const model = { find: filter => ({ lean: async () => {
         queries.push(filter);
@@ -15,8 +15,15 @@ function resolver(rows = [], unavailable = false) {
         return rows.filter(row => condition.$in.includes(row[field]));
     } }) };
     const module = { exports: {} };
+    const database = { connection: { readyState: 1, collection: () => ({ find: filter => ({
+        project() { return this; }, sort() { return this; }, limit() { return this; }, maxTimeMS() { return this; },
+        async toArray() {
+            if (unavailable) { throw new Error('offline dictionary test'); }
+            return dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term)));
+        },
+    }) }) } };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? model : require(name), module, module.exports);
+        name => name === '../models/TagMap' ? model : name === 'mongoose' ? database : require(name), module, module.exports);
     return { ...module.exports, queries };
 }
 
@@ -26,6 +33,33 @@ test('manual tags and structured metadata agree on canonical subjects, styles an
     const expected = Object.values(metadata).flat();
     assert.deepEqual(await r.resolveTagsArray(cleanTags(['flores', 'planeta', 'ciencia ficción', 'minimalismo', 'nieve', 'calle'])), expected);
     assert.equal(r.queries.length, 0);
+});
+
+test('database dictionary resolves unseen words, plurals and phrases without translating saved tags', async () => {
+    const r = resolver([], false, [
+        { terms: ['squirrel', 'ardilla'] }, { terms: ['moonlight', 'claro de luna', 'lunada'] },
+    ]);
+    const [animal, color] = await r.resolveSearchConcepts('ardillas azules');
+    assert.ok(animal.alternatives.includes('squirrel'));
+    assert.equal(color.canonical, 'blue');
+    const [phrase] = await r.resolveSearchConcepts('claro de luna');
+    assert.ok(phrase.alternatives.includes('moonlight'));
+    assert.ok(phrase.alternatives.includes('moon'));
+    assert.equal(phrase.original, 'claro de luna');
+    assert.ok((await r.resolveSearchConcepts('squirrel'))[0].alternatives.includes('ardilla'));
+    assert.deepEqual(await r.resolveTagsArray(['squirrel']), ['squirrel']);
+});
+
+test('general dictionary respects curated meanings and never traverses unrelated senses', async () => {
+    const r = resolver([{ original: 'custom alias', canonical: 'custom subject' }], false, [
+        { terms: ['red', 'red de pesca'] }, { terms: ['custom alias', 'wrong meaning'] },
+        { terms: ['bank', 'ribera', 'orilla'] }, { terms: ['bank', 'banco', 'banca'] },
+    ]);
+    assert.ok(!(await r.resolveSearchConcepts('rojo'))[0].alternatives.includes('red de pesca'));
+    assert.ok(!(await r.resolveSearchConcepts('custom alias'))[0].alternatives.includes('wrong meaning'));
+    const [shore] = await r.resolveSearchConcepts('ribera');
+    assert.ok(shore.alternatives.includes('bank'));
+    assert.ok(!shore.alternatives.includes('banco'));
 });
 
 test('learned translations normalize their canonical value and cannot override metadata vocabulary', async () => {

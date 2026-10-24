@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dictionary:prepare": "node scripts/import-freedict.cts",
+    "dictionary:import": "node scripts/import-freedict.cts --apply",
+    "test:dictionary": "node --test scripts/import-freedict.test.cts src/utils/tagResolver.test.cjs src/controllers/searchWallpapers.test.cjs"
   },
   "keywords": [],
   "author": "",
@@ -26,5 +29,8 @@
     "mongoose": "^9.1.2",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0"
+  },
+  "devDependencies": {
+    "fast-xml-parser": "^5.11.2"
   }
 }

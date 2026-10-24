@@ -1,4 +1,5 @@
 const TagMap = require('../models/TagMap');
+const mongoose = require('mongoose');
 const { LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
 const { normalizeTerm } = require('./wallpaperMetadata');
 
@@ -64,6 +65,33 @@ function pluralCandidates(term) {
     return candidates;
 }
 
+// FreeDict is imported once into MongoDB. Searches never call a translation API.
+// Keep senses as separate records: ribera -> bank must not learn ribera -> banco.
+async function findDictionaryAlternatives(terms) {
+    const alternatives = new Map();
+    if (mongoose.connection?.readyState !== 1 || !terms.length) { return alternatives; }
+    try {
+        const rows = await mongoose.connection.collection('searchdictionary')
+            .find({ terms: { $in: terms }, source: 'freedict-eng-spa' })
+            .project({ terms: 1 }).sort({ _id: 1 }).limit(2000).maxTimeMS(1000).toArray();
+        const requested = new Set(terms);
+        for (const row of rows) {
+            for (const term of row.terms) {
+                if (!requested.has(term)) { continue; }
+                if (!alternatives.has(term)) { alternatives.set(term, new Set()); }
+                const matches = alternatives.get(term);
+                for (const equivalent of row.terms) {
+                    if (matches.size >= 24) { break; }
+                    matches.add(equivalent);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error al consultar el diccionario bilingüe:', error.code || error.name);
+    }
+    return alternatives;
+}
+
 /**
  * Match longest known phrases before removing filler words. Each resulting
  * concept remains mandatory, with translations/legacy spellings as alternatives.
@@ -83,18 +111,24 @@ async function resolveSearchConcepts(query, ignoredWords = new Set()) {
     });
     const candidates = new Set(spans.flat().map(span => span.term));
     words.forEach(word => pluralCandidates(word).forEach(term => candidates.add(term)));
-    const mappings = mappingDictionary(await findMappings({ original: { $in: [...candidates] } }));
+    const [mappingRows, dictionary] = await Promise.all([
+        findMappings({ original: { $in: [...candidates] } }),
+        findDictionaryAlternatives([...candidates]),
+    ]);
+    const mappings = mappingDictionary(mappingRows);
+    // Curated local/TagMap meanings take precedence over general dictionary senses.
+    const searchTerm = term => mappedTerm(term, mappings) ?? (dictionary.has(term) ? term : undefined);
     const concepts = [];
     for (let start = 0; start < words.length;) {
-        const phrase = spans[start].find(span => (span.end > start + 1 || !ignoredWords.has(span.term)) && mappedTerm(span.term, mappings));
+        const phrase = spans[start].find(span => (span.end > start + 1 || !ignoredWords.has(span.term)) && searchTerm(span.term));
         if (phrase) {
-            concepts.push({ original: phrase.term, canonical: mappedTerm(phrase.term, mappings) });
+            concepts.push({ original: phrase.term, canonical: searchTerm(phrase.term) });
             start = phrase.end;
             continue;
         }
         const word = words[start++];
         if (ignoredWords.has(word)) { continue; }
-        const singular = pluralCandidates(word).map(term => mappedTerm(term, mappings)).find(Boolean);
+        const singular = pluralCandidates(word).map(searchTerm).find(Boolean);
         concepts.push({ original: word, canonical: singular ?? word });
     }
     if (!concepts.length) { return []; }
@@ -103,6 +137,13 @@ async function resolveSearchConcepts(query, ignoredWords = new Set()) {
     return concepts.map(concept => {
         const equivalents = equivalentSearchTags(concept.canonical);
         const alternatives = new Set([concept.original, ...equivalents.flatMap(canonical => [canonical, ...(localAlternatives.get(canonical) || [])])]);
+        if (!mappedTerm(concept.original, mappings) && !mappedTerm(concept.canonical, mappings)) {
+            for (const term of dictionary.get(concept.canonical) || []) {
+                alternatives.add(term);
+                // Uploaded English tags may already use a local canonical label.
+                for (const canonical of equivalentSearchTags(term)) { alternatives.add(canonical); }
+            }
+        }
         for (const row of reverseMappings) {
             const original = normalizeTerm(row.original);
             if (equivalents.includes(resolveLocalTag(row.canonical)) &&
