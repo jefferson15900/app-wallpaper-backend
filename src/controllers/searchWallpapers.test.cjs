@@ -103,7 +103,7 @@ function harness(records, mappings = [], ranked = false, dictionaryRows = []) {
         toArray: async () => name === 'tagmaps' ? mappings : dictionaryRows.filter(row => row.terms.some(term => filter.terms.$in.includes(term))),
     }) }) } };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/../utils/tagResolver.js`, 'utf8')}\n})`)(
-        name => name === '../models/TagMap' ? TagMap : name === 'mongoose' ? database : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
+        name => name === '../models/TagMap' ? TagMap : name === 'mongoose' ? database : name === './searchQuery' ? require('../utils/searchQuery') : name === './wallpaperMetadata' ? require('../utils/wallpaperMetadata') : require('../config/tags'), resolver, resolver.exports);
     const controller = { exports: {} };
     vm.runInThisContext(`(function(require,module,exports){${readFileSync(`${__dirname}/wallpaperController.js`, 'utf8')}\n})`)(name => {
         if (name === 'compromise') return nlp;
@@ -508,6 +508,26 @@ test('unavailable artists and premium filters are applied before deriving contin
     const response = await h.request('naruto', { pagination: 'cursor', limit: '1', premium: 'true' });
     assert.deepEqual(response.data.items.map(item => item._id), [rankedWall(1)._id]);
     assert.equal(response.data.hasMore, false);
+});
+
+test('natural attribute phrases retrieve the same wallpapers and retain every subject and color constraint', async () => {
+    const h = harness([wall('blue-car', ['car', 'blue']), wall('red-car', ['car', 'red']),
+        wall('blue-tree', ['tree', 'blue']), wall('two-colors', ['car', 'blue', 'white']),
+        wall('pending', ['car', 'blue'], 'image', 'pending')], [{ original: 'color', canonical: 'colors' }], false,
+        [{ terms: ['de color', 'colorful', 'green'] }]);
+    const expected = await h.search('carros azules');
+    for (const query of ['carros de color azul', 'carros con color azul', 'un carro de color asul',
+        'cars in blue color', '¿coches de color azul?', 'carros, azules']) {
+        assert.deepEqual(await h.search(query), expected, query);
+    }
+    assert.deepEqual(await h.search('carros de color azul y blanco'), ['two-colors']);
+    assert.deepEqual(await h.search('blue and white cars'), ['two-colors']);
+});
+
+test('oversized queries and control characters are rejected before resolving or searching', async () => {
+    const h = harness([]);
+    for (const query of ['x'.repeat(151), 'carros\nazules']) { assert.equal((await h.request(query)).code, 400); }
+    assert.equal(h.pipelines.length, 0);
 });
 
 test('empty queries return the requested envelope while legacy consumers still receive arrays', async () => {

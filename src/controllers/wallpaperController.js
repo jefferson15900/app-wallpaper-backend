@@ -286,6 +286,9 @@ exports.searchWallpapers = async (req, res) => {
         const emptyResults = () => res.json(paginated ? { items: [], hasMore: false, nextCursor: null } : []);
 
         if (typeof q !== 'string' || !q.trim()) return emptyResults();
+        if (q.length > 150 || /[\x00-\x1f]/.test(q)) {
+            return res.status(400).json({ msg: 'Escribe hasta 150 caracteres sin caracteres de control.' });
+        }
         
         // 1. Normalización e inferencia de formato "live"; las frases se resuelven antes de quitar stop words.
         const { text: cleanQuery, isLive } = cleanSearchQuery(q);

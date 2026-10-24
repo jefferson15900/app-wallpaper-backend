@@ -1,7 +1,8 @@
 const TagMap = require('../models/TagMap');
 const mongoose = require('mongoose');
 const { LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
-const { normalizeTerm } = require('./wallpaperMetadata');
+const { normalizeTerm, ALIASES } = require('./wallpaperMetadata');
+const { normalizeSearchText } = require('./searchQuery');
 
 /**
  * 🎯 RESOLVER TÉRMINO ÚNICO
@@ -112,6 +113,86 @@ function oneEditApart(left, right) {
         else { j++; }
     }
     return edits + Number(i < left.length || j < right.length) === 1;
+}
+
+const attributeMarkers = new Map([
+    ...['color', 'colores', 'colors', 'colour', 'colours'].map(term => [term, 'colors']),
+    ...['estilo', 'estilos', 'style', 'styles'].map(term => [term, 'styles']),
+]);
+const attributeConnectors = new Set(['de', 'del', 'en', 'con', 'un', 'una', 'el', 'la', 'los', 'las', 'in', 'of', 'with', 'a', 'the']);
+const attributeValues = new Map(Object.entries(ALIASES).filter(([field]) => ['colors', 'styles'].includes(field))
+    .map(([field, dictionary]) => [field, new Map([...LOCAL_TAG_ALIASES].filter(([, canonical]) => Object.hasOwn(dictionary, resolveLocalTag(canonical)))
+        .map(([alias, canonical]) => [alias, resolveLocalTag(canonical)]))]));
+
+function attributeValue(term, field) {
+    const values = attributeValues.get(field);
+    if (values.has(term)) { return { canonical: values.get(term) }; }
+    if (!/^[a-z]{4,32}$/.test(term) || LOCAL_TAG_ALIASES.has(term)) { return null; }
+    const matches = new Map();
+    for (const [alias, canonical] of values) {
+        if (/^[a-z]{3,32}$/.test(alias) && [term, ...pluralCandidates(term)].some(variant => oneEditApart(variant, alias))) {
+            if (!matches.has(canonical)) { matches.set(canonical, alias); }
+        }
+    }
+    if (matches.size !== 1) { return null; }
+    const [canonical, correction] = matches.entries().next().value;
+    return { canonical, correction };
+}
+
+function searchCompletionContext(context, canonical) {
+    const words = normalizeSearchText(context).split(/\s+/);
+    while (attributeConnectors.has(words.at(-1))) { words.pop(); }
+    const field = attributeMarkers.get(words.at(-1));
+    // Complete a pending attribute before interpreting it. Cache by canonical
+    // value so azul/azules share a lookup, and keep the user's displayed phrase.
+    return field && Object.hasOwn(ALIASES[field], canonical) ? `${context} ${canonical}` : context;
+}
+
+function parseSearchAttributes(words, mappings) {
+    const removed = new Set();
+    const meanings = new Map();
+    for (let marker = 0; marker < words.length; marker++) {
+        const field = attributeMarkers.get(words[marker]);
+        if (!field) { continue; }
+        let isReviewedName = false;
+        for (let begin = 0; begin <= marker && !isReviewedName; begin++) {
+            for (let end = marker + 1; end <= words.length; end++) {
+                if (end - begin < 2) { continue; }
+                const term = words.slice(begin, end).join(' ');
+                if (term.length > 80) { break; }
+                const canonical = mappedTerm(term, mappings);
+                if (canonical && !Object.hasOwn(ALIASES[field], canonical)) { isReviewedName = true; break; }
+            }
+        }
+        if (isReviewedName) { continue; }
+        let start = marker + 1;
+        while (start < words.length && attributeConnectors.has(words[start])) { start++; }
+        let match;
+        for (let end = Math.min(words.length, start + 4); end > start; end--) {
+            const term = words.slice(start, end).join(' ');
+            const value = attributeValue(term, field);
+            if (value) { match = { term, value, start, end }; break; }
+        }
+        // English also places the attribute name after its value: "blue color",
+        // "anime style". Exact values only here, to protect ordinary nouns.
+        if (!match) {
+            for (let begin = Math.max(0, marker - 4); begin < marker; begin++) {
+                const term = words.slice(begin, marker).join(' ');
+                const canonical = attributeValues.get(field).get(term);
+                if (canonical) { match = { term, value: { canonical }, start: begin, end: marker }; break; }
+            }
+        }
+        // A standalone "color", an unknown value or a color relation such as
+        // "colores del bosque" retains its meaning; never discard it globally.
+        if (!match) { continue; }
+        removed.add(marker);
+        if (match.start > marker) {
+            for (let i = marker + 1; i < match.start; i++) { removed.add(i); }
+            for (let i = marker - 1; i >= 0 && attributeConnectors.has(words[i]); i--) { removed.add(i); }
+        }
+        meanings.set(match.term, match.value);
+    }
+    return { words: words.filter((_, index) => !removed.has(index)), meanings };
 }
 
 function buildSpellingIndex(terms) {
@@ -255,12 +336,12 @@ async function suggestSearchCorrections(query, ignoredWords = new Set()) {
     if (normalizeTerm(query).length > 150) { return []; }
     const concepts = await resolveSearchConcepts(query, ignoredWords, { spelling: false });
     const plans = await spellingPlans(concepts);
-    const words = normalizeTerm(query).split(/\s+/);
+    const words = normalizeSearchText(query).split(/\s+/);
     const correctedWords = words.map(word => plans.get(word)?.automatic || word);
     const suggestions = [];
     for (const [original, plan] of plans) {
         for (const { term } of plan.candidates) {
-            // Preserve every other word, including filler words and other typos.
+            // Preserve the other concepts and apply their unambiguous corrections.
             suggestions.push(correctedWords.map((word, index) => words[index] === original ? term : word).join(' '));
         }
     }
@@ -273,8 +354,8 @@ async function suggestSearchCorrections(query, ignoredWords = new Set()) {
  * Unknown plurals stay intact unless their singular is in the vocabulary.
  */
 async function resolveSearchConcepts(query, ignoredWords = new Set(), options = {}) {
-    const words = normalizeTerm(query).split(/\s+/).filter(Boolean);
-    const spans = words.map((_, start) => {
+    const rawWords = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+    const buildSpans = words => words.map((_, start) => {
         const result = [];
         for (let end = start + 1; end <= words.length; end++) {
             const term = words.slice(start, end).join(' ');
@@ -284,20 +365,33 @@ async function resolveSearchConcepts(query, ignoredWords = new Set(), options = 
         }
         return result.reverse();
     });
+    // Resolve reviewed names before interpreting attribute labels, e.g. the film
+    // "The Color Purple" must not be reduced to a purple color filter.
+    const reviewedCandidates = new Set(buildSpans(rawWords).flat().map(span => span.term));
+    rawWords.forEach(word => pluralCandidates(word).forEach(term => reviewedCandidates.add(term)));
+    const mappings = mappingDictionary(await findMappings({ original: { $in: [...reviewedCandidates] } }));
+    const syntax = parseSearchAttributes(rawWords, mappings);
+    const { words } = syntax;
+    const spans = buildSpans(words);
     const candidates = new Set(spans.flat().map(span => span.term));
     words.forEach(word => pluralCandidates(word).forEach(term => candidates.add(term)));
-    const [mappingRows, dictionary] = await Promise.all([
-        findMappings({ original: { $in: [...candidates] } }),
-        findDictionaryAlternatives([...candidates]),
-    ]);
-    const mappings = mappingDictionary(mappingRows);
+    const dictionary = await findDictionaryAlternatives([...candidates]);
     // Curated local/TagMap meanings take precedence over general dictionary senses.
-    const searchTerm = term => mappedTerm(term, mappings) ?? (dictionary.has(term) ? term : undefined);
+    const searchTerm = term => {
+        const reviewed = syntax.meanings.get(term)?.canonical ?? mappedTerm(term, mappings);
+        if (reviewed) { return reviewed; }
+        // General dictionary phrases cannot absorb a typed color/style or create
+        // a concept entirely out of grammatical connector words.
+        if (term.split(' ').every(word => ignoredWords.has(word)) ||
+            [...syntax.meanings.keys()].some(value => ` ${term} `.includes(` ${value} `))) { return undefined; }
+        return dictionary.has(term) ? term : undefined;
+    };
     const concepts = [];
     for (let start = 0; start < words.length;) {
         const phrase = spans[start].find(span => (span.end > start + 1 || !ignoredWords.has(span.term)) && searchTerm(span.term));
         if (phrase) {
-            concepts.push({ original: phrase.term, canonical: searchTerm(phrase.term) });
+            const correction = syntax.meanings.get(phrase.term)?.correction;
+            concepts.push({ original: phrase.term, canonical: searchTerm(phrase.term), ...(correction ? { correction } : {}) });
             start = phrase.end;
             continue;
         }
@@ -343,5 +437,5 @@ async function resolveSearchConcepts(query, ignoredWords = new Set(), options = 
     }));
 }
 
-module.exports = { resolveToCanonical, resolveTagsArray, resolveSearchConcepts, suggestSearchCorrections,
+module.exports = { resolveToCanonical, resolveTagsArray, resolveSearchConcepts, suggestSearchCorrections, searchCompletionContext,
     warmSearchVocabulary: spellingVocabulary, oneEditApart };

@@ -114,3 +114,24 @@ contra una publicación aprobada del índice Atlas. Los tiempos de esa conexión
 prueba fueron aproximadamente 2,6 segundos con el índice frío y 0,25–0,42 segundos
 para resolver consultas posteriores; incluyen los viajes a MongoDB y no son una
 garantía de latencia de producción. Informe: `reports/freedict/spelling-verification.json`.
+
+## Frases con atributos
+
+La búsqueda interpreta `de color azul`, `con un color azul`, `blue color` y
+`de estilo anime` usando los colores, estilos y alias de metadatos existentes.
+Reconoce sus plurales y errores de una letra con una única interpretación dentro
+del atributo. Conserva nombres revisados en TagMap, valores desconocidos y el
+sustantivo `color` cuando aparece solo. No interpreta cualquier oración natural.
+Las conjunciones `y/and` y los signos de puntuación dejan de crear condiciones
+adicionales; todos los conceptos solicitados siguen siendo obligatorios.
+
+Las sugerencias completan atributos pendientes como `carros de color az`,
+respetando tipo de contenido, aprobación y artista activo. Las consultas admiten
+hasta 150 caracteres sin caracteres de control. No requiere migrar datos,
+descargar otro diccionario ni llamar a servicios de traducción.
+
+Validación: 73 pruebas automatizadas aprobadas. El controlador local, conectado
+en modo de solo lectura al índice Atlas real, devolvió exactamente los mismos
+8 wallpapers para 19 variantes de `carros azules`, incluidas las frases que antes
+devolvían cero. Informe local: `reports/freedict/car-search-audit-after.json`.
+Estos cambios necesitan desplegar el backend para llegar a la app publicada.

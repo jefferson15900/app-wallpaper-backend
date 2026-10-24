@@ -109,6 +109,20 @@ test('suggestions recognize visual equivalents in both prefixes and query contex
     assert.ok((await reverse.search('chi')).data.some(item => item.query === 'chica'));
 });
 
+test('incomplete color and style attributes complete against the full query and reuse canonical contexts', async () => {
+    const h = harness([wall(['car', 'blue', 'anime']), wall(['car', 'red'], 'video'),
+        wall(['car', 'green'], 'image', 'pending'), wall(['car', 'purple'], 'image', 'approved', false)],
+        [{ original: 'color', canonical: 'colors' }], [{ terms: ['de color', 'colorful', 'green'] }]);
+    assert.ok((await h.search('carros de color az', 'image')).data.some(item => item.query === 'carros de color azul'));
+    const calls = h.traces.length;
+    await h.search('carros de color azu', 'image'); assert.equal(h.traces.length, calls);
+    assert.deepEqual((await h.search('carros de color az', 'video')).data, []);
+    assert.deepEqual((await h.search('carros de color ver', 'image')).data, []);
+    assert.deepEqual((await h.search('carros de color pur', 'image')).data, []);
+    assert.ok((await h.search('carros de estilo ani', 'image')).data.some(item => item.query === 'carros de estilo anime'));
+    assert.ok((await h.search('¿carros de color az?', 'image')).data.some(item => item.query === '¿carros de color azul'));
+});
+
 test('Spanish completions preserve the full query and are supported by the selected media type', async () => {
     const h = harness([wall(['naruto', 'blue']), wall(['naruto', 'red'], 'video'), wall(['boruto', 'blue'], 'video')]);
     assert.deepEqual((await h.search('Naruto az', 'image')).data, [{ label: 'Naruto azul', query: 'Naruto azul', kind: 'completion' }]);

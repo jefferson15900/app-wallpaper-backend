@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const { cleanTags } = require('../config/tags');
 const { normalizeMetadata } = require('./wallpaperMetadata');
 const TagMap = require('../models/TagMap');
+const { IGNORED_SEARCH_WORDS } = require('./searchQuery');
 
 function resolver(rows = [], unavailable = false, dictionaryRows = [], catalogue = []) {
     let elapsed = 0;
@@ -31,6 +32,40 @@ function resolver(rows = [], unavailable = false, dictionaryRows = [], catalogue
         name => name === '../models/TagMap' ? model : name === 'mongoose' ? database : require(name), module, module.exports, Clock);
     return { ...module.exports, queries, advance(ms) { elapsed += ms; } };
 }
+
+test('color phrases remove attribute labels without importing unrelated dictionary senses', async () => {
+    const r = resolver([{ original: 'color', canonical: 'colors' }], false,
+        [{ terms: ['de color', 'colorful', 'green'] }, { terms: ['con un', 'with a'] }]);
+    for (const query of ['carros de color azul', 'carros con un color azul', 'un carro de color asul',
+        'coches colores azules', 'cars in blue color', 'cars with the colour blue', '¿carros de color azul?', 'carros de color azul y blanco']) {
+        const concepts = await r.resolveSearchConcepts(query, IGNORED_SEARCH_WORDS);
+        assert.deepEqual(concepts.map(item => item.canonical), query.endsWith('blanco') ? ['car', 'blue', 'white'] : ['car', 'blue'], query);
+        assert.ok(concepts.every(item => !item.alternatives.includes('green')), query);
+    }
+});
+
+test('all supported colors and multiword styles use their existing metadata aliases', async () => {
+    const { ALIASES } = require('./wallpaperMetadata');
+    const r = resolver();
+    for (const [field, marker] of [['colors', 'color'], ['styles', 'estilo']]) {
+        for (const [canonical, aliases] of Object.entries(ALIASES[field])) {
+            for (const alias of [canonical, ...aliases]) {
+                const query = `carros de ${marker} ${alias}`;
+                assert.deepEqual((await r.resolveSearchConcepts(query, IGNORED_SEARCH_WORDS, { spelling: false })).map(item => item.canonical), ['car', canonical], query);
+            }
+        }
+    }
+});
+
+test('attribute parsing preserves unknown values, standalone nouns and reviewed phrase names', async () => {
+    const r = resolver([{ original: 'the color purple', canonical: 'purple movie' }]);
+    for (const query of ['color', 'carros color zzzzzz', 'colores del bosque']) {
+        const concepts = await r.resolveSearchConcepts(query, IGNORED_SEARCH_WORDS, { spelling: false });
+        assert.ok(concepts.some(item => ['color', 'colores'].includes(item.original)), query);
+    }
+    assert.deepEqual((await r.resolveSearchConcepts('the color purple', IGNORED_SEARCH_WORDS)).map(item => item.canonical), ['purple movie']);
+    assert.deepEqual((await r.resolveSearchConcepts('hombre araña de color azul', IGNORED_SEARCH_WORDS)).map(item => item.canonical), ['spiderman', 'blue']);
+});
 
 test('manual tags and structured metadata agree on canonical subjects, styles and environments', async () => {
     const r = resolver();

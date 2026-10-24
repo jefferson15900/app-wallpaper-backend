@@ -2,8 +2,8 @@ const Wallpaper = require('../models/Wallpaper');
 const TagMap = require('../models/TagMap');
 const { SYNONYMS, LOCAL_TAG_ALIASES, resolveLocalTag, equivalentSearchTags } = require('../config/tags');
 const { ALIASES, normalizeTerm } = require('../utils/wallpaperMetadata');
-const { resolveSearchConcepts, suggestSearchCorrections, oneEditApart } = require('../utils/tagResolver');
-const { cleanSearchQuery, IGNORED_SEARCH_WORDS, requiredSearchConcepts } = require('../utils/searchQuery');
+const { resolveSearchConcepts, suggestSearchCorrections, searchCompletionContext, oneEditApart } = require('../utils/tagResolver');
+const { cleanSearchQuery, normalizeSearchText, IGNORED_SEARCH_WORDS, requiredSearchConcepts } = require('../utils/searchQuery');
 
 const reviewedNames = new Map();
 for (const alias of Object.keys(SYNONYMS)) { reviewedNames.set(normalizeTerm(alias), { label: alias, canonical: resolveLocalTag(alias) }); }
@@ -59,7 +59,7 @@ exports.searchSuggestions = async (req, res) => {
     const finalType = type === 'all' && cleanSearchQuery(query).isLive ? 'video' : type;
     try {
         const words = query.split(' ');
-        const suffixes = words.map((_, index) => ({ context: words.slice(0, index).join(' '), prefix: normalizeTerm(words.slice(index).join(' ')) }));
+        const suffixes = words.map((_, index) => ({ context: words.slice(0, index).join(' '), prefix: normalizeSearchText(words.slice(index).join(' ')) }));
         const globalValues = await vocabulary(finalType, '');
         const names = new Map(reviewedNames);
         for (const [canonical, { label }] of globalValues) { names.set(normalizeTerm(label), { label, canonical }); }
@@ -77,11 +77,12 @@ exports.searchSuggestions = async (req, res) => {
                 .filter(([name]) => oneEditApart(suffix.prefix, name))
                 .map(([, entry]) => ({ ...suffix, ...entry, correction: true, exact: false })));
         }
-        const contexts = [...new Set(candidates.map(candidate => candidate.context))];
+        candidates = candidates.map(candidate => ({ ...candidate, lookupContext: searchCompletionContext(candidate.context, candidate.canonical) }));
+        const contexts = [...new Set(candidates.map(candidate => candidate.lookupContext))];
         const values = new Map(await Promise.all(contexts.map(async context => [context, context ? await vocabulary(finalType, context) : globalValues])));
         const seen = new Set();
         const suggestions = candidates.map(candidate => ({ ...candidate,
-            count: equivalentSearchTags(candidate.canonical).reduce((total, canonical) => total + (values.get(candidate.context).get(canonical)?.count || 0), 0),
+            count: equivalentSearchTags(candidate.canonical).reduce((total, canonical) => total + (values.get(candidate.lookupContext).get(canonical)?.count || 0), 0),
         })).filter(candidate => candidate.context.length + candidate.label.length + Number(Boolean(candidate.context)) <= 150 &&
             !IGNORED_SEARCH_WORDS.has(normalizeTerm(candidate.label)) && candidate.count > 0)
             .sort((a, b) => Number(b.exact) - Number(a.exact) || b.prefix.length - a.prefix.length ||
