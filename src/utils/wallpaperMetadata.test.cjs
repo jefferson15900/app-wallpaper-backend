@@ -102,6 +102,64 @@ function load(relative, overrides) {
     return module.exports;
 }
 
+test('both descriptions and their source survive storage, editing, merging and tag removal without becoming tags', async () => {
+    const metadata = normalizeMetadata({ descriptionEs: '  Un hombre de piel roja. ', descriptionEn: 'A man with red skin.', descriptionEnSource: 'Un hombre de piel roja.' });
+    for (const field of ['descriptionEs', 'descriptionEn', 'descriptionEnSource']) {
+        assert.throws(() => normalizeMetadata({ [field]: 'x'.repeat(241) }));
+        assert.throws(() => normalizeMetadata({ [field]: [] }));
+    }
+    const record = new Wallpaper({ imageUrl: 'x', public_id: 'p', artist: 'a'.repeat(24), metadata,
+        images: [{ assetId: 'asset', imageUrl: 'x', metadata }] });
+    await record.validate();
+    assert.deepEqual(record.toObject().images[0].metadata, metadata);
+    const wallpaper = record.toObject();
+    assert.deepEqual(searchDescriptionsFor(wallpaper), [metadata.descriptionEs, metadata.descriptionEn]);
+    assert.deepEqual(searchTagsFor(wallpaper), []);
+    assert.equal(matchedAssetId(wallpaper, 'hombre piel roja'), 'asset');
+    assert.equal(matchedAssetId(wallpaper, 'man red skin'), 'asset');
+    assert.deepEqual(searchDescriptionsFor({ metadata: { descriptionEnSource: 'No es una descripción vigente.' } }), []);
+    assert.deepEqual(removeMetadataTag(wallpaper, 'red').images[0].metadata, metadata);
+    const { manualMetadataChanges, mergedMetadataChanges } = require('../services/wallpaperMetadataService');
+    const edited = manualMetadataChanges(wallpaper, { assetMetadata: [{ assetId: 'asset', metadata: { ...metadata, descriptionEn: '' } }] });
+    assert.deepEqual(searchDescriptionsFor({ ...wallpaper, ...edited }), [metadata.descriptionEs]);
+    const merged = mergedMetadataChanges(wallpaper, { metadata: { descriptionEs: 'Otra escena.' }, imageUrl: 'other', tags: [] });
+    assert.deepEqual(merged.searchDescriptions, [metadata.descriptionEs, metadata.descriptionEn, 'Otra escena.']);
+});
+
+test('translation makes one text-only request, validates output and never calls the image path', async () => {
+    const savedKey = process.env.GOOGLE_AI_KEY;
+    process.env.GOOGLE_AI_KEY = 'fake';
+    let calls = 0, output = 'A man with red skin.', failure;
+    const service = load('../services/aiService.js', { '@google/generative-ai': { GoogleGenerativeAI: function () {
+        this.getGenerativeModel = config => {
+            assert.equal(config.generationConfig.maxOutputTokens, 256);
+            return { generateContent: async (parts, options) => {
+                calls++;
+                assert.ok(parts.every(part => typeof part === 'string'));
+                assert.deepEqual(JSON.parse(parts[1]), { descriptionEs: 'Un hombre de piel roja.' });
+                assert.equal(options.timeout, 25000);
+                if (failure) throw failure;
+                return { response: { text: () => JSON.stringify({ descriptionEn: output }) } };
+            } };
+        };
+    } } });
+    try {
+        assert.deepEqual(await service.translateDescription(' Un hombre de piel roja. '),
+            { descriptionEs: 'Un hombre de piel roja.', descriptionEn: 'A man with red skin.' });
+        for (output of ['', 'x'.repeat(241), undefined]) await assert.rejects(service.translateDescription('Un hombre de piel roja.'));
+        failure = Object.assign(new Error('quota'), { status: 429 });
+        await assert.rejects(service.translateDescription('Un hombre de piel roja.'), error => error.status === 429);
+        assert.equal(calls, 5);
+        await assert.rejects(service.translateDescription('x'.repeat(241)));
+        await assert.rejects(service.translateDescription(''));
+        delete process.env.GOOGLE_AI_KEY;
+        await assert.rejects(service.translateDescription('Un hombre de piel roja.'), error => error.statusCode === 503);
+        assert.equal(calls, 5);
+    } finally {
+        if (savedKey === undefined) delete process.env.GOOGLE_AI_KEY; else process.env.GOOGLE_AI_KEY = savedKey;
+    }
+});
+
 test('metadata writes retry a concurrent change and preserve the newest manual values', async () => {
     let current = { _id: 'id', status: 'pending', metadataRevision: 0, manualTags: ['old'], images: [{ assetId: 'asset', metadata: { colors: ['red'], description: 'Manual scene.' } }] };
     let calls = 0;

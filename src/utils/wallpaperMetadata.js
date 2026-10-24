@@ -1,4 +1,6 @@
 const METADATA_FIELDS = ['subjects', 'styles', 'colors', 'environments', 'characters', 'franchises', 'extraTags'];
+const DESCRIPTION_FIELDS = ['description', 'descriptionEs', 'descriptionEn'];
+const TEXT_FIELDS = [...DESCRIPTION_FIELDS, 'descriptionEnSource'];
 const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores', environments: 'ambientes', characters: 'personajes', franchises: 'series o franquicias', extraTags: 'etiquetas adicionales' };
 const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags', descripcion: 'description', descripción: 'description' };
 // Explicit equivalents only: free tags are never guessed into a category.
@@ -72,16 +74,16 @@ function normalizeMetadata(input) {
     const result = {};
     for (const [inputKey, values] of Object.entries(input)) {
         const field = SPANISH_FIELDS[inputKey] || inputKey;
-        if ((!METADATA_FIELDS.includes(field) && field !== 'description') || Object.hasOwn(result, field)) {
+        if ((!METADATA_FIELDS.includes(field) && !TEXT_FIELDS.includes(field)) || Object.hasOwn(result, field)) {
             throw metadataError(`Campo de metadatos no válido: ${inputKey}.`);
         }
-        if (field === 'description') {
+        if (TEXT_FIELDS.includes(field)) {
             if (typeof values !== 'string') { throw metadataError('La descripción debe ser texto.'); }
             const description = values.replace(/\s+/g, ' ').trim();
             if (description.length > 240 || /[\x00-\x1f]/.test(description)) {
                 throw metadataError('Usa una descripción de hasta 240 caracteres.');
             }
-            result.description = description;
+            result[field] = description;
             continue;
         }
         const limit = field === 'extraTags' ? 20 : 8;
@@ -119,7 +121,7 @@ function searchTagsFor(wallpaper) {
 function searchDescriptionsFor(wallpaper) {
     const metadata = wallpaper.images?.length
         ? wallpaper.images.map(image => effectiveMetadata(image, wallpaper.metadata)) : [wallpaper.metadata];
-    return [...new Set(metadata.map(value => value?.description).filter(value => typeof value === 'string' && value.trim()))];
+    return [...new Set(metadata.flatMap(value => DESCRIPTION_FIELDS.map(field => value?.[field])).filter(value => typeof value === 'string' && value.trim()))];
 }
 
 function matchedAssetId(wallpaper, query) {
@@ -127,14 +129,15 @@ function matchedAssetId(wallpaper, query) {
     const words = tokenize(resolveMetadataAlias(query) ?? query).map(word => resolveMetadataAlias(word) ?? word);
     return wallpaper.images?.find(image => image.assetId && words.every(word => {
         const metadata = effectiveMetadata(image, wallpaper.metadata);
-        const terms = [...metadataTags(metadata), metadata.description || ''].flatMap(tokenize);
+        const terms = [...metadataTags(metadata), ...DESCRIPTION_FIELDS.map(field => metadata[field] || '')].flatMap(tokenize)
+            .map(term => resolveMetadataAlias(term) ?? term);
         return terms.includes(word);
     }))?.assetId;
 }
 
 function removeMetadataTag(wallpaper, tag) {
     const removeFrom = (metadata = {}) => Object.fromEntries(Object.entries(metadata).map(([field, values]) => [field,
-        field === 'description' ? values : values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
+        TEXT_FIELDS.includes(field) ? values : values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
     ]));
     return { manualTags: (wallpaper.manualTags ?? wallpaper.tags ?? []).filter(value => (resolveMetadataAlias(value) ?? normalizeTerm(value)) !== (resolveMetadataAlias(tag) ?? normalizeTerm(tag))),
         metadata: removeFrom(wallpaper.metadata), images: (wallpaper.images || []).map(image => ({ ...image,

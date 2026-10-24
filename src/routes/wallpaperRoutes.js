@@ -8,6 +8,12 @@ const isAdmin = require('../middleware/adminMiddleware');
 const { METADATA_FIELDS } = require('../utils/wallpaperMetadata');
 const { searchMetadataSuggestions } = require('../controllers/metadataSuggestionsController');
 const { searchSuggestions, popularSearchTags } = require('../controllers/searchSuggestionsController');
+const { rateLimit } = require('express-rate-limit');
+const { translateWallpaperDescription } = require('../controllers/descriptionTranslationController');
+const translationLimiter = rateLimit({ windowMs: 60000, limit: 10,
+    keyGenerator: req => req.user.id, standardHeaders: 'draft-8', legacyHeaders: false,
+    message: { msg: 'Espera un minuto antes de volver a traducir. Puedes seguir editando o subir solo el español.' },
+});
 // VARIABLES PARA CACHÉ #HASHTAGS
 let trendingTagsCache = [];
 let lastTagsUpdate = null;
@@ -20,9 +26,11 @@ router.get('/search/popular', popularSearchTags);
 router.get('/metadata/schema', (req, res) => res.json({ version: 1,
     fields: METADATA_FIELDS,
     description: { supported: true, maxLength: 240 },
+    bilingualDescriptions: { supported: true, maxLength: 240, fields: ['descriptionEs', 'descriptionEn', 'descriptionEnSource'] },
     limits: { valuesPerField: 8, extraTags: 20, valueLength: 80, assets: 10 }, aiOptIn: true,
 }));
 router.get('/metadata/suggestions', searchMetadataSuggestions);
+router.post('/metadata/translate-description', auth, translationLimiter, translateWallpaperDescription);
 router.get('/tags/search', wallpaperController.searchTags);
 router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);

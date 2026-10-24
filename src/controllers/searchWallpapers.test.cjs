@@ -166,6 +166,18 @@ function harness(records, mappings = [], ranked = false) {
 
 const wall = (_id, tags, type = 'image', status = 'approved') => ({ _id, tags, type, status, imageUrl: 'fixture' });
 
+test('both stored language descriptions retrieve one publication without duplicate results or learned TagMap entries', async () => {
+    const { searchDescriptionsFor } = require('../utils/wallpaperMetadata');
+    const record = { ...wall('bilingual', []), images: [{ assetId: 'one', metadata: {
+        descriptionEs: 'Una chica mira el firmamento.', descriptionEn: 'A girl looks at the firmament.',
+    } }] };
+    record.searchDescriptions = searchDescriptionsFor(record);
+    const h = harness([record, wall('other', ['girl'])]);
+    for (const query of ['firmamento', 'firmament', 'girl firmament']) {
+        assert.deepEqual(await h.search(query), ['bilingual']);
+    }
+});
+
 test('woman and girl queries share tagged and described results while retaining required colors', async () => {
     const h = harness([wall('girl-blue', ['girl', 'blue']), wall('woman-blue', ['woman', 'blue']),
         wall('old-spanish', ['chica', 'azul']), wall('red', ['woman', 'red']), wall('male', ['man', 'blue']),
