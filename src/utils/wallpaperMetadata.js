@@ -135,7 +135,44 @@ function matchedAssetId(wallpaper, query) {
     }))?.assetId;
 }
 
-function removeMetadataTag(wallpaper, tag) {
+function removeMetadataTag(wallpaper, tag, target) {
+    if (target !== undefined) {
+        const { field, assetId } = target;
+        if ((!METADATA_FIELDS.includes(field) && field !== 'manualTags') || typeof tag !== 'string'
+            || !normalizeTerm(tag) || (field !== 'manualTags' && tag.length > 80) || /[,\x00-\x1f]/.test(tag)
+            || (assetId !== undefined && (typeof assetId !== 'string' || !assetId || field === 'manualTags'))) {
+            throw metadataError('Elige un campo y un destino válidos para eliminar el TAG.');
+        }
+        const images = wallpaper.images || [];
+        if (assetId !== undefined && !images.some(image => image.assetId === assetId)) {
+            throw metadataError('La imagen ya no pertenece a esta publicación. Vuelve a abrir el inspector.');
+        }
+        const matches = value => field === 'manualTags'
+            ? (resolveMetadataAlias(value) ?? normalizeTerm(value)) === (resolveMetadataAlias(tag) ?? normalizeTerm(tag))
+            : canonicalTerm(field, value) === canonicalTerm(field, tag);
+        let removed = false;
+        const withoutTag = values => (values || []).filter(value => {
+            if (matches(value)) { removed = true; return false; }
+            return true;
+        });
+        const changes = {};
+        if (field === 'manualTags') {
+            changes.manualTags = withoutTag(wallpaper.manualTags ?? wallpaper.tags);
+        } else {
+            if (assetId === undefined && wallpaper.metadata?.[field]?.some(matches)) {
+                changes.metadata = { ...wallpaper.metadata, [field]: withoutTag(wallpaper.metadata[field]) };
+            }
+            if (images.length) changes.images = images.map(image => {
+                if (assetId !== undefined && image.assetId !== assetId) return image;
+                const effective = effectiveMetadata(image, wallpaper.metadata)[field] || [];
+                if (!effective.some(matches)) return image;
+                const values = withoutTag(effective);
+                return { ...image, metadata: { ...image.metadata, [field]: values } };
+            });
+        }
+        if (!removed) throw Object.assign(new Error('El TAG ya no está en ese campo y destino. Recarga el inspector.'), { statusCode: 409 });
+        return changes;
+    }
     const removeFrom = (metadata = {}) => Object.fromEntries(Object.entries(metadata).map(([field, values]) => [field,
         TEXT_FIELDS.includes(field) ? values : values.filter(value => canonicalTerm(field, value) !== canonicalTerm(field, tag)),
     ]));

@@ -5,7 +5,7 @@ const { readFileSync } = require('node:fs');
 const { createRequire } = require('node:module');
 const path = require('node:path');
 const vm = require('node:vm');
-const { addMetadataTag, effectiveMetadata, searchTagsFor } = require('../utils/wallpaperMetadata');
+const { addMetadataTag, removeMetadataTag, effectiveMetadata, searchTagsFor } = require('../utils/wallpaperMetadata');
 
 const carousel = () => ({ _id: 'a'.repeat(24), status: 'approved', metadataVersion: 1, metadataRevision: 0,
     tags: ['legacy', 'anime', 'blue', 'red'], manualTags: ['legacy'], metadata: { styles: ['anime'], descriptionEs: 'Original' },
@@ -52,7 +52,7 @@ test('duplicates, invalid destinations, limits and non-tag fields are rejected',
     assert.deepEqual(addMetadataTag({ tags: ['old'] }, { tagToAdd: 'Pokémon', field: 'franchises' }).metadata, { franchises: ['pokemon'] });
 });
 
-function harness(record = carousel()) {
+function harness(record = carousel(), action = 'adminAddTag') {
     let writes = 0, count = 0, invalidated = false, role = 'admin';
     const Wallpaper = {
         findById: () => ({ lean: async () => record }),
@@ -70,11 +70,11 @@ function harness(record = carousel()) {
         return module.exports;
     };
     const service = evaluate('../services/wallpaperMetadataService.js', { '../models/Wallpaper': Wallpaper });
-    const { adminAddTag } = evaluate('wallpaperController.js', {
+    const controller = evaluate('wallpaperController.js', {
         '../models/Wallpaper': Wallpaper, '../models/User': { findById: async () => ({ role }) },
         '../services/wallpaperMetadataService': service,
         '../config/cloudinary': {}, '../services/aiQueue': {},
-        '../models/TagSuggestion': { bulkWrite: async ops => { count += ops.length; } },
+        '../models/TagSuggestion': { bulkWrite: async ops => { count += ops.reduce((sum, op) => sum + op.updateOne.update.$inc.count, 0); } },
         '../models/RelatedCache': { deleteOne: async () => { invalidated = true; } },
     });
     return { record: () => record, writes: () => writes, count: () => count, invalidated: () => invalidated,
@@ -82,7 +82,7 @@ function harness(record = carousel()) {
         async submit(body) {
             let status = 200, data;
             const res = { status(value) { status = value; return this; }, json(value) { data = value; return this; } };
-            await adminAddTag({ params: { id: 'a'.repeat(24) }, user: { id: 'admin' }, body }, res);
+            await controller[action]({ params: { id: 'a'.repeat(24) }, user: { id: 'admin' }, body }, res);
             return { status, data };
         },
     };
@@ -114,4 +114,58 @@ test('legacy records retain their old tags and pending content does not raise pu
     assert.deepEqual(response.data.manualTags, ['legacy']);
     assert.equal(response.data.metadataVersion, 1);
     assert.equal(h.count(), 0);
+});
+
+test('removing an inherited image TAG creates an override without altering the other images or fields', () => {
+    const original = carousel(); original.metadata.styles = ['anime', 'blue'];
+    const changes = removeMetadataTag(original, 'ANIME', { field: 'styles', assetId: 'one' });
+    assert.deepEqual(changes.images[0].metadata.styles, ['blue']);
+    assert.deepEqual(changes.images[1], original.images[1]);
+    assert.equal(changes.metadata, undefined);
+    assert.deepEqual(original.metadata.styles, ['anime', 'blue']);
+    assert.equal(effectiveMetadata(changes.images[0], original.metadata).descriptionEs, 'Original');
+});
+
+test('publication removal affects only the requested field and does not mask unrelated AI fields', () => {
+    const original = carousel(); original.metadata.extraTags = ['blue'];
+    const changes = removeMetadataTag(original, 'azul', { field: 'colors' });
+    assert.deepEqual(changes.images[0].metadata.colors, []);
+    assert.deepEqual(changes.images[0].aiMetadata.colors, ['blue']);
+    assert.deepEqual(changes.images[1], original.images[1]);
+    assert.equal(changes.metadata, undefined);
+    assert.ok(searchTagsFor({ ...original, ...changes }).includes('blue')); // Remains in extraTags.
+    const shared = removeMetadataTag(original, 'anime', { field: 'styles' });
+    assert.deepEqual(shared.metadata.styles, []);
+    assert.deepEqual(shared.images[0].metadata.styles, []);
+    assert.equal(shared.metadata.descriptionEs, 'Original');
+});
+
+test('free TAG removal preserves classification and handles legacy long tags', () => {
+    const original = carousel(); original.manualTags = ['anime', 'legacy'];
+    const changes = removeMetadataTag(original, 'anime', { field: 'manualTags' });
+    assert.deepEqual(changes, { manualTags: ['legacy'] });
+    assert.ok(searchTagsFor({ ...original, ...changes }).includes('anime'));
+    const long = 'paisaje '.repeat(30).trim();
+    assert.deepEqual(removeMetadataTag({ tags: [long] }, long, { field: 'manualTags' }), { manualTags: [] });
+    for (const target of [{ field: 'description' }, { field: 'colors', assetId: 'foreign' }, { field: 'manualTags', assetId: 'one' }]) {
+        assert.throws(() => removeMetadataTag(original, 'blue', target), error => error.statusCode === 400);
+    }
+    assert.throws(() => removeMetadataTag(original, 'absent', { field: 'colors' }), error => error.statusCode === 409);
+});
+
+test('scoped endpoint decrements public counts only when the TAG disappears from the entire search projection', async () => {
+    const original = carousel(); original.manualTags.push('blue');
+    const h = harness(original, 'adminRemoveTag');
+    let result = await h.submit({ tagToRemove: 'blue', field: 'colors', assetId: 'one' });
+    assert.equal(result.status, 200); assert.ok(result.data.tags.includes('blue'));
+    assert.equal(h.count(), 0); assert.equal(h.invalidated(), true);
+    assert.deepEqual(result.data.images[0].metadata.colors, []);
+    assert.deepEqual(result.data.images[1].metadata.colors, ['red']);
+    result = await h.submit({ tagToRemove: 'azul', field: 'manualTags' });
+    assert.equal(result.status, 200); assert.equal(result.data.tags.includes('blue'), false);
+    assert.equal(h.count(), -1);
+    assert.equal((await h.submit({ tagToRemove: 'blue', field: 'colors', assetId: 'one' })).status, 409);
+    assert.equal(h.writes(), 2);
+    h.role('user'); assert.equal((await h.submit({ tagToRemove: 'red', field: 'colors' })).status, 403);
+    assert.equal(h.writes(), 2);
 });

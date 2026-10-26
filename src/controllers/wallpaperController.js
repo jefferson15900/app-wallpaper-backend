@@ -1337,7 +1337,7 @@ exports.deleteWallpaper = async (req, res) => {
 exports.adminRemoveTag = async (req, res) => {
     try {
         const { id } = req.params;
-        const { tagToRemove } = req.body;
+        const { tagToRemove, field, assetId } = req.body;
          const adminUser = await User.findById(req.user.id);
 
         // Validar que venga un tag
@@ -1352,6 +1352,24 @@ exports.adminRemoveTag = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ msg: 'ID inválido' });
         }
+
+        if (field !== undefined) {
+            let previousTags;
+            const result = await updateMetadata(id, current => {
+                previousTags = current.tags || [];
+                return removeMetadataTag(current, tagToRemove, { field, assetId });
+            });
+            if (result.status === 'approved') {
+                const removedTags = previousTags.filter(tag => !result.tags.includes(tag));
+                if (removedTags.length) await TagSuggestion.bulkWrite(removedTags.map(tag => ({ updateOne: {
+                    filter: { tag, count: { $gt: 0 } }, update: { $inc: { count: -1 } },
+                } })), { ordered: false }).catch(error => console.error('[TAGS] Error actualizando sugerencias:', error));
+            }
+            await RelatedCache.deleteOne({ wallpaperId: id }).catch(error => console.error('[TAGS] Error invalidando relacionados:', error));
+            return res.json({ msg: 'TAG eliminado', _id: String(result._id), tags: result.tags, metadata: result.metadata,
+                images: result.images, manualTags: result.manualTags, metadataVersion: result.metadataVersion });
+        }
+        if (assetId !== undefined) throw metadataError('Elige el campo del TAG para eliminarlo de una imagen.');
 
         const existing = await Wallpaper.findById(id).lean();
         if (!existing) { return res.status(404).json({ msg: 'Wallpaper no encontrado' }); }
@@ -1381,7 +1399,7 @@ exports.adminRemoveTag = async (req, res) => {
 
     } catch (err) {
         console.error('❌ Error en adminRemoveTag:', err);
-        return res.status(500).json({ msg: 'Error al actualizar etiquetas' });
+        return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : 'Error al eliminar TAG' });
     }
 };
 
