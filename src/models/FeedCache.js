@@ -9,6 +9,7 @@ const FeedCacheSchema = new mongoose.Schema({
     },
     // Guardamos el snapshot completo para no tener que hacer populate al leer
     snapshot: [mongoose.Schema.Types.Mixed],
+    profileKey: String,
     updatedAt: {
         type: Date,
         default: Date.now

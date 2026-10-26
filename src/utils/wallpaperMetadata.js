@@ -146,6 +146,39 @@ function removeMetadataTag(wallpaper, tag) {
     };
 }
 
+function addMetadataTag(wallpaper, { tagToAdd, field, assetId }) {
+    if (!METADATA_FIELDS.includes(field) || typeof tagToAdd !== 'string' || !tagToAdd.trim()
+        || /[,\n\r]/.test(tagToAdd) || (assetId !== undefined && (typeof assetId !== 'string' || !assetId))) {
+        throw metadataError('Elige un campo válido y escribe un solo TAG de hasta 80 caracteres.');
+    }
+    const tag = normalizeMetadata({ [field]: [tagToAdd] })[field][0];
+    if (!tag) throw metadataError('El TAG no puede estar vacío.');
+    const images = wallpaper.images || [];
+    if (assetId !== undefined && !images.some(image => image.assetId === assetId)) {
+        throw metadataError('La imagen ya no pertenece a esta publicación. Vuelve a abrir el formulario.');
+    }
+    let added = false;
+    const append = metadata => {
+        const values = normalizeMetadata({ [field]: metadata?.[field] || [] })[field];
+        if (!values.includes(tag)) { values.push(tag); added = true; }
+        return normalizeMetadata({ [field]: values })[field];
+    };
+    const changes = {};
+    if (assetId === undefined) {
+        changes.metadata = { ...wallpaper.metadata, [field]: append(wallpaper.metadata) };
+    }
+    if (images.length) {
+        changes.images = images.map(image => {
+            if (assetId !== undefined && image.assetId !== assetId) return image;
+            // Preserve the effective field before adding; an image override must not hide a publication TAG.
+            const values = append(effectiveMetadata(image, wallpaper.metadata));
+            return { ...image, metadata: { ...image.metadata, [field]: values } };
+        });
+    }
+    if (!added) throw metadataError('Este campo ya contiene el TAG en el destino elegido.');
+    return changes;
+}
+
 function parseAssetMetadata(value, count) {
     if (value === undefined) { return Array.from({ length: count }, () => ({})); }
     let parsed = value;
@@ -159,4 +192,4 @@ function parseAssetMetadata(value, count) {
     return parsed.map(normalizeMetadata);
 }
 
-module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, metadataError, resolveMetadataAlias };
+module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, metadataError, resolveMetadataAlias };

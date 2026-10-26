@@ -91,6 +91,7 @@ function harness(records, cache = null) {
     run(name => {
         if (name === '../models/Wallpaper') return Wallpaper;
         if (name === '../models/RelatedCache') return RelatedCache;
+        if (name === '../utils/wallpaperMetadata') return require('../utils/wallpaperMetadata');
         return {};
     }, module, module.exports);
     return {
@@ -146,6 +147,43 @@ test('only a general tag still returns related wallpapers', async () => {
     assert.equal(result[0]._id, 'nier-new');
 });
 
+test('known character, franchise, style and color outrank rarer generic tags without hiding fallbacks', async () => {
+    const records = [
+        wall('source', ['goku', 'dragon ball', 'anime', 'blue', 'rare accent'], 1, {
+            metadata: { characters: ['goku'], franchises: ['dragon ball'], styles: ['anime'], colors: ['blue'] },
+        }),
+        wall('generic-rare', ['rare accent'], 100),
+        wall('color', ['blue'], 90),
+        wall('style', ['anime'], 80),
+        wall('franchise', ['dragon ball'], 70),
+        wall('character', ['goku'], 60),
+    ];
+    const result = await harness(records).request('source');
+    assert.deepEqual(result.map(item => item._id),
+        ['character', 'franchise', 'style', 'color', 'generic-rare']);
+    assert.ok(result.every(item => item.characterMatches === undefined && item.styleMatches === undefined));
+});
+
+test('related ranking follows the viewed image in a carousel and opens a matching candidate image', async () => {
+    const records = [
+        wall('source', ['goku', 'naruto', 'anime'], 1, { manualTags: [], images: [
+            { assetId: 'source-goku', aiMetadata: { characters: ['goku'], styles: ['anime'] } },
+            { assetId: 'source-naruto', aiMetadata: { characters: ['naruto'], styles: ['anime'] } },
+        ] }),
+        wall('goku-result', ['goku', 'anime'], 2, { images: [
+            { assetId: 'candidate-other', metadata: { characters: ['vegeta'] } },
+            { assetId: 'candidate-goku', metadata: { characters: ['goku'] } },
+        ] }),
+        wall('naruto-result', ['naruto', 'anime'], 3),
+    ];
+    const h = harness(records);
+    const goku = await h.request('source', { assetId: 'source-goku' });
+    const naruto = await h.request('source', { assetId: 'source-naruto' });
+    assert.equal(goku[0]._id, 'goku-result');
+    assert.equal(goku[0].matchedAssetId, 'candidate-goku');
+    assert.equal(naruto[0]._id, 'naruto-result');
+});
+
 test('pagination excludes unavailable wallpapers first and has a stable tie order', async () => {
     const records = [wall('source', ['bayonetta']),
         wall('hidden', ['bayonetta'], 100, { artist: { isActive: false } }),
@@ -162,7 +200,7 @@ test('old caches are replaced and fresh caches only apply to the same page size'
     const stale = { snapshot: [wall('cached-nier', ['gaming girl'])], updatedAt: new Date() };
     const h = harness(catalog(), stale);
     assert.equal((await h.request('bayonetta-source'))[0]._id, 'bayonetta-related');
-    assert.equal(h.cache().rankingVersion, 2);
+    assert.equal(h.cache().rankingVersion, 3);
     assert.equal(h.cache().limit, 12);
     const fresh = { ...stale, ...h.cache() };
     const cached = harness(catalog(), fresh);
@@ -186,7 +224,7 @@ test('seed varies tied recommendations across the full catalog while preserving 
         ...Array.from({ length: 30 }, (_, i) => wall(id(i + 1), ['bayonetta', 'gaming girl'], 100 - i)),
         ...Array.from({ length: 5 }, (_, i) => wall(id(i + 31), ['gaming girl'], 999))];
     const cached = { snapshot: [wall('old-fixed-order', ['gaming girl'])],
-        rankingVersion: 2, limit: 4, updatedAt: new Date() };
+        rankingVersion: 3, limit: 4, updatedAt: new Date() };
     const h = harness(records, cached);
     const query = { seed: '0.25', limit: '4' };
     const first = await h.request(id(0), query);

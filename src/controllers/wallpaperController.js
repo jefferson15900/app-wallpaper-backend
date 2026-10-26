@@ -8,7 +8,8 @@ const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { randomUUID } = require('node:crypto');
-const { parseMetadata, parseAssetMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
+const { parseMetadata, parseAssetMetadata, effectiveMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
+const { parseDiscoveryInterests, orderDiscoveryFeed } = require('../utils/discoveryInterests');
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
 const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
@@ -45,23 +46,8 @@ const saveSearchLogAsync = async (term, resultsCount) => {
 
 
 
-// 🔀 Utilidad: Mezclar array (Algoritmo Fisher-Yates)
-const shuffleArray = (array) => {
-    const shuffled = [...array]; // copia defensiva
-    let currentIndex = shuffled.length;
-
-    while (currentIndex !== 0) {
-        const randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-        [shuffled[currentIndex], shuffled[randomIndex]] = 
-            [shuffled[randomIndex], shuffled[currentIndex]];
-    }
-
-    return shuffled;
-};
-
 // 💾 Utilidad: Guardar Cache en segundo plano
-const saveFeedCacheAsync = async (userId, results) => {    
+const saveFeedCacheAsync = async (userId, results, profileKey) => {
     // Evitar guardar un cache vacío que parecería válido
     if (!results?.length) {
         return;
@@ -72,7 +58,7 @@ const saveFeedCacheAsync = async (userId, results) => {
         await Promise.all([
             FeedCache.findOneAndUpdate(
                 { userId },
-                { snapshot: results, updatedAt: new Date() },
+                { snapshot: results, profileKey, updatedAt: new Date() },
                 { upsert: true }
             ),
             User.findByIdAndUpdate(userId, { isFeedDirty: false }),
@@ -90,7 +76,9 @@ const saveFeedCacheAsync = async (userId, results) => {
 // ==========================================
 exports.getDiscoveryFeed = async (req, res) => {
     try {
-        const { tags, exclude, category, type, artistId, premium } = req.query;
+        const { tags, interests, exclude, category, type, artistId, premium } = req.query;
+        const typedInterests = parseDiscoveryInterests(interests);
+        const profileKey = JSON.stringify({ typedInterests, tags: typeof tags === 'string' ? tags.slice(0, 1000) : '' });
 
         // ── Validación de parámetros ──────────────────────────────────────────
         const page  = Math.max(1, parseInt(req.query.page)  || 1);
@@ -127,13 +115,13 @@ exports.getDiscoveryFeed = async (req, res) => {
                 
                 const isFresh =
                     cache?.snapshot?.length > 0 &&
-                    Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS;
+                    Date.now() - new Date(cache.updatedAt) < CACHE_TTL_MS &&
+                    cache.profileKey === profileKey && !exclude;
 
                 if (isFresh) {
                     // snapshot ya tiene el formato final — sin necesidad de filtrar aquí
                     return res.json(
-                        shuffleArray(cache.snapshot)
-                            .slice(0, limit)
+                        cache.snapshot.slice(0, limit)
                             .map(item => ({ ...item, price: item.price ?? 0 }))
                     );
                 }
@@ -161,9 +149,10 @@ exports.getDiscoveryFeed = async (req, res) => {
             if (excludeIds.length > 0) baseMatch._id = { $nin: excludeIds };
         } 
 
-        const userTags = tags
-            ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-            : [];
+        const userTags = [...new Set([
+            ...(typeof tags === 'string' ? tags.split(',').slice(0, 20).map(t => t.trim().toLowerCase()) : []),
+            ...typedInterests.map(interest => interest.term),
+        ].filter(Boolean))];
 
         // ── Pipeline ──────────────────────────────────────────────────────────
         // Orden correcto: filtrar → acotar → join → paginar
@@ -174,7 +163,11 @@ exports.getDiscoveryFeed = async (req, res) => {
                 { $match: baseMatch },
                 {
                     $addFields: {
-                        affinityScore: {
+                        affinityScore: typedInterests.length ? {
+                            $add: typedInterests.map(interest => ({
+                                $cond: [{ $in: [interest.term, { $ifNull: ['$tags', []] }] }, interest.score, 0],
+                            })),
+                        } : {
                             $size: {
                                 $ifNull: [{
                                     $filter: {
@@ -217,7 +210,7 @@ exports.getDiscoveryFeed = async (req, res) => {
             { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
             { $unwind: '$artist' },
             { $match : { 'artist.isActive': { $ne: false } } },
-            { $limit : limit }, // límite final tras filtrar inactivos
+            { $limit : typedInterests.length ? limit * 4 : limit }, // pool para ordenar por metadatos de cada imagen
             {
                 $project: {
                     'artist.password'    : 0,
@@ -231,11 +224,24 @@ exports.getDiscoveryFeed = async (req, res) => {
             }
         );
 
-        const results = await Wallpaper.aggregate(pipeline);
+        const broadPipeline = typedInterests.length ? [
+            { $match: baseMatch },
+            { $sample: { size: limit * 2 } },
+            { $lookup: { from: 'users', localField: 'artist', foreignField: '_id', as: 'artist' } },
+            { $unwind: '$artist' },
+            { $match: { 'artist.isActive': { $ne: false } } },
+            { $limit: limit },
+            pipeline[pipeline.length - 1],
+        ] : null;
+        const [candidates, discoveries] = await Promise.all([
+            Wallpaper.aggregate(pipeline),
+            broadPipeline ? Wallpaper.aggregate(broadPipeline) : Promise.resolve([]),
+        ]);
+        const results = orderDiscoveryFeed(candidates, typedInterests, limit, discoveries);
 
         // ── C. GUARDAR CACHE (fire-and-forget, solo pág. 1) ──────────────────
         if (page === 1 && userId && results.length > 0) {
-            saveFeedCacheAsync(userId, results); // guarda snapshot completo, no solo IDs
+            saveFeedCacheAsync(userId, results, profileKey); // guarda snapshot completo, no solo IDs
         }
 
         return res.json(results.map(item => ({ ...item, price: item.price ?? 0 })));
@@ -835,13 +841,14 @@ exports.getRelatedWallpapers = async (req, res) => {
         const page     = Math.max(1, parseInt(req.query.page)  || 1);
         const limit    = Math.max(1, Math.min(50, parseInt(req.query.limit) || 12));
         const skip     = (page - 1) * limit;
-        const rankingVersion = 2;
+        const rankingVersion = 3;
+        const assetId = typeof req.query.assetId === 'string' ? req.query.assetId : '';
         const parsedSeed = typeof req.query.seed === 'string' ? Number(req.query.seed) : NaN;
         const hasSeed = req.query.seed !== '' && Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1;
         const randomMultiplier = hasSeed ? Math.floor(parsedSeed * 16777212) + 1 : 1;
 
         // ── 1. CACHE solo para página 1 y cuando no hay una etiqueta de prioridad ──
-        if (page === 1 && !primaryTag && !hasSeed) {
+        if (page === 1 && !primaryTag && !hasSeed && !assetId) {
             const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
             const cache = await RelatedCache.findOne({ wallpaperId: id });
@@ -862,9 +869,23 @@ exports.getRelatedWallpapers = async (req, res) => {
         const original = await Wallpaper.findById(id).lean();
         if (!original || !original.tags?.length) return res.json([]);
 
-        const originalTags = [...new Set(original.tags)];
-        // ponytail: la frecuencia aproxima la especificidad sin mantener listas de personajes.
-        // Si se necesita distinguir personaje de estilo, añadir ese dato al etiquetado.
+        const selectedAsset = original.images?.find(image => image.assetId === assetId);
+        const selectedTags = selectedAsset && (selectedAsset.metadata || selectedAsset.aiMetadata)
+            ? searchTagsFor({ ...original, images: [selectedAsset] }) : [];
+        const originalTags = [...new Set(selectedTags.length ? selectedTags : original.tags)];
+        const sourceMetadata = selectedAsset
+            ? [effectiveMetadata(selectedAsset, original.metadata)]
+            : original.images?.length
+                ? original.images.map(image => effectiveMetadata(image, original.metadata))
+                : [original.metadata || {}];
+        // ponytail: las categorías conocidas priorizan etiquetas exactas; la similitud visual requiere otro índice.
+        const categoryTags = field => [...new Set(sourceMetadata.flatMap(metadata => metadata[field] || []))]
+            .filter(tag => originalTags.includes(tag));
+        const characters = categoryTags('characters');
+        const franchises = categoryTags('franchises');
+        const styles = categoryTags('styles');
+        const colors = categoryTags('colors');
+        // La frecuencia conserva una salida razonable para publicaciones sin metadatos estructurados.
         const tagCounts = await Wallpaper.aggregate([
             { $match: { status: 'approved', tags: { $in: originalTags } } },
             { $project: { tags: { $setIntersection: ['$tags', originalTags] } } },
@@ -888,6 +909,10 @@ exports.getRelatedWallpapers = async (req, res) => {
             },
             {
                 $addFields: {
+                    characterMatches: { $size: { $setIntersection: ['$tags', characters] } },
+                    franchiseMatches: { $size: { $setIntersection: ['$tags', franchises] } },
+                    styleMatches: { $size: { $setIntersection: ['$tags', styles] } },
+                    colorMatches: { $size: { $setIntersection: ['$tags', colors] } },
                     // La búsqueda solo desempata; el wallpaper seleccionado define el tema.
                     primaryTagMatches: primaryTag
                         ? { $cond: [{ $in: [primaryTag, '$tags'] }, 1, 0] }
@@ -930,7 +955,8 @@ exports.getRelatedWallpapers = async (req, res) => {
                 },
             },
             { 
-                $sort: { strongestTagWeight: -1, weightedTags: -1, commonTags: -1,
+                $sort: { characterMatches: -1, franchiseMatches: -1, styleMatches: -1, colorMatches: -1,
+                    strongestTagWeight: -1, weightedTags: -1, commonTags: -1,
                     primaryTagMatches: -1, relatedRandomOrder: -1, createdAt: -1, _id: -1 }
             },
             {
@@ -952,6 +978,10 @@ exports.getRelatedWallpapers = async (req, res) => {
                     'artist.password' : 0,
                     'artist.email'    : 0,
                     commonTags        : 0, // campo auxiliar, no necesario en respuesta
+                    characterMatches  : 0,
+                    franchiseMatches  : 0,
+                    styleMatches      : 0,
+                    colorMatches      : 0,
                     primaryTagMatches : 0,
                     strongestTagWeight: 0,
                     weightedTags: 0,
@@ -961,17 +991,24 @@ exports.getRelatedWallpapers = async (req, res) => {
         ]);
 
         // ── 4. GUARDAR cache solo en página 1 y cuando no hay una etiqueta de prioridad ──
-        if (page === 1 && !primaryTag && !hasSeed && results.length > 0) {
+        const orderedTerms = [...characters, ...franchises, ...styles, ...colors, ...originalTags];
+        const related = results.map(result => {
+            const term = orderedTerms.find(value => result.tags?.includes(value));
+            const imageId = term && matchedAssetId(result, term);
+            return imageId ? { ...result, matchedAssetId: imageId } : result;
+        });
+
+        if (page === 1 && !primaryTag && !hasSeed && !assetId && related.length > 0) {
             // Guardamos el snapshot completo (no solo IDs) → respuesta idéntica
             RelatedCache.findOneAndUpdate(
                 { wallpaperId: id },
-                { snapshot: results, updatedAt: new Date(), rankingVersion, limit },
+                { snapshot: related, updatedAt: new Date(), rankingVersion, limit },
                 { upsert: true }
             ).catch(err => console.error('[RELATED] Error guardando cache:', err));
             // fire-and-forget: no bloqueamos la respuesta al usuario
         }
 
-        return res.json(results);
+        return res.json(related);
 
     } catch (err) {
         console.error('[RELATED] Error:', err);
@@ -1354,7 +1391,7 @@ exports.adminRemoveTag = async (req, res) => {
 exports.adminAddTag = async (req, res) => {
     try {
         const { id } = req.params;
-        const { tagToAdd } = req.body;
+        const { tagToAdd, field, assetId } = req.body;
         const adminUser = await User.findById(req.user.id);
 
         if (!tagToAdd || typeof tagToAdd !== 'string') {
@@ -1368,6 +1405,24 @@ exports.adminAddTag = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ msg: 'ID inválido' });
         }
+
+        if (field !== undefined) {
+            let previousTags;
+            const result = await updateMetadata(id, current => {
+                previousTags = current.tags || [];
+                return addMetadataTag(current, { tagToAdd, field, assetId });
+            });
+            if (result.status === 'approved') {
+                const addedTags = result.tags.filter(tag => !previousTags.includes(tag));
+                if (addedTags.length) await TagSuggestion.bulkWrite(addedTags.map(tag => ({ updateOne: {
+                    filter: { tag }, update: { $inc: { count: 1 } }, upsert: true,
+                } })), { ordered: false }).catch(error => console.error('[TAGS] Error actualizando sugerencias:', error));
+            }
+            await RelatedCache.deleteOne({ wallpaperId: id }).catch(error => console.error('[TAGS] Error invalidando relacionados:', error));
+            return res.json({ msg: 'TAG agregado', tags: result.tags, metadata: result.metadata,
+                images: result.images, manualTags: result.manualTags, metadataVersion: result.metadataVersion });
+        }
+        if (assetId !== undefined) throw metadataError('Elige el campo del TAG para agregarlo a una imagen.');
 
         // Limpiar y normalizar el tag usando el flujo de tags
         const cleaned = cleanTags([tagToAdd]);
@@ -1407,7 +1462,7 @@ exports.adminAddTag = async (req, res) => {
 
     } catch (err) {
         console.error('❌ Error en adminAddTag:', err);
-        return res.status(500).json({ msg: 'Error al agregar etiqueta' });
+        return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : 'Error al agregar TAG' });
     }
 };
 
