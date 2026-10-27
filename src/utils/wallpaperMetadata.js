@@ -216,9 +216,16 @@ function addMetadataTag(wallpaper, { tagToAdd, field, assetId }) {
     return changes;
 }
 
-function setMetadataDescription(wallpaper, { description, assetId }) {
+function setMetadataDescription(wallpaper, { description, assetId, descriptionEn, descriptionEnSource }) {
     const metadata = normalizeMetadata({ descriptionEs: description });
     if (!metadata.descriptionEs) throw metadataError('Escribe una descripción breve de hasta 240 caracteres.');
+    if (descriptionEn !== undefined || descriptionEnSource !== undefined) {
+        const english = normalizeMetadata({ descriptionEn, descriptionEnSource });
+        if (english.descriptionEn && english.descriptionEnSource !== metadata.descriptionEs) {
+            throw metadataError('Cambió el español. Actualiza la traducción o revisa el inglés antes de guardar.');
+        }
+        Object.assign(metadata, english);
+    }
     if (assetId !== undefined && (typeof assetId !== 'string' || !assetId
         || !wallpaper.images?.some(image => image.assetId === assetId))) {
         throw metadataError('La imagen ya no pertenece a esta publicación. Vuelve a abrir el formulario.');

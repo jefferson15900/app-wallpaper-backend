@@ -1422,7 +1422,8 @@ exports.adminAddTag = async (req, res) => {
 
         if (field === 'descriptionEs') {
             if (tagToAdd !== undefined) throw metadataError('Guarda la descripción por separado de los TAGs.');
-            const result = await updateMetadata(id, current => setMetadataDescription(current, { description: req.body.description, assetId }));
+            const result = await updateMetadata(id, current => setMetadataDescription(current, { description: req.body.description, assetId,
+                descriptionEn: req.body.descriptionEn, descriptionEnSource: req.body.descriptionEnSource }));
             await RelatedCache.deleteOne({ wallpaperId: id }).catch(error => console.error('[ADN] Error invalidando relacionados:', error));
             return res.json({ msg: 'Descripción guardada', tags: result.tags, metadata: result.metadata,
                 images: result.images, manualTags: result.manualTags, metadataVersion: result.metadataVersion });

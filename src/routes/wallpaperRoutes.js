@@ -25,7 +25,7 @@ router.get('/search/suggestions', searchSuggestions);
 router.get('/search/popular', popularSearchTags);
 router.get('/metadata/schema', (req, res) => res.json({ version: 1,
     fields: METADATA_FIELDS,
-    adminTags: { classified: true, perAsset: true, scopedRemoval: true, briefDescription: true },
+    adminTags: { classified: true, perAsset: true, scopedRemoval: true, briefDescription: true, briefDescriptionTranslation: true },
     description: { supported: true, maxLength: 240 },
     bilingualDescriptions: { supported: true, maxLength: 240, fields: ['descriptionEs', 'descriptionEn', 'descriptionEnSource'] },
     limits: { valuesPerField: 8, extraTags: 20, valueLength: 80, assets: 10 }, aiOptIn: true,

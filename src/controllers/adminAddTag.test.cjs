@@ -213,3 +213,29 @@ test('description writes reject blank, oversized, invalid and foreign targets be
     assert.equal(h.writes(), 0);
     h.role('admin'); assert.equal((await h.submit({ field: 'descriptionEs', description: 'x'.repeat(240) })).status, 200);
 });
+
+test('description translation stores both languages and source only on the selected image', async () => {
+    const original = carousel(); const h = harness(original);
+    const request = { field: 'descriptionEs', assetId: 'one', description: 'Color rojo', descriptionEn: 'Red color', descriptionEnSource: 'Color rojo' };
+    const result = await h.submit(request);
+    assert.equal(result.status, 200);
+    assert.equal(result.data.images[0].metadata.descriptionEn, 'Red color');
+    assert.equal(result.data.images[0].metadata.descriptionEnSource, 'Color rojo');
+    assert.deepEqual(result.data.images[1], original.images[1]);
+    assert.ok(h.record().searchDescriptions.includes('Color rojo'));
+    assert.ok(h.record().searchDescriptions.includes('Red color'));
+    assert.equal(result.data.tags.includes('Red color'), false); assert.equal(h.count(), 0);
+});
+
+test('English description validation rejects stale, missing and oversized sources without saving', async () => {
+    const h = harness();
+    for (const extra of [
+        { descriptionEn: 'Red color' }, { descriptionEn: 'Red color', descriptionEnSource: 'Color azul' },
+        { descriptionEn: 'x'.repeat(241), descriptionEnSource: 'Color rojo' },
+        { descriptionEn: { $ne: '' }, descriptionEnSource: 'Color rojo' },
+    ]) assert.equal((await h.submit({ field: 'descriptionEs', description: 'Color rojo', ...extra })).status, 400);
+    assert.equal(h.writes(), 0);
+    const result = await h.submit({ field: 'descriptionEs', description: 'Color rojo', descriptionEn: 'Red color', descriptionEnSource: 'Color rojo' });
+    assert.equal(result.status, 200);
+    assert.ok(result.data.images.every(image => image.metadata.descriptionEn === 'Red color'));
+});
