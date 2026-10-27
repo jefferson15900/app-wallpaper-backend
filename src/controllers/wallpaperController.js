@@ -8,7 +8,7 @@ const nlp = require('compromise');
 const { cloudinaryPrimary, cloudinarySecondary } = require('../config/cloudinary');
 const aiQueue = require('../services/aiQueue');
 const { randomUUID } = require('node:crypto');
-const { parseMetadata, parseAssetMetadata, effectiveMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
+const { parseMetadata, parseAssetMetadata, effectiveMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, setMetadataDescription, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
 const { parseDiscoveryInterests, orderDiscoveryFeed } = require('../utils/discoveryInterests');
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
@@ -1412,10 +1412,6 @@ exports.adminAddTag = async (req, res) => {
         const { tagToAdd, field, assetId } = req.body;
         const adminUser = await User.findById(req.user.id);
 
-        if (!tagToAdd || typeof tagToAdd !== 'string') {
-            return res.status(400).json({ msg: 'Etiqueta inválida' });
-        }
-
         if (!adminUser || adminUser.role !== 'admin') {
             return res.status(403).json({ msg: 'No autorizado: Se requiere rol de Admin' });
         }
@@ -1424,6 +1420,16 @@ exports.adminAddTag = async (req, res) => {
             return res.status(400).json({ msg: 'ID inválido' });
         }
 
+        if (field === 'descriptionEs') {
+            if (tagToAdd !== undefined) throw metadataError('Guarda la descripción por separado de los TAGs.');
+            const result = await updateMetadata(id, current => setMetadataDescription(current, { description: req.body.description, assetId }));
+            await RelatedCache.deleteOne({ wallpaperId: id }).catch(error => console.error('[ADN] Error invalidando relacionados:', error));
+            return res.json({ msg: 'Descripción guardada', tags: result.tags, metadata: result.metadata,
+                images: result.images, manualTags: result.manualTags, metadataVersion: result.metadataVersion });
+        }
+        if (!tagToAdd || typeof tagToAdd !== 'string') {
+            return res.status(400).json({ msg: 'Etiqueta inválida' });
+        }
         if (field !== undefined) {
             let previousTags;
             const result = await updateMetadata(id, current => {

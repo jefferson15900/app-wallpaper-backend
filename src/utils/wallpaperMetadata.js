@@ -216,6 +216,21 @@ function addMetadataTag(wallpaper, { tagToAdd, field, assetId }) {
     return changes;
 }
 
+function setMetadataDescription(wallpaper, { description, assetId }) {
+    const metadata = normalizeMetadata({ descriptionEs: description });
+    if (!metadata.descriptionEs) throw metadataError('Escribe una descripción breve de hasta 240 caracteres.');
+    if (assetId !== undefined && (typeof assetId !== 'string' || !assetId
+        || !wallpaper.images?.some(image => image.assetId === assetId))) {
+        throw metadataError('La imagen ya no pertenece a esta publicación. Vuelve a abrir el formulario.');
+    }
+    const changes = {};
+    if (assetId === undefined) changes.metadata = { ...wallpaper.metadata, ...metadata };
+    if (wallpaper.images?.length) changes.images = wallpaper.images.map(image =>
+        assetId === undefined || image.assetId === assetId
+            ? { ...image, metadata: { ...image.metadata, ...metadata } } : image);
+    return changes;
+}
+
 function parseAssetMetadata(value, count) {
     if (value === undefined) { return Array.from({ length: count }, () => ({})); }
     let parsed = value;
@@ -229,4 +244,4 @@ function parseAssetMetadata(value, count) {
     return parsed.map(normalizeMetadata);
 }
 
-module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, metadataError, resolveMetadataAlias };
+module.exports = { METADATA_FIELDS, ALIASES, normalizeTerm, normalizeMetadata, parseMetadata, parseAssetMetadata, effectiveMetadata, metadataTags, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, setMetadataDescription, metadataError, resolveMetadataAlias };

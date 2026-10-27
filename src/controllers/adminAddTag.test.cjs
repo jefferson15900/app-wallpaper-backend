@@ -169,3 +169,47 @@ test('scoped endpoint decrements public counts only when the TAG disappears from
     h.role('user'); assert.equal((await h.submit({ tagToRemove: 'red', field: 'colors' })).status, 403);
     assert.equal(h.writes(), 2);
 });
+
+test('brief descriptions save on legacy images without changing TAGs or requiring a TAG', async () => {
+    const h = harness({ _id: 'a'.repeat(24), metadataRevision: 0, tags: ['old'], status: 'approved', imageUrl: 'old.jpg' });
+    const result = await h.submit({ field: 'descriptionEs', description: 'Una ciudad azul,\n  bajo la lluvia.' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.metadata.descriptionEs, 'Una ciudad azul, bajo la lluvia.');
+    assert.deepEqual(result.data.tags, ['old']); assert.deepEqual(result.data.manualTags, ['old']);
+    assert.deepEqual(h.record().searchDescriptions, ['Una ciudad azul, bajo la lluvia.']);
+    assert.equal(h.count(), 0); assert.equal(h.invalidated(), true);
+});
+
+test('brief descriptions update only the target image and publication scope updates all Spanish descriptions', async () => {
+    const original = carousel(); original.images[0].metadata.descriptionEn = 'Old English description';
+    original.images[0].metadata.descriptionEnSource = 'Original';
+    const h = harness(original);
+    let result = await h.submit({ field: 'descriptionEs', description: 'Nueva descripción para Goku.', assetId: 'one' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.images[0].metadata.descriptionEs, 'Nueva descripción para Goku.');
+    assert.equal(result.data.images[0].metadata.descriptionEn, 'Old English description');
+    assert.equal(result.data.images[0].metadata.descriptionEnSource, 'Original');
+    assert.deepEqual(result.data.images[1], original.images[1]);
+    assert.deepEqual(result.data.metadata, original.metadata);
+    assert.deepEqual(result.data.images[0].metadata.characters, ['goku']);
+    result = await h.submit({ field: 'descriptionEs', description: 'Una descripción compartida.' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.metadata.descriptionEs, 'Una descripción compartida.');
+    assert.ok(result.data.images.every(image => image.metadata.descriptionEs === 'Una descripción compartida.'));
+    assert.equal(h.count(), 0);
+});
+
+test('description writes reject blank, oversized, invalid and foreign targets before persisting', async () => {
+    const h = harness();
+    for (const body of [
+        { field: 'descriptionEs', description: '' }, { field: 'descriptionEs', description: '  ' },
+        { field: 'descriptionEs', description: 'x'.repeat(241) }, { field: 'descriptionEs', description: { $ne: '' } },
+        { field: 'descriptionEs', description: 'Texto', assetId: 'foreign' },
+        { field: 'descriptionEs', description: 'Texto', assetId: null },
+        { field: 'descriptionEs', description: 'Texto', tagToAdd: 'blue' },
+    ]) assert.equal((await h.submit(body)).status, 400, JSON.stringify(body));
+    assert.equal(h.writes(), 0);
+    h.role('user'); assert.equal((await h.submit({ field: 'descriptionEs', description: 'Texto' })).status, 403);
+    assert.equal(h.writes(), 0);
+    h.role('admin'); assert.equal((await h.submit({ field: 'descriptionEs', description: 'x'.repeat(240) })).status, 200);
+});
