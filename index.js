@@ -51,6 +51,7 @@ app.use('/api/coins', require('./src/routes/coinRoutes'));
 app.use('/api/boards', require('./src/routes/boardRoutes'));
 app.use('/api/updates', require('./src/routes/updateRoutes'));
 app.use('/api/config', configRoutes);
+app.use('/api/health', require('./src/routes/healthRoutes'));
 
 // 5. MANEJADOR DE ERRORES GLOBAL
 app.use((err, req, res, next) => {

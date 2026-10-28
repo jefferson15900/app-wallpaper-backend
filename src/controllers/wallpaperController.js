@@ -21,7 +21,6 @@ const TagSuggestion = require('../models/TagSuggestion');
 const SearchLog = require('../models/SearchLog');
 const { recordSearch, recordSearchOutcome, recordDownload, recordActivity, quietly } = require('../services/analyticsService');
 const { validDeviceId } = require('../utils/analyticsDates');
-const Spotlight = require('../models/Spotlight');
 const FloatingBubble = require('../models/FloatingBubble');
 
 // 💾 Utilidad: Guardar Log de Búsqueda en segundo plano
@@ -1488,72 +1487,6 @@ exports.adminAddTag = async (req, res) => {
     } catch (err) {
         console.error('❌ Error en adminAddTag:', err);
         return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : 'Error al agregar TAG' });
-    }
-};
-
-// ── ENDPOINTS DE BANNER DESTACADO (SPOTLIGHT) ──
-
-// GET /api/wallpapers/spotlight
-exports.getSpotlights = async (req, res) => {
-    try {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const spotlights = await Spotlight.find({ createdAt: { $gte: twentyFourHoursAgo } })
-            .populate({
-                path: 'wallpaperId',
-                populate: { path: 'artist', select: 'username profilePic isVerified' }
-            })
-            .sort({ createdAt: -1 });
-
-        // Filtrar destacados donde el wallpaper exista y esté aprobado
-        const validSpotlights = spotlights.filter(s => s.wallpaperId && s.wallpaperId.status === 'approved');
-        
-        return res.json(validSpotlights);
-    } catch (err) {
-        console.error('❌ Error en getSpotlights:', err);
-        return res.status(500).json({ msg: 'Error al obtener banners destacados' });
-    }
-};
-
-// POST /api/wallpapers/admin/spotlight
-exports.addSpotlight = async (req, res) => {
-    try {
-        const { wallpaperId, title, subtitle } = req.body;
-        if (!wallpaperId || !title) {
-            return res.status(400).json({ msg: 'Faltan campos requeridos: wallpaperId y title' });
-        }
-
-        const wallpaper = await Wallpaper.findById(wallpaperId);
-        if (!wallpaper) {
-            return res.status(404).json({ msg: 'Wallpaper no encontrado' });
-        }
-
-        const newSpotlight = new Spotlight({
-            wallpaperId,
-            title: title.trim(),
-            subtitle: subtitle ? subtitle.trim() : ''
-        });
-
-        await newSpotlight.save();
-        return res.status(201).json(newSpotlight);
-    } catch (err) {
-        console.error('❌ Error en addSpotlight:', err);
-        return res.status(500).json({ msg: 'Error al agregar banner destacado' });
-    }
-};
-
-// DELETE /api/wallpapers/admin/spotlight/:id
-exports.deleteSpotlight = async (req, res) => {
-    try {
-        const spotlight = await Spotlight.findById(req.params.id);
-        if (!spotlight) {
-            return res.status(404).json({ msg: 'Banner destacado no encontrado' });
-        }
-
-        await Spotlight.findByIdAndDelete(req.params.id);
-        return res.json({ msg: 'Banner destacado eliminado correctamente' });
-    } catch (err) {
-        console.error('❌ Error en deleteSpotlight:', err);
-        return res.status(500).json({ msg: 'Error al eliminar banner destacado' });
     }
 };
 
