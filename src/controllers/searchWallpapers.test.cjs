@@ -209,12 +209,14 @@ test('both stored language descriptions retrieve one publication without duplica
     const { searchDescriptionsFor } = require('../utils/wallpaperMetadata');
     const record = { ...wall('bilingual', []), images: [{ assetId: 'one', metadata: {
         descriptionEs: 'Una chica mira el firmamento.', descriptionEn: 'A girl looks at the firmament.',
+        descriptionEsSource: 'A girl looks at an obsolete source.',
     } }] };
     record.searchDescriptions = searchDescriptionsFor(record);
     const h = harness([record, wall('other', ['girl'])]);
     for (const query of ['firmamento', 'firmament', 'girl firmament']) {
         assert.deepEqual(await h.search(query), ['bilingual']);
     }
+    assert.deepEqual(await h.search('obsolete'), []);
 });
 
 test('woman and girl queries share tagged and described results while retaining required colors', async () => {

@@ -239,3 +239,34 @@ test('English description validation rejects stale, missing and oversized source
     assert.equal(result.status, 200);
     assert.ok(result.data.images.every(image => image.metadata.descriptionEn === 'Red color'));
 });
+
+test('English originals and Spanish translations save by image or publication without crossing fields', async () => {
+    const original = carousel(); const h = harness(original);
+    let result = await h.submit({ field: 'descriptionEn', assetId: 'one', description: 'A red city.' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.images[0].metadata.descriptionEn, 'A red city.');
+    assert.deepEqual(result.data.images[1], original.images[1]);
+    result = await h.submit({ field: 'descriptionEn', assetId: 'one', description: 'A red city.',
+        descriptionEs: 'Una ciudad roja.', descriptionEsSource: 'A red city.' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.images[0].metadata.descriptionEs, 'Una ciudad roja.');
+    assert.equal(result.data.images[0].metadata.descriptionEsSource, 'A red city.');
+    assert.ok(!h.record().searchDescriptions.includes('A prior source.'));
+    assert.deepEqual(result.data.images[1], original.images[1]);
+    result = await h.submit({ field: 'descriptionEn', description: 'A blue city.',
+        descriptionEs: 'Una ciudad azul.', descriptionEsSource: 'A blue city.' });
+    assert.equal(result.status, 200);
+    assert.ok(result.data.images.every(image => image.metadata.descriptionEn === 'A blue city.'
+        && image.metadata.descriptionEs === 'Una ciudad azul.' && image.metadata.descriptionEsSource === 'A blue city.'));
+    assert.equal(h.count(), 0);
+});
+
+test('Spanish translations from English reject invalid or stale provenance and retain old text on failure', async () => {
+    const h = harness();
+    for (const extra of [
+        { descriptionEs: 'Una ciudad roja.' }, { descriptionEs: 'Una ciudad roja.', descriptionEsSource: 'A blue city.' },
+        { descriptionEs: 'x'.repeat(241), descriptionEsSource: 'A red city.' },
+        { descriptionEs: 'Una ciudad roja.', descriptionEsSource: [] },
+    ]) assert.equal((await h.submit({ field: 'descriptionEn', description: 'A red city.', ...extra })).status, 400);
+    assert.equal(h.writes(), 0);
+});

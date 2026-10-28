@@ -1,6 +1,6 @@
 const METADATA_FIELDS = ['subjects', 'styles', 'colors', 'environments', 'characters', 'franchises', 'extraTags'];
 const DESCRIPTION_FIELDS = ['description', 'descriptionEs', 'descriptionEn'];
-const TEXT_FIELDS = [...DESCRIPTION_FIELDS, 'descriptionEnSource'];
+const TEXT_FIELDS = [...DESCRIPTION_FIELDS, 'descriptionEnSource', 'descriptionEsSource'];
 const FIELD_NAMES = { subjects: 'sujetos', styles: 'estilos', colors: 'colores', environments: 'ambientes', characters: 'personajes', franchises: 'series o franquicias', extraTags: 'etiquetas adicionales' };
 const SPANISH_FIELDS = { sujetos: 'subjects', estilos: 'styles', colores: 'colors', ambientes: 'environments', personajes: 'characters', franquicias: 'franchises', series: 'franchises', etiquetasAdicionales: 'extraTags', descripcion: 'description', descripción: 'description' };
 // Explicit equivalents only: free tags are never guessed into a category.
@@ -216,15 +216,16 @@ function addMetadataTag(wallpaper, { tagToAdd, field, assetId }) {
     return changes;
 }
 
-function setMetadataDescription(wallpaper, { description, assetId, descriptionEn, descriptionEnSource }) {
-    const metadata = normalizeMetadata({ descriptionEs: description });
-    if (!metadata.descriptionEs) throw metadataError('Escribe una descripción breve de hasta 240 caracteres.');
-    if (descriptionEn !== undefined || descriptionEnSource !== undefined) {
-        const english = normalizeMetadata({ descriptionEn, descriptionEnSource });
-        if (english.descriptionEn && english.descriptionEnSource !== metadata.descriptionEs) {
-            throw metadataError('Cambió el español. Actualiza la traducción o revisa el inglés antes de guardar.');
-        }
-        Object.assign(metadata, english);
+function setMetadataDescription(wallpaper, { description, field = 'descriptionEs', assetId, ...translations }) {
+    if (!['descriptionEs', 'descriptionEn'].includes(field)) throw metadataError('Elige español o inglés.');
+    const targetField = field === 'descriptionEs' ? 'descriptionEn' : 'descriptionEs';
+    const sourceField = `${targetField}Source`;
+    const allowed = [targetField, sourceField, `${field}Source`];
+    const metadata = normalizeMetadata({ [field]: description,
+        ...Object.fromEntries(allowed.filter(key => translations[key] !== undefined).map(key => [key, translations[key]])) });
+    if (!metadata[field]) throw metadataError('Escribe una descripción breve de hasta 240 caracteres.');
+    if (metadata[targetField] && metadata[sourceField] !== metadata[field]) {
+        throw metadataError('Cambió el original. Actualiza la traducción o revísala antes de guardar.');
     }
     if (assetId !== undefined && (typeof assetId !== 'string' || !assetId
         || !wallpaper.images?.some(image => image.assetId === assetId))) {

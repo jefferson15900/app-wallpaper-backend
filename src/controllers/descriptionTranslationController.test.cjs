@@ -7,10 +7,11 @@ test('translation requires upload privileges, validates input before inference a
     const module = { exports: {} };
     const dependencies = {
         '../models/User': { findById: () => ({ lean: async () => user }) },
-        '../services/aiService': { translateDescription: async text => {
+        '../services/aiService': { translateDescription: async (text, sourceLanguage) => {
             calls++;
             if (failure) throw failure;
-            return { descriptionEs: text, descriptionEn: 'A city.' };
+            return sourceLanguage === 'en' ? { descriptionEn: text, descriptionEs: 'Una ciudad.' }
+                : { descriptionEs: text, descriptionEn: 'A city.' };
         } },
         '../utils/wallpaperMetadata': require('../utils/wallpaperMetadata'),
     };
@@ -23,11 +24,14 @@ test('translation requires upload privileges, validates input before inference a
     };
     assert.deepEqual((await request({ descriptionEs: ' Una ciudad. ' })).data, { descriptionEs: 'Una ciudad.', descriptionEn: 'A city.' });
     for (const body of [undefined, {}, { descriptionEs: '' }, { descriptionEs: [] }, { descriptionEs: 'x'.repeat(241) },
-        { descriptionEs: 'Una ciudad.', model: 'other' }]) assert.equal((await request(body)).code, 400);
+        { descriptionEs: 'Una ciudad.', model: 'other' }, { descriptionEs: 'Una ciudad.', descriptionEn: 'A city.' },
+        { descriptionEn: '' }, { descriptionEn: [] }, { descriptionEn: 'x'.repeat(241) }]) assert.equal((await request(body)).code, 400);
     assert.equal(calls, 1);
+    assert.deepEqual((await request({ descriptionEn: ' A city. ' })).data, { descriptionEn: 'A city.', descriptionEs: 'Una ciudad.' });
+    assert.equal(calls, 2);
     user = { role: 'artist', isVerified: false };
     assert.equal((await request({ descriptionEs: 'Una ciudad.' })).code, 403);
-    assert.equal(calls, 1);
+    assert.equal(calls, 2);
     user = { role: 'admin' };
     for (const [error, code] of [[{ status: 429 }, 429], [{ statusCode: 503, message: 'Sin configurar' }, 503], [{ message: 'secret upstream error' }, 502]]) {
         failure = error;

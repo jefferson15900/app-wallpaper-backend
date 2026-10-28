@@ -1419,10 +1419,11 @@ exports.adminAddTag = async (req, res) => {
             return res.status(400).json({ msg: 'ID inválido' });
         }
 
-        if (field === 'descriptionEs') {
+        if (field === 'descriptionEs' || field === 'descriptionEn') {
             if (tagToAdd !== undefined) throw metadataError('Guarda la descripción por separado de los TAGs.');
-            const result = await updateMetadata(id, current => setMetadataDescription(current, { description: req.body.description, assetId,
-                descriptionEn: req.body.descriptionEn, descriptionEnSource: req.body.descriptionEnSource }));
+            const result = await updateMetadata(id, current => setMetadataDescription(current, { description: req.body.description, field, assetId,
+                ...(field === 'descriptionEs' ? { descriptionEn: req.body.descriptionEn } : { descriptionEs: req.body.descriptionEs }),
+                descriptionEnSource: req.body.descriptionEnSource, descriptionEsSource: req.body.descriptionEsSource }));
             await RelatedCache.deleteOne({ wallpaperId: id }).catch(error => console.error('[ADN] Error invalidando relacionados:', error));
             return res.json({ msg: 'Descripción guardada', tags: result.tags, metadata: result.metadata,
                 images: result.images, manualTags: result.manualTags, metadataVersion: result.metadataVersion });

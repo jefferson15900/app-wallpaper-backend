@@ -4,7 +4,7 @@ const MetadataSchema = new mongoose.Schema(Object.fromEntries(METADATA_FIELDS.ma
     type: [String], default: undefined,
     validate: values => values.length <= (field === 'extraTags' ? 20 : 8) && values.every(value => value.length <= 80),
 }])), { _id: false });
-MetadataSchema.add(Object.fromEntries(['description', 'descriptionEs', 'descriptionEn', 'descriptionEnSource'].map(field =>
+MetadataSchema.add(Object.fromEntries(['description', 'descriptionEs', 'descriptionEn', 'descriptionEnSource', 'descriptionEsSource'].map(field =>
     [field, { type: String, default: undefined, maxlength: 240, trim: true }])));
 const WallpaperSchema = new mongoose.Schema({
     tags: [{ type: String }],

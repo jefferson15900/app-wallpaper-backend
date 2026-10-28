@@ -104,7 +104,7 @@ function load(relative, overrides) {
 
 test('both descriptions and their source survive storage, editing, merging and tag removal without becoming tags', async () => {
     const metadata = normalizeMetadata({ descriptionEs: '  Un hombre de piel roja. ', descriptionEn: 'A man with red skin.', descriptionEnSource: 'Un hombre de piel roja.' });
-    for (const field of ['descriptionEs', 'descriptionEn', 'descriptionEnSource']) {
+    for (const field of ['descriptionEs', 'descriptionEn', 'descriptionEnSource', 'descriptionEsSource']) {
         assert.throws(() => normalizeMetadata({ [field]: 'x'.repeat(241) }));
         assert.throws(() => normalizeMetadata({ [field]: [] }));
     }
@@ -118,6 +118,12 @@ test('both descriptions and their source survive storage, editing, merging and t
     assert.equal(matchedAssetId(wallpaper, 'hombre piel roja'), 'asset');
     assert.equal(matchedAssetId(wallpaper, 'man red skin'), 'asset');
     assert.deepEqual(searchDescriptionsFor({ metadata: { descriptionEnSource: 'No es una descripción vigente.' } }), []);
+    const reverse = { descriptionEn: 'A blue city.', descriptionEs: 'Una ciudad azul.', descriptionEsSource: 'A blue city.' };
+    const reverseRecord = new Wallpaper({ imageUrl: 'x', public_id: 'p', artist: 'a'.repeat(24), images: [{ assetId: 'reverse', imageUrl: 'x', metadata: reverse }] });
+    await reverseRecord.validate();
+    assert.deepEqual(reverseRecord.toObject().images[0].metadata, reverse);
+    assert.deepEqual(searchDescriptionsFor(reverseRecord.toObject()), ['Una ciudad azul.', 'A blue city.']);
+    assert.deepEqual(searchDescriptionsFor({ metadata: { descriptionEsSource: 'An obsolete source.' } }), []);
     assert.deepEqual(removeMetadataTag(wallpaper, 'red').images[0].metadata, metadata);
     const { manualMetadataChanges, mergedMetadataChanges } = require('../services/wallpaperMetadataService');
     const edited = manualMetadataChanges(wallpaper, { assetMetadata: [{ assetId: 'asset', metadata: { ...metadata, descriptionEn: '' } }] });
@@ -155,6 +161,31 @@ test('translation makes one text-only request, validates output and never calls 
         delete process.env.GOOGLE_AI_KEY;
         await assert.rejects(service.translateDescription('Un hombre de piel roja.'), error => error.statusCode === 503);
         assert.equal(calls, 5);
+    } finally {
+        if (savedKey === undefined) delete process.env.GOOGLE_AI_KEY; else process.env.GOOGLE_AI_KEY = savedKey;
+    }
+});
+
+test('English-to-Spanish translation uses the correct prompt and fields with one text-only request', async () => {
+    const savedKey = process.env.GOOGLE_AI_KEY;
+    process.env.GOOGLE_AI_KEY = 'fake';
+    let calls = 0, output = { descriptionEs: 'Una ciudad azul.' };
+    const service = load('../services/aiService.js', { '@google/generative-ai': { GoogleGenerativeAI: function () {
+        this.getGenerativeModel = () => ({ generateContent: async (parts, options) => {
+            calls++;
+            assert.ok(parts.every(part => typeof part === 'string'));
+            assert.match(parts[0], /English wallpaper description into Spanish/);
+            assert.deepEqual(JSON.parse(parts[1]), { descriptionEn: 'A blue city.' });
+            assert.equal(options.timeout, 25000);
+            return { response: { text: () => JSON.stringify(output) } };
+        } });
+    } } });
+    try {
+        assert.deepEqual(await service.translateDescription(' A blue city. ', 'en'), { descriptionEn: 'A blue city.', descriptionEs: 'Una ciudad azul.' });
+        output = { descriptionEn: 'Wrong field' };
+        await assert.rejects(service.translateDescription('A blue city.', 'en'));
+        await assert.rejects(service.translateDescription('A blue city.', 'fr'), error => error.statusCode === 400);
+        assert.equal(calls, 2);
     } finally {
         if (savedKey === undefined) delete process.env.GOOGLE_AI_KEY; else process.env.GOOGLE_AI_KEY = savedKey;
     }
