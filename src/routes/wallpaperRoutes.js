@@ -9,6 +9,7 @@ const spotlightCoverUpload = require('../middleware/spotlightCoverUpload');
 const isAdmin = require('../middleware/adminMiddleware');
 const { METADATA_FIELDS } = require('../utils/wallpaperMetadata');
 const { searchMetadataSuggestions } = require('../controllers/metadataSuggestionsController');
+const { getExploreOptions } = require('../controllers/exploreController');
 const { searchSuggestions, popularSearchTags } = require('../controllers/searchSuggestionsController');
 const { rateLimit } = require('express-rate-limit');
 const { translateWallpaperDescription } = require('../controllers/descriptionTranslationController');
@@ -61,6 +62,7 @@ router.delete('/admin/floating-bubbles/:id', [auth, isAdmin], wallpaperControlle
 router.post('/admin/merge', [auth, isAdmin], wallpaperController.mergeWallpapers);
 
 router.get('/related/:id', wallpaperController.getRelatedWallpapers);
+router.get('/explore/:id', getExploreOptions);
 
 // 4. RUTAS DINÁMICAS POR ID (SIEMPRE AL FINAL)
 // Si pones estas arriba, bloquearán a /search y /discovery
