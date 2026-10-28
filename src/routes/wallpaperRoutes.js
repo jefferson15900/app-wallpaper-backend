@@ -11,6 +11,7 @@ const { METADATA_FIELDS } = require('../utils/wallpaperMetadata');
 const { searchMetadataSuggestions } = require('../controllers/metadataSuggestionsController');
 const { getExploreOptions } = require('../controllers/exploreController');
 const { searchSuggestions, popularSearchTags } = require('../controllers/searchSuggestionsController');
+const { getDiscoveryTopics } = require('../controllers/discoveryTopicsController');
 const { rateLimit } = require('express-rate-limit');
 const { translateWallpaperDescription } = require('../controllers/descriptionTranslationController');
 const translationLimiter = rateLimit({ windowMs: 60000, limit: 10,
@@ -38,6 +39,7 @@ router.post('/metadata/translate-description', auth, translationLimiter, transla
 router.get('/tags/search', wallpaperController.searchTags);
 router.get('/tags/popular', wallpaperController.getPopularTags);
 router.get('/discovery', wallpaperController.getDiscoveryFeed);
+router.get('/discovery/topics', getDiscoveryTopics);
 router.get('/latest', wallpaperController.getLatestWallpapers);
 router.get('/spotlight', spotlightController.getSpotlights);
 router.get('/spotlight/capabilities', (req, res) => res.json({ version: 2, coverUpload: true }));
