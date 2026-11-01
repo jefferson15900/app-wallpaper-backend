@@ -158,6 +158,15 @@ test('banner routes preserve individual highlights and serve exact-tag collectio
             assert.equal((await fetch(url)).status, 404);
             assert.equal(banners.length, 1);
         });
+        await t.test('a published live wallpaper uses its own video frame as banner cover', async () => {
+            approved.type = 'video';
+            approved.imageUrl = 'https://res.cloudinary.com/vexel/video/upload/v123/live.mp4';
+            const response = await publish({ wallpaperId: id, title: 'Live' });
+            assert.equal(response.status, 201);
+            const saved = await response.json();
+            assert.equal(saved.wallpaperId, id);
+            assert.equal(saved.coverUrl, 'https://res.cloudinary.com/vexel/video/upload/w_400,c_limit,q_auto,f_jpg/v123/live.mp4');
+        });
     } finally {
         Object.assign(User, { findById: originals.user, findByIdAndUpdate: originals.active });
         Object.assign(Wallpaper, { findById: originals.wallpaper, find: originals.findWallpapers });

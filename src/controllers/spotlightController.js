@@ -64,14 +64,20 @@ exports.addSpotlight = async (req, res) => {
             if (!collectionTag) return res.status(400).json({ msg: 'Elige una etiqueta.' });
         }
         let wallpaperId;
+        let coverUrl;
         if (coverKind === 'wallpaper') {
             if (!mongoose.isValidObjectId(body.wallpaperId)) return res.status(400).json({ msg: 'Elige un fondo válido.' });
             const wallpaper = await Wallpaper.findById(body.wallpaperId);
             if (!wallpaper || wallpaper.status !== 'approved') return res.status(404).json({ msg: 'El fondo debe estar publicado.' });
-            if (wallpaper.type === 'video') return res.status(400).json({ msg: 'Elige una imagen como portada del banner.' });
+            if (wallpaper.type === 'video' && (!wallpaper.imageUrl?.startsWith('https://res.cloudinary.com/')
+                || !wallpaper.imageUrl.includes('/video/upload/'))) {
+                return res.status(400).json({ msg: 'No se pudo obtener una portada del video.' });
+            }
             wallpaperId = wallpaper._id;
+            if (wallpaper.type === 'video') {
+                coverUrl = wallpaper.imageUrl.replace('/video/upload/', '/video/upload/w_400,c_limit,q_auto,f_jpg/');
+            }
         }
-        let coverUrl;
         if (coverKind === 'url') {
             coverUrl = text(body.coverUrl, 2048, true);
             let url;
