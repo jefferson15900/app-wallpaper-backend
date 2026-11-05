@@ -10,6 +10,7 @@ const aiQueue = require('../services/aiQueue');
 const { randomUUID } = require('node:crypto');
 const { parseMetadata, parseAssetMetadata, effectiveMetadata, searchTagsFor, searchDescriptionsFor, matchedAssetId, removeMetadataTag, addMetadataTag, setMetadataDescription, metadataError, normalizeTerm } = require('../utils/wallpaperMetadata');
 const { parseDiscoveryInterests, orderDiscoveryFeed } = require('../utils/discoveryInterests');
+const { planRelatedDiscovery, mixRelatedDiscovery } = require('../utils/relatedDiscovery');
 const { updateMetadata, mergeWithMetadata } = require('../services/wallpaperMetadataService');
 const { cleanTags } = require('../config/tags');
 const { resolveSearchConcepts, resolveTagsArray } = require('../utils/tagResolver');
@@ -840,7 +841,7 @@ exports.getRelatedWallpapers = async (req, res) => {
         const page     = Math.max(1, parseInt(req.query.page)  || 1);
         const limit    = Math.max(1, Math.min(50, parseInt(req.query.limit) || 12));
         const skip     = (page - 1) * limit;
-        const rankingVersion = 3;
+        const rankingVersion = 4;
         const assetId = typeof req.query.assetId === 'string' ? req.query.assetId : '';
         const parsedSeed = typeof req.query.seed === 'string' ? Number(req.query.seed) : NaN;
         const hasSeed = req.query.seed !== '' && Number.isFinite(parsedSeed) && parsedSeed >= 0 && parsedSeed < 1;
@@ -884,6 +885,14 @@ exports.getRelatedWallpapers = async (req, res) => {
         const franchises = categoryTags('franchises');
         const styles = categoryTags('styles');
         const colors = categoryTags('colors');
+        const identityTags = characters.length ? characters : franchises;
+        const discoveryTags = [...new Set([...franchises, ...styles])]
+            .filter(tag => !identityTags.includes(tag));
+        const canDiscover = identityTags.length > 0 && discoveryTags.length > 0 && limit > 1;
+        const discoveryCondition = { $and: [
+            { $eq: [{ $size: { $setIntersection: ['$tags', identityTags] } }, 0] },
+            { $gt: [{ $size: { $setIntersection: ['$tags', discoveryTags] } }, 0] },
+        ] };
         // La frecuencia conserva una salida razonable para publicaciones sin metadatos estructurados.
         const tagCounts = await Wallpaper.aggregate([
             { $match: { status: 'approved', tags: { $in: originalTags } } },
@@ -898,7 +907,7 @@ exports.getRelatedWallpapers = async (req, res) => {
 
         // ── 3. AGGREGATE unificado (mismo formato siempre) ───────────────────
         //    Índice recomendado: { status:1, tags:1, createdAt:-1 }
-        const results = await Wallpaper.aggregate([
+        const candidateStages = [
             {
                 $match: {
                     status : 'approved',
@@ -970,24 +979,54 @@ exports.getRelatedWallpapers = async (req, res) => {
             {
                 $match: { 'artist.isActive': { $ne: false } },
             },
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $project: {
-                    'artist.password' : 0,
-                    'artist.email'    : 0,
-                    commonTags        : 0, // campo auxiliar, no necesario en respuesta
-                    characterMatches  : 0,
-                    franchiseMatches  : 0,
-                    styleMatches      : 0,
-                    colorMatches      : 0,
-                    primaryTagMatches : 0,
-                    strongestTagWeight: 0,
-                    weightedTags: 0,
-                    relatedRandomOrder: 0,
-                },
+        ];
+        const projection = {
+            $project: {
+                'artist.password' : 0,
+                'artist.email'    : 0,
+                commonTags        : 0, // campo auxiliar, no necesario en respuesta
+                characterMatches  : 0,
+                franchiseMatches  : 0,
+                styleMatches      : 0,
+                colorMatches      : 0,
+                primaryTagMatches : 0,
+                strongestTagWeight: 0,
+                weightedTags: 0,
+                relatedRandomOrder: 0,
             },
-        ]);
+        };
+        let results;
+        if (canDiscover) {
+            // Count eligible pools first, keeping pagination bounded even deep in the catalog.
+            const counts = await Wallpaper.aggregate([
+                ...candidateStages.filter(stage => !stage.$addFields && !stage.$sort),
+                { $group: { _id: discoveryCondition, count: { $sum: 1 } } },
+            ]);
+            const plan = planRelatedDiscovery(
+                counts.find(entry => entry._id === false)?.count || 0,
+                counts.find(entry => entry._id === true)?.count || 0,
+                page, limit, randomMultiplier,
+            );
+            const poolStages = (condition, offset, count) => [
+                { $match: { $expr: condition } },
+                { $skip: offset },
+                // MongoDB requires a positive $limit, including for an exhausted pool.
+                ...(count ? [{ $limit: count }] : [{ $match: { $expr: false } }]),
+                projection,
+            ];
+            const [pools] = await Wallpaper.aggregate([
+                ...candidateStages,
+                { $facet: {
+                    main: poolStages({ $not: [discoveryCondition] }, plan.mainSkip, plan.mainTake),
+                    discovery: poolStages(discoveryCondition, plan.discoverySkip, plan.discoveryTake),
+                } },
+            ]);
+            results = mixRelatedDiscovery(pools.main, pools.discovery);
+        } else {
+            results = await Wallpaper.aggregate([
+                ...candidateStages, { $skip: skip }, { $limit: limit }, projection,
+            ]);
+        }
 
         // ── 4. GUARDAR cache solo en página 1 y cuando no hay una etiqueta de prioridad ──
         const orderedTerms = [...characters, ...franchises, ...styles, ...colors, ...originalTags];

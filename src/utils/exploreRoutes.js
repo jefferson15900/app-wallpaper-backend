@@ -29,27 +29,41 @@ function routeSearchTerms(routes) {
     return [...new Set(routes.flatMap(({ term }) => [term, ...Object.values(ALIASES).flatMap(dictionary => dictionary[term] || [])]))];
 }
 
-function selectExploreRoutes(source, candidates, limit = 6) {
+function selectExploreRoutes(source, candidates, limit = 4) {
     const available = candidates.flatMap(candidate => {
         if (![...EXPLORE_FIELDS, 'tags'].includes(candidate.field) || !candidate.imageUrl || !candidate.wallpaperId) return [];
         const term = canonicalRoute(candidate.field, candidate.term);
         return term ? [{ ...candidate, term }] : [];
     });
+    const priority = ['characters', 'franchises', 'styles', 'environments', 'colors', 'subjects', 'extraTags', 'tags'];
+    const relevant = available.filter(route => source.some(value => value.term === route.term))
+        .sort((a, b) => priority.indexOf(a.field) - priority.indexOf(b.field));
     const selected = [];
-    const add = route => {
-        if (route && selected.length < limit && !selected.some(value => value.term === route.term)) selected.push(route);
+    const chosenPools = [];
+    const tokens = term => new Set(normalizeTerm(term).match(/[\p{L}\p{N}]+/gu) || []);
+    const overlaps = (a, b) => {
+        const left = tokens(a), right = tokens(b);
+        return [...left].every(token => right.has(token)) || [...right].every(token => left.has(token));
     };
-    for (const route of source) {
-        add(available.find(value => value.term === route.term && value.field === route.field)
-            || available.find(value => value.term === route.term));
-        if (selected.length === limit) break;
+    for (const route of relevant) {
+        if (selected.length >= limit) break;
+        // A character is more useful than a generic subject; a known series already implies anime.
+        if (route.field === 'subjects' && selected.some(value => value.field === 'characters')) continue;
+        if (route.term === 'anime' && selected.some(value => ['characters', 'franchises'].includes(value.field))) continue;
+        if (selected.some(value => value.field === route.field || overlaps(value.term, route.term))) continue;
+        const pool = available.filter(value => value.term === route.term && value.field === route.field);
+        const ids = new Set(pool.map(value => String(value.wallpaperId)));
+        // ponytail: compare up to 12 representative publications per concept; semantic embeddings can refine this later.
+        if (chosenPools.some(other => Math.min(ids.size, other.size) >= 2
+            && [...ids].filter(id => other.has(id)).length / Math.min(ids.size, other.size) >= 0.8)) continue;
+        const target = pool.find(value => !selected.some(chosen => String(chosen.wallpaperId) === String(value.wallpaperId)
+            || chosen.imageUrl === value.imageUrl || (value.assetId && chosen.assetId === value.assetId)));
+        if (!target) continue;
+        const { count, ...option } = target;
+        selected.push(option);
+        chosenPools.push(ids);
     }
-    // Co-occurring concepts offer other ways to explore when the current image has few fields.
-    for (const field of [...EXPLORE_FIELDS, 'tags']) {
-        if (!selected.some(route => route.field === field)) add(available.find(route => route.field === field));
-    }
-    available.forEach(add);
-    return selected.map(({ count, ...route }) => route);
+    return selected;
 }
 
 module.exports = { EXPLORE_FIELDS, sourceRoutes, routeSearchTerms, selectExploreRoutes };

@@ -1,8 +1,0 @@
-{
-  "searchDescriptions": {
-    "type": "string",
-    "analyzer": "lucene.standard",
-    "searchAnalyzer": "lucene.standard",
-    "indexOptions": "positions"
-  }
-}
