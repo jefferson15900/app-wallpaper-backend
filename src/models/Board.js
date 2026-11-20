@@ -9,4 +9,6 @@ const BoardSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+BoardSchema.index({ isPrivate: 1, _id: -1 });
+BoardSchema.index({ user: 1, isPrivate: 1, _id: -1 });
 module.exports = mongoose.model('Board', BoardSchema);

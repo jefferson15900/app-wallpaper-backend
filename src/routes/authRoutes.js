@@ -305,7 +305,15 @@ router.put('/follow/:id', auth, async (req, res) => {
 
 // ACTUALIZAR PERFIL COMPLETO (Username + Socials)
 router.put('/update-profile', auth, async (req, res) => {
-    const { username, bio, instagram, facebook, twitter, tiktok, threads, gender, birthday, country,nativeLanguage } = req.body;
+    const fields = ['username', 'bio', 'instagram', 'facebook', 'twitter', 'tiktok', 'threads', 'gender', 'birthday', 'country', 'nativeLanguage'];
+    const updates = Object.fromEntries(fields.filter(field => req.body[field] !== undefined).map(field => [field, req.body[field]]));
+    if ('username' in updates) {
+        if (typeof updates.username !== 'string' || !updates.username.trim()) {
+            return res.status(400).json({ msg: 'El nombre de usuario es requerido' });
+        }
+        updates.username = updates.username.trim();
+    }
+    const { username } = updates;
 
     try {
         // Verificar si el nuevo username ya existe (y no es el nuestro)
@@ -318,29 +326,17 @@ router.put('/update-profile', auth, async (req, res) => {
 
         const user = await User.findByIdAndUpdate(
             req.user.id,
-            { 
-                $set: { 
-                    username: username,
-                    bio: bio || "",
-                    instagram: instagram || "",  
-                    facebook: facebook || "", 
-                    twitter: twitter || "", 
-                    tiktok: tiktok || "",
-                    threads : threads || "",
-                    gender,    
-                    birthday,  
-                    country,
-                    nativeLanguage    
-                } 
-            },
+            { $set: updates },
             { new: true }
         ).select('-password');
         
+        if (!user) return res.status(404).json({ msg: 'Usuario no encontrado' });
         const userObj = user.toObject();
         userObj.id = user._id; 
 
         res.json(userObj);
     } catch (err) {
+        if (err.code === 11000) return res.status(400).json({ msg: 'El nombre de usuario ya está en uso' });
         res.status(500).json({ msg: 'Error al actualizar perfil' });
     }
 });
