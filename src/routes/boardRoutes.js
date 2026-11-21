@@ -3,12 +3,16 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const boardController = require('../controllers/boardController');
 const publicBoardController = require('../controllers/publicBoardController');
+const savedBoardController = require('../controllers/savedBoardController');
 
 // Lectura pública: nunca expone tableros privados ni la identidad de los uploaders.
 router.get('/public', publicBoardController.list);
 router.get('/public/:id', publicBoardController.detail);
 
 // La biblioteca personal y las modificaciones requieren autenticación.
+router.get('/saved', auth, savedBoardController.list);
+router.put('/:id/save', auth, savedBoardController.save);
+router.delete('/:id/save', auth, savedBoardController.remove);
 router.post('/', auth, boardController.createBoard);
 router.get('/', auth, boardController.getUserBoards);
 router.get('/:id', auth, boardController.getBoardById);
