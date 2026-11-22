@@ -65,6 +65,12 @@ async function call(method, body = {}, params = {}, query = {}) {
     assert.equal((await call('save', { original: 'GTA 6', canonical: 'other' })).code, 409);
     assert.equal((await call('save', { original: 'gta vi', canonical: 'grand theft auto vi' })).code, 201);
     assert.equal((await call('save', { original: 'grand theft auto 6', canonical: 'grand theft auto vi' })).code, 201);
+    result = await call('list', {}, {}, { tag: 'GTA VI' });
+    assert.equal(result.body.canonical, 'grand theft auto vi');
+    assert.equal(result.body.total, 3);
+    assert.ok(result.body.aliases.every(alias => alias.original !== alias.canonical));
+    assert.equal((await call('list', {}, {}, { tag: 'grand theft auto vi' })).body.total, 3);
+    assert.equal((await call('list', {}, {}, { tag: { $ne: '' } })).code, 400);
     assert.equal((await call('save', { original: 'other game', canonical: 'gta 6' })).code, 409, 'Alias chains are rejected');
     assert.equal((await call('save', { original: 'gta 6', canonical: 'blue' }, { id: 'invalid' })).code, 400);
     assert.equal((await call('save', { original: 'renamed', canonical: 'blue' }, { id: gtaId })).code, 409);
@@ -94,6 +100,10 @@ async function call(method, body = {}, params = {}, query = {}) {
     assert.equal((await call('remove', {}, { id: gtaId })).code, 404);
     assert.equal((await call('remove', {}, { id: 'invalid' })).code, 400);
     await call('save', { original: 'a+b', canonical: 'blue' });
+    result = await call('list', {}, {}, { tag: 'azul' });
+    assert.equal(result.body.canonical, 'blue');
+    assert.equal(result.body.total, 1);
+    assert.equal(result.body.aliases[0].original, 'a+b', 'Selected tags show only their own alias group');
     result = await call('list', {}, {}, { q: 'a+b' });
     assert.equal(result.body.total, 1, 'Search treats regex characters literally');
     assert.equal((await call('list', {}, {}, { page: -1 })).code, 400);
@@ -128,5 +138,5 @@ async function call(method, body = {}, params = {}, query = {}) {
     try { await admin({ user: { id: new mongoose.Types.ObjectId() } }, unauthorized, () => assert.fail('Non-admin access')); }
     finally { User.findById = findById; }
     assert.equal(unauthorized.code, 403);
-    console.log('OK: admin authorization, CRUD, validation, literal search, pagination, protected roots and database-driven search.');
+    console.log('OK: admin authorization, CRUD, validation, tag groups, literal search, pagination, protected roots and database-driven search.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

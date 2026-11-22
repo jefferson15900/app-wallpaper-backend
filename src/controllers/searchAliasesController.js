@@ -25,18 +25,25 @@ function failure(res, error) {
 
 exports.list = async (req, res) => {
     const query = typeof req.query.q === 'string' ? normalizeSearchText(req.query.q) : '';
+    const selectedTag = req.query.tag === undefined ? '' : term(req.query.tag);
     const page = Number(req.query.page || 1);
-    if (query.length > 80 || !Number.isInteger(page) || page < 1 || page > 50000) {
+    if ((req.query.tag !== undefined && !selectedTag) || query.length > 80 || !Number.isInteger(page) || page < 1 || page > 50000) {
         return res.status(400).json({ msg: 'Usa una búsqueda de hasta 80 caracteres y una página válida.' });
     }
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const filter = query ? { $or: [{ original: { $regex: escaped } }, { canonical: { $regex: escaped } }] } : {};
     try {
+        let canonical = resolveLocalTag(selectedTag);
+        if (selectedTag && !LOCAL_TAG_ALIASES.has(selectedTag)) {
+            const mapping = await TagMap.findOne({ original: selectedTag }).lean();
+            canonical = resolveLocalTag(mapping?.canonical || selectedTag);
+        }
+        const filter = selectedTag ? { canonical, original: { $ne: canonical } }
+            : query ? { $or: [{ original: { $regex: escaped } }, { canonical: { $regex: escaped } }] } : {};
         const [rows, total] = await Promise.all([
             TagMap.find(filter).sort({ original: 1 }).skip((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).lean(),
             TagMap.countDocuments(filter),
         ]);
-        res.json({ aliases: rows.map(view), total, page, pageSize: PAGE_SIZE });
+        res.json({ aliases: rows.map(view), total, page, pageSize: PAGE_SIZE, ...(selectedTag ? { canonical } : {}) });
     } catch (error) { failure(res, error); }
 };
 
