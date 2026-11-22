@@ -99,6 +99,41 @@ async function call(method, body = {}, params = {}, query = {}) {
     assert.equal((await call('remove', {}, { id: gtaId })).code, 200);
     assert.equal((await call('remove', {}, { id: gtaId })).code, 404);
     assert.equal((await call('remove', {}, { id: 'invalid' })).code, 400);
+    assert.equal((await call('save', { kind: 'translation', language: 'fr', original: 'forêt', canonical: 'forest' })).code, 400);
+    assert.equal((await call('save', { kind: 'translation', language: 'es', original: {}, canonical: 'forest' })).code, 400);
+    assert.equal((await call('save', { kind: 'translation', language: 'es', original: 'azul', canonical: 'red' })).code, 409);
+    assert.equal((await call('list', {}, {}, { kind: 'invalid' })).code, 400);
+    result = await call('save', { kind: 'translation', language: 'es', original: 'Bosque encantado', canonical: 'enchanted forest' });
+    assert.equal(result.code, 201);
+    const translationId = result.body.alias.id;
+    assert.equal(result.body.alias.kind, 'translation');
+    assert.equal(result.body.alias.language, 'es');
+    assert.equal(result.body.alias.label, 'Bosque encantado');
+    result = await call('save', { kind: 'translation', language: 'en', original: 'enchanted forest', canonical: 'enchanted forest' });
+    assert.equal(result.code, 200);
+    result = await call('list', {}, {}, { tag: 'bosque encantado', kind: 'translation' });
+    assert.equal(result.body.kind, 'translation');
+    assert.equal(result.body.canonical, 'enchanted forest');
+    assert.equal(result.body.total, 2, 'Both language labels, including the principal name, are shown');
+    assert.ok(result.body.aliases.every(alias => alias.kind === 'translation'));
+    const countBefore = rows.length;
+    await call('save', { kind: 'translation', language: 'es', original: 'Bosque Encantado', canonical: 'enchanted forest' });
+    assert.equal(rows.length, countBefore, 'Saving a translation again updates its label without duplicates');
+    realModel.find = TagMap.find;
+    try {
+        const { resolveSearchConcepts } = require('../src/utils/tagResolver');
+        for (const name of ['enchanted forest', 'bosque encantado']) {
+            const [concept] = await resolveSearchConcepts(name, new Set(), { spelling: false });
+            assert.equal(concept.canonical, 'enchanted forest');
+            assert.ok(concept.alternatives.includes('enchanted forest'));
+            assert.ok(concept.alternatives.includes('bosque encantado'));
+        }
+    } finally { realModel.find = originalFind; }
+    assert.equal((await call('remove', {}, { id: translationId })).code, 200);
+    result = await call('save', { kind: 'translation', language: 'es', original: 'Montaña', canonical: 'mountain' });
+    assert.equal(result.body.alias.label, 'Montaña', 'Spanish accents are preserved in the displayed label');
+    assert.equal(result.body.alias.locked, true, 'Existing dictionary meanings remain protected');
+    assert.equal((await call('remove', {}, { id: result.body.alias.id })).code, 409);
     await call('save', { original: 'a+b', canonical: 'blue' });
     result = await call('list', {}, {}, { tag: 'azul' });
     assert.equal(result.body.canonical, 'blue');
@@ -138,5 +173,5 @@ async function call(method, body = {}, params = {}, query = {}) {
     try { await admin({ user: { id: new mongoose.Types.ObjectId() } }, unauthorized, () => assert.fail('Non-admin access')); }
     finally { User.findById = findById; }
     assert.equal(unauthorized.code, 403);
-    console.log('OK: admin authorization, CRUD, validation, tag groups, literal search, pagination, protected roots and database-driven search.');
+    console.log('OK: admin authorization, CRUD, tag groups, Spanish/English translations, bidirectional search, accent display, duplicates and protected dictionary meanings.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -14,6 +14,7 @@ function term(value) {
 
 function view(row) {
     return { id: String(row._id), original: row.original, canonical: row.canonical,
+        kind: row.kind || 'alias', language: row.language || 'en', label: row.translationLabel || row.original,
         locked: LOCAL_TAG_ALIASES.has(row.original) || row.original === row.canonical };
 }
 
@@ -26,8 +27,10 @@ function failure(res, error) {
 exports.list = async (req, res) => {
     const query = typeof req.query.q === 'string' ? normalizeSearchText(req.query.q) : '';
     const selectedTag = req.query.tag === undefined ? '' : term(req.query.tag);
+    const translations = req.query.kind === 'translation';
     const page = Number(req.query.page || 1);
-    if ((req.query.tag !== undefined && !selectedTag) || query.length > 80 || !Number.isInteger(page) || page < 1 || page > 50000) {
+    if ((req.query.kind !== undefined && !['alias', 'translation'].includes(req.query.kind)) ||
+        (req.query.tag !== undefined && !selectedTag) || query.length > 80 || !Number.isInteger(page) || page < 1 || page > 50000) {
         return res.status(400).json({ msg: 'Usa una búsqueda de hasta 80 caracteres y una página válida.' });
     }
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -37,13 +40,14 @@ exports.list = async (req, res) => {
             const mapping = await TagMap.findOne({ original: selectedTag }).lean();
             canonical = resolveLocalTag(mapping?.canonical || selectedTag);
         }
-        const filter = selectedTag ? { canonical, original: { $ne: canonical } }
+        const filter = selectedTag ? { canonical, ...(translations ? {} : { original: { $ne: canonical } }) }
             : query ? { $or: [{ original: { $regex: escaped } }, { canonical: { $regex: escaped } }] } : {};
+        if (translations) { filter.kind = 'translation'; }
         const [rows, total] = await Promise.all([
             TagMap.find(filter).sort({ original: 1 }).skip((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).lean(),
             TagMap.countDocuments(filter),
         ]);
-        res.json({ aliases: rows.map(view), total, page, pageSize: PAGE_SIZE, ...(selectedTag ? { canonical } : {}) });
+        res.json({ aliases: rows.map(view), total, page, pageSize: PAGE_SIZE, ...(translations ? { kind: 'translation' } : {}), ...(selectedTag ? { canonical } : {}) });
     } catch (error) { failure(res, error); }
 };
 
@@ -51,17 +55,28 @@ exports.save = async (req, res) => {
     const id = req.params.id;
     const original = term(req.body?.original);
     const rawCanonical = term(req.body?.canonical);
-    if ((id && !isId(id)) || !original || !rawCanonical) {
-        return res.status(400).json({ msg: 'Completa ambos nombres con entre 2 y 80 caracteres útiles para buscar.' });
+    const translation = req.body?.kind === 'translation';
+    const language = req.body?.language;
+    if (translation && !['es', 'en'].includes(language)) {
+        return res.status(400).json({ msg: 'Selecciona español o inglés como idioma de la traducción.' });
+    }
+    if ((req.body?.kind !== undefined && !['alias', 'translation'].includes(req.body.kind)) ||
+        (translation && (!['es', 'en'].includes(language) || typeof req.body.original !== 'string' || req.body.original.trim().length > 80)) ||
+        (id && !isId(id)) || !original || !rawCanonical) {
+        return res.status(400).json({ msg: translation ? 'Escribe una traducción de entre 2 y 80 caracteres y selecciona una etiqueta válida.'
+            : 'Completa ambos nombres con entre 2 y 80 caracteres útiles para buscar.' });
     }
     const canonical = resolveLocalTag(rawCanonical);
-    if (LOCAL_TAG_ALIASES.has(original)) {
+    if (LOCAL_TAG_ALIASES.has(original) && (!translation || resolveLocalTag(original) !== canonical)) {
         return res.status(409).json({ msg: 'Este nombre pertenece al diccionario base. Usa otro nombre alternativo.' });
     }
     try {
         const existing = id ? await TagMap.findById(id).lean() : await TagMap.findOne({ original }).lean();
         if (id && !existing) { return res.status(404).json({ msg: 'Este alias ya no existe. Actualiza la lista.' }); }
-        if (!id && existing) { return res.status(409).json({ msg: 'Ese nombre ya está registrado. Búscalo para editarlo.' }); }
+        if (!id && existing && (!translation || existing.canonical !== canonical)) {
+            return res.status(409).json({ msg: 'Ese nombre ya está registrado. Búscalo para editarlo.' });
+        }
+        if (translation && id) { return res.status(400).json({ msg: 'Guarda la traducción desde la etiqueta seleccionada.' }); }
         if (id && (existing.original !== original || existing.original === existing.canonical)) {
             return res.status(409).json({ msg: 'El nombre del alias y los nombres principales no se pueden modificar. Crea otro alias.' });
         }
@@ -76,12 +91,17 @@ exports.save = async (req, res) => {
                 return res.status(409).json({ msg: `El destino también es un alias. Usa su nombre principal: ${target.canonical}.` });
             }
         }
-        const row = id
+        const row = translation
+            ? await TagMap.findOneAndUpdate({ original, canonical }, {
+                $setOnInsert: { original, canonical },
+                $set: { kind: 'translation', language, translationLabel: req.body.original.trim().replace(/\s+/g, ' ') },
+            }, { upsert: true, new: true, runValidators: true }).lean()
+            : id
             ? await TagMap.findOneAndUpdate({ _id: id, original }, { $set: { canonical } }, { new: true, runValidators: true }).lean()
             : await TagMap.findOneAndUpdate({ original }, { $setOnInsert: { original, canonical, language: 'en' } }, { upsert: true, new: true, runValidators: true }).lean();
         if (!row) { return res.status(404).json({ msg: 'Este alias ya no existe. Actualiza la lista.' }); }
         if (row.canonical !== canonical) { return res.status(409).json({ msg: 'Ese nombre ya pertenece a otro destino. Actualiza la lista.' }); }
-        res.status(id ? 200 : 201).json({ alias: view(row) });
+        res.status(id || existing ? 200 : 201).json({ alias: view(row) });
     } catch (error) { failure(res, error); }
 };
 

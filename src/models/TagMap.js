@@ -9,6 +9,8 @@ const TagMapSchema = new mongoose.Schema({
     original: { type: String, required: true, unique: true, lowercase: true, trim: true, set: normalizeAlias },
     canonical: { type: String, required: true, lowercase: true, trim: true, index: true, set: normalizeAlias },
     language: { type: String, default: 'en' },
+    kind: { type: String, enum: ['alias', 'translation'] },
+    translationLabel: { type: String, trim: true, maxlength: 80 },
 });
 
 module.exports = mongoose.model('TagMap', TagMapSchema);
