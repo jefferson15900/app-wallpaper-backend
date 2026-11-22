@@ -230,7 +230,7 @@ const cleanupTags = async () => {
         
         console.log('🧹 Etiquetas eliminadas:');
         TAGS_TO_REMOVE.forEach(tag => console.log(`   [-] ${tag}`));
-        console.log(`\n✨ Tu base de datos ahora está más enfocada en contenido real.`);
+        console.log(`\nTu base de datos ahora está más enfocada en contenido real.`);
 
         process.exit(0);
     } catch (error) {

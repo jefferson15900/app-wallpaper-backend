@@ -534,7 +534,7 @@ exports.approveOrReject = async (req, res) => {
                     messages.push({
                         to   : follower.pushToken,
                         sound: 'default',
-                        title: '¡Nuevo arte disponible! ✨',
+                        title: '¡Nuevo arte disponible!',
                         body : `${artist.username} acaba de subir un nuevo wallpaper.`,
                         data : { artistId: artist._id },
                     });

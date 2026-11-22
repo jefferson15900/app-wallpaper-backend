@@ -467,7 +467,7 @@ router.put('/sync-interests', auth, async (req, res) => {
             } 
         });
 
-        res.json({ msg: 'ADN Sincronizado ✨' });
+        res.json({ msg: 'ADN Sincronizado' });
     } catch (err) {
         res.status(500).send('Error de sincronización');
     }

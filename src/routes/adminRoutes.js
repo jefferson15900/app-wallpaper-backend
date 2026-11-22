@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 const adminController = require('../controllers/adminController');
 const analyticsController = require('../controllers/analyticsController');
+const searchAliasesController = require('../controllers/searchAliasesController');
 const { editPendingWallpaper } = require('../controllers/pendingReviewController');
 const { uploadCloud } = require('../config/cloudinary');
 
@@ -20,6 +21,10 @@ router.post('/report-action', [auth, isAdmin], adminController.reportAction);
 router.put('/retry-ai/:id', [auth, isAdmin], adminController.retryAITagging);
 router.get('/stats', [auth, isAdmin], analyticsController.dashboard);
 router.get('/searches', [auth, isAdmin], adminController.getTopSearches);
+router.get('/search-aliases', [auth, isAdmin], searchAliasesController.list);
+router.post('/search-aliases', [auth, isAdmin], searchAliasesController.save);
+router.put('/search-aliases/:id', [auth, isAdmin], searchAliasesController.save);
+router.delete('/search-aliases/:id', [auth, isAdmin], searchAliasesController.remove);
 router.delete('/searches/cleanup', [auth, isAdmin], adminController.cleanupSearchLogs);
 router.get('/pending', [auth, isAdmin], adminController.getPendingWallpapers);
 router.put('/pending/:id', [auth, isAdmin], editPendingWallpaper);
